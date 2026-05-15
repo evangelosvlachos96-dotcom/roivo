@@ -32,15 +32,11 @@ A running log of what's been built, when, and any notes worth keeping. Newest en
 
 - WSL2 installation kept timing out on Windows (network or feature dependency issue)
 - Switched from Docker-based Postgres to native PostgreSQL install — total recovery time ~30 minutes
-- Got confused initially between PowerShell `Add-Migration` and Visual Studio Package Manager Console `Add-Migration` — resolved by using Package Manager Console
-- `HostAbortedException` during `Add-Migration` looked alarming but is expected EF Core tooling behavior
-
 ### Notes / lessons
 
 - Native Postgres on Windows is a completely valid dev setup; Docker is a "later" upgrade
 - The `ITenantScoped` interface + reflection-based filter loop in `ApplicationDbContext.OnModelCreating` removes a whole class of multi-tenant bugs forever
 - The auto-set TenantId in `SaveChangesAsync` means future entities can be added without remembering tenant logic
-- Always verify "Roivo.Web is set as startup project" before running migrations or pressing F5
 
 ---
 
