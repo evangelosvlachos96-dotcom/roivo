@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Roivo.Aade/Roivo.Aade.csproj" />
+    <Project Path="src/Roivo.Banking/Roivo.Banking.csproj" />
+    <Project Path="src/Roivo.Core/Roivo.Core.csproj" />
+    <Project Path="src/Roivo.Forecasting/Roivo.Forecasting.csproj" />
+    <Project Path="src/Roivo.Infrastructure/Roivo.Infrastructure.csproj" />
+    <Project Path="src/Roivo.Web/Roivo.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Roivo.Aade.Tests/Roivo.Aade.Tests.csproj" />
+    <Project Path="tests/Roivo.Core.Tests/Roivo.Core.Tests.csproj" />
+    <Project Path="tests/Roivo.Infrastructure.Tests/Roivo.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

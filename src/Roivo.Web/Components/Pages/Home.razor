@@ -1,0 +1,42 @@
+@page "/"
+@inject ApplicationDbContext Db
+
+<PageTitle>Roivo</PageTitle>
+
+<MudText Typo="Typo.h3" Class="mb-2">Roivo</MudText>
+<MudText Typo="Typo.body1" Class="mb-6">Η ροή της επιχείρησής σου, σε μία οθόνη.</MudText>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else
+{
+    <MudAlert Severity="Severity.Success">✓ Connected — @_tenantCount tenants</MudAlert>
+}
+
+@code {
+    private bool _loading = true;
+    private string? _error;
+    private int _tenantCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _tenantCount = await Db.Tenants.IgnoreQueryFilters().CountAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

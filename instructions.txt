@@ -1,0 +1,17 @@
+Plan change: WSL installation kept timing out on my machine, so I'm using native PostgreSQL on Windows instead of Docker.
+Please do the following:
+
+Delete docker-compose.yml from the repo root (it's no longer needed).
+Update README.md to reflect this change:
+
+Remove the Docker Desktop prerequisite
+Replace it with: "PostgreSQL 16+ installed locally (download from postgresql.org/download/windows)"
+Replace the "docker compose up -d" step with: "Ensure PostgreSQL is running locally (it runs as a Windows service after install)"
+Update the pgAdmin URL note: pgAdmin is installed alongside PostgreSQL natively, accessible via the Start menu
+
+
+Confirm that appsettings.Development.json has the connection string: Host=localhost;Port=5432;Database=roivo;Username=roivo;Password=roivo_local_dev_password
+Verify dotnet build still succeeds.
+Add an entry to later.md under tech debt / refactors section: "Set up Docker-based dev environment for new contributors when team grows beyond 1 person — for now, native Postgres install is documented in README.md"
+
+Don't change anything else. Don't install packages. Don't suggest architecture changes. Just clean up the Docker references and verify the build.
