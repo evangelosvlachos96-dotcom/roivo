@@ -1,0 +1,30 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: roivo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: roivo
+      POSTGRES_PASSWORD: roivo_local_dev_password
+      POSTGRES_DB: roivo
+    ports:
+      - "5432:5432"
+    volumes:
+      - roivo-postgres-data:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: roivo-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@roivo.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+
+volumes:
+  roivo-postgres-data:
