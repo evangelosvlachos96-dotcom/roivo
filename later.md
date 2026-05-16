@@ -25,6 +25,9 @@ Week 12: Launch — landing page, beta deploy, 3 design partners onboarded
 
 ## Captured ideas (not to be worked on yet)
 
+### Polish / UX
+- AFM enumeration: currently we tell the user when an AFM is already registered (soft warning). AFMs aren't private (printed on invoices), so this is acceptable. If abuse appears, consider rate-limiting registration attempts per IP and removing the AFM duplicate warning.
+
 ### Architecture / infrastructure
 - Move to microservices when team grows beyond 1 person
 - Consider Neo4j for fraud-ring / money-mule detection (only if Roivo expands into AML)

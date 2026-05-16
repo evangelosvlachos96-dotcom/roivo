@@ -1,0 +1,33 @@
+Small UX fix in Register.cshtml: preserve the password value across server-side re-renders when validation fails for non-password reasons (e.g., AFM duplicate warning).
+
+Currently the Password and ConfirmPassword fields clear on every postback because ASP.NET Core's tag helpers don't render password values back to the client by default — that's the secure default.
+
+For our flow, where a user can hit the AFM-duplicate warning and need to resubmit, this creates friction. Re-render the password in those specific cases.
+
+Implementation:
+
+In `Roivo.Web/Areas/Account/Pages/Register.cshtml`, change the password and confirm-password inputs from:
+
+<input asp-for="Input.Password" type="password" class="form-control" />
+
+to:
+
+<input asp-for="Input.Password" type="password" class="form-control" value="@Model.Input.Password" />
+
+Same for ConfirmPassword:
+
+<input asp-for="Input.ConfirmPassword" type="password" class="form-control" value="@Model.Input.ConfirmPassword" />
+
+Add a comment above the password field explaining why we deviate from the default:
+
+@* Password re-rendered intentionally on validation failures so users don't 
+   retype after fixing unrelated errors (e.g., AFM duplicate confirmation). 
+   This is a recognized UX tradeoff — the password lives briefly in the 
+   form's HTML during re-render but never leaves the user's browser context. *@
+
+Constraints:
+- Only Register.cshtml. Don't touch Login, ForgotPassword, ResetPassword — those flows are different (login should NOT re-render password).
+- No changes to the PageModel (.cs file).
+- No new packages.
+
+Build, confirm clean, no migration needed.

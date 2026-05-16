@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.EntityFrameworkCore;
 using Roivo.Core.Domain.Entities;
 using Roivo.Core.Domain.Enums;
 using Roivo.Core.Domain.Validation;
@@ -38,6 +39,8 @@ public class RegisterModel : PageModel
     [BindProperty]
     public InputModel Input { get; set; } = new();
 
+    public bool ShowConfirmDuplicate { get; private set; }
+
     public class InputModel
     {
         [Required(ErrorMessage = "Επίλεξε τύπο λογαριασμού")]
@@ -71,6 +74,11 @@ public class RegisterModel : PageModel
 
         [Range(typeof(bool), "true", "true", ErrorMessage = "Πρέπει να αποδεχτείς τους όρους")]
         public bool AcceptTerms { get; set; }
+
+        // Set to true when the user re-submits after seeing the AFM-already-exists
+        // warning. Lets legitimate cases (e.g., same person registering both an
+        // accountant tenant and a business tenant) proceed without a hard block.
+        public bool ConfirmDuplicate { get; set; }
     }
 
     public void OnGet() { }
@@ -79,6 +87,35 @@ public class RegisterModel : PageModel
     {
         if (!ModelState.IsValid)
         {
+            return Page();
+        }
+
+        // AFMs aren't private (they're on every invoice), so surfacing a duplicate
+        // is acceptable — and helps users who forgot they already registered. We
+        // restrict the match to same Type so an accountant + business owner with
+        // the same AFM can still register both legitimately.
+        var existingTenant = await _db.Tenants
+            .FirstOrDefaultAsync(t => t.Afm == Input.Afm
+                                   && t.Type == Input.Type
+                                   && t.IsActive,
+                cancellationToken);
+
+        if (existingTenant is not null && !Input.ConfirmDuplicate)
+        {
+            await _audit.LogAsync(
+                action: "RegistrationAfmDuplicateWarningShown",
+                tenantId: existingTenant.Id,
+                entityType: nameof(Tenant),
+                entityId: existingTenant.Id.ToString(),
+                details: JsonSerializer.Serialize(new { AttemptedEmail = Input.Email, Afm = Input.Afm }),
+                cancellationToken: cancellationToken);
+
+            ModelState.AddModelError(string.Empty,
+                "Φαίνεται ότι υπάρχει ήδη λογαριασμός για αυτό το ΑΦΜ. " +
+                "Αν είναι δικός σου, κάνε σύνδεση ή επαναφορά κωδικού. " +
+                "Αν θέλεις να συνεχίσεις την εγγραφή ούτως ή άλλως, " +
+                "επίλεξε το παρακάτω checkbox και υπέβαλε ξανά.");
+            ShowConfirmDuplicate = true;
             return Page();
         }
 
@@ -108,9 +145,25 @@ public class RegisterModel : PageModel
         if (!createResult.Succeeded)
         {
             await transaction.RollbackAsync(cancellationToken);
+            var enumerationMaskAdded = false;
             foreach (var error in createResult.Errors)
             {
-                ModelState.AddModelError(string.Empty, error.Description);
+                if (error.Code == "DuplicateUserName" || error.Code == "DuplicateEmail")
+                {
+                    // Anti-enumeration: don't confirm whether the email is registered.
+                    // The genuine owner can still recover via password reset.
+                    if (!enumerationMaskAdded)
+                    {
+                        ModelState.AddModelError(string.Empty,
+                            "Δεν μπορέσαμε να δημιουργήσουμε τον λογαριασμό. " +
+                            "Αν έχεις ήδη λογαριασμό, κάνε σύνδεση ή επαναφορά κωδικού.");
+                        enumerationMaskAdded = true;
+                    }
+                }
+                else
+                {
+                    ModelState.AddModelError(string.Empty, error.Description);
+                }
             }
             return Page();
         }

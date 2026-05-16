@@ -35,16 +35,20 @@
         <span asp-validation-for="Input.Email" class="text-danger small"></span>
     </div>
 
+    @* Password re-rendered intentionally on validation failures so users don't
+       retype after fixing unrelated errors (e.g., AFM duplicate confirmation).
+       This is a recognized UX tradeoff — the password lives briefly in the
+       form's HTML during re-render but never leaves the user's browser context. *@
     <div class="mb-3">
         <label asp-for="Input.Password" class="form-label">Κωδικός</label>
-        <input asp-for="Input.Password" class="form-control" autocomplete="new-password" />
+        <input asp-for="Input.Password" class="form-control" autocomplete="new-password" value="@Model.Input.Password" />
         <span asp-validation-for="Input.Password" class="text-danger small"></span>
         <div class="form-text">Τουλάχιστον 12 χαρακτήρες, με κεφαλαίο, αριθμό και σύμβολο.</div>
     </div>
 
     <div class="mb-3">
         <label asp-for="Input.ConfirmPassword" class="form-label">Επιβεβαίωση κωδικού</label>
-        <input asp-for="Input.ConfirmPassword" class="form-control" autocomplete="new-password" />
+        <input asp-for="Input.ConfirmPassword" class="form-control" autocomplete="new-password" value="@Model.Input.ConfirmPassword" />
         <span asp-validation-for="Input.ConfirmPassword" class="text-danger small"></span>
     </div>
 
@@ -67,6 +71,23 @@
         </label>
         <span asp-validation-for="Input.AcceptTerms" class="text-danger d-block small"></span>
     </div>
+
+    @if (Model.ShowConfirmDuplicate)
+    {
+        <div class="alert alert-warning">
+            <p>Υπάρχει ήδη λογαριασμός με αυτό το ΑΦΜ.</p>
+            <p class="mb-2">
+                <a asp-page="./Login" asp-route-email="@Model.Input.Email">Σύνδεση</a> |
+                <a asp-page="./ForgotPassword">Επαναφορά κωδικού</a>
+            </p>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" asp-for="Input.ConfirmDuplicate" id="confirmDuplicate" />
+                <label class="form-check-label" for="confirmDuplicate">
+                    Καταλαβαίνω και θέλω να συνεχίσω με νέο λογαριασμό.
+                </label>
+            </div>
+        </div>
+    }
 
     <button type="submit" class="btn btn-primary w-100">Εγγραφή</button>
 </form>
