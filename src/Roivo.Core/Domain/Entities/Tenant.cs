@@ -1,4 +1,6 @@
-namespace Roivo.Core.Domain;
+using Roivo.Core.Domain.Enums;
+
+namespace Roivo.Core.Domain.Entities;
 
 public class Tenant
 {
@@ -8,10 +10,4 @@ public class Tenant
     public TenantType Type { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public bool IsActive { get; set; } = true;
-}
-
-public enum TenantType
-{
-    Accountant = 1,
-    Business = 2
 }

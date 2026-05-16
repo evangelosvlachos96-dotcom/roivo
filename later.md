@@ -19,6 +19,10 @@ Week 10: Notifications — email + in-app alerts, customer payment reminders
 Week 11: Polish — bilingual UI (Greek + English), error handling, audit log review, security pass  
 Week 12: Launch — landing page, beta deploy, 3 design partners onboarded  
 
+## M4 enhancements
+
+- After first successful AADE sync, compare AADE-returned company info (name, AFM, KAD) with Roivo tenant info. If mismatch, offer to update tenant data. This is the real "verify business identity" check — happens organically when the user proves they have AADE credentials, rather than artificially at registration time.
+
 ## Captured ideas (not to be worked on yet)
 
 ### Architecture / infrastructure

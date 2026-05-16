@@ -1,0 +1,27 @@
+@{
+    var title = ViewData["Title"] as string ?? "Roivo";
+}
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@title — Roivo</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/app.css" />
+</head>
+<body class="bg-light">
+    <div class="container py-5" style="max-width: 540px;">
+        <div class="text-center mb-4">
+            <a href="/" class="text-decoration-none">
+                <h1 class="h3 fw-bold text-primary">Roivo</h1>
+            </a>
+        </div>
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                @RenderBody()
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,4 +1,6 @@
-namespace Roivo.Core.Domain;
+using Roivo.Core.Domain.Interfaces;
+
+namespace Roivo.Core.Domain.Entities;
 
 public class Business : ITenantScoped
 {

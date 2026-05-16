@@ -1,0 +1,41 @@
+@page
+@model Roivo.Web.Areas.Account.Pages.LoginModel
+@{
+    ViewData["Title"] = "Σύνδεση";
+}
+
+<h2 class="h4 mb-3">Σύνδεση</h2>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success small">@Model.SuccessMessage</div>
+}
+
+<form method="post">
+    <input type="hidden" asp-for="ReturnUrl" />
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert" style="display:@(ViewData.ModelState.IsValid ? "none" : "block")"></div>
+
+    <div class="mb-3">
+        <label asp-for="Input.Email" class="form-label">Email</label>
+        <input asp-for="Input.Email" class="form-control" autocomplete="email" />
+        <span asp-validation-for="Input.Email" class="text-danger small"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Input.Password" class="form-label">Κωδικός</label>
+        <input asp-for="Input.Password" class="form-control" autocomplete="current-password" />
+        <span asp-validation-for="Input.Password" class="text-danger small"></span>
+    </div>
+
+    <div class="form-check mb-3">
+        <input asp-for="Input.RememberMe" class="form-check-input" />
+        <label asp-for="Input.RememberMe" class="form-check-label small">Να με θυμάσαι</label>
+    </div>
+
+    <button type="submit" class="btn btn-primary w-100">Σύνδεση</button>
+</form>
+
+<div class="d-flex justify-content-between mt-4 small">
+    <a asp-page="/ForgotPassword">Ξέχασες τον κωδικό?</a>
+    <a asp-page="/Register">Εγγραφή</a>
+</div>

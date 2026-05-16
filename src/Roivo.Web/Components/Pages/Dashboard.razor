@@ -1,0 +1,108 @@
+@page "/dashboard"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Roivo.Infrastructure.MultiTenancy
+@inject AuthenticationStateProvider AuthState
+@inject ApplicationDbContext Db
+@inject ITenantContext TenantContext
+@inject UserManager<ApplicationUser> UserManager
+
+<PageTitle>Dashboard — Roivo</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else if (_tenant is not null)
+{
+    <MudPaper Class="pa-6 mb-4" Elevation="1">
+        <MudText Typo="Typo.h4" Class="mb-2">Καλωσήρθες, @_fullName</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">@_email</MudText>
+    </MudPaper>
+
+    <MudPaper Class="pa-6 mb-4" Elevation="1">
+        <MudText Typo="Typo.h6" Class="mb-3">Ο οργανισμός σου</MudText>
+        <MudGrid>
+            <MudItem xs="12" sm="6">
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Tenant</MudText>
+                <MudText Typo="Typo.body1">@_tenant.Name</MudText>
+            </MudItem>
+            <MudItem xs="12" sm="3">
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">Τύπος</MudText>
+                <MudText Typo="Typo.body1">@_tenant.Type</MudText>
+            </MudItem>
+            <MudItem xs="12" sm="3">
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">ΑΦΜ</MudText>
+                <MudText Typo="Typo.body1">@_tenant.Afm</MudText>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <MudPaper Class="pa-6 mb-4" Elevation="1">
+        <MudText Typo="Typo.h6" Class="mb-2">Επιχειρήσεις</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+            Κάτω από αυτό το tenant: <strong>@_businessCount</strong>
+        </MudText>
+    </MudPaper>
+
+    <form action="/Account/Logout" method="post" class="d-inline">
+        <AntiforgeryToken />
+        <button type="submit" class="mud-button-root mud-button mud-button-outlined mud-button-outlined-secondary mud-button-outlined-size-medium mud-ripple">
+            <span class="mud-button-label">Αποσύνδεση</span>
+        </button>
+    </form>
+}
+
+@code {
+    private bool _loading = true;
+    private string? _error;
+    private string? _fullName;
+    private string? _email;
+    private Roivo.Core.Domain.Entities.Tenant? _tenant;
+    private int _businessCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var state = await AuthState.GetAuthenticationStateAsync();
+            var currentUser = await UserManager.GetUserAsync(state.User);
+
+            if (currentUser is null)
+            {
+                _error = "Δεν βρέθηκε ο χρήστης.";
+                return;
+            }
+
+            _fullName = currentUser.FullName;
+            _email = currentUser.Email;
+
+            if (TenantContext.CurrentTenantId is Guid tenantId)
+            {
+                _tenant = await Db.Tenants
+                    .IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(t => t.Id == tenantId);
+
+                _businessCount = await Db.Businesses.CountAsync();
+            }
+            else
+            {
+                _error = "Δεν βρέθηκε tenant_id στο token σου.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

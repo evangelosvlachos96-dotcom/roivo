@@ -1,0 +1,17 @@
+@page
+@model Roivo.Web.Areas.Account.Pages.RegisterConfirmationModel
+@{
+    ViewData["Title"] = "Επιβεβαίωση email";
+}
+
+<h2 class="h4 mb-3">Έλεγξε το email σου</h2>
+<p>
+    Στείλαμε ένα link επιβεβαίωσης στο
+    <strong>@(string.IsNullOrWhiteSpace(Model.Email) ? "email σου" : Model.Email)</strong>.
+</p>
+<p class="text-muted small">
+    Πάτησε το link στο email για να ενεργοποιήσεις τον λογαριασμό σου. Μπορεί να χρειαστούν μερικά λεπτά να φτάσει.
+</p>
+<p class="small mt-4">
+    Δεν λάβατε το email; <a asp-page="/Register">Εγγραφή ξανά</a>
+</p>

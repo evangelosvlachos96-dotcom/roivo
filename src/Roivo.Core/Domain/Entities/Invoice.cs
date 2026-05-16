@@ -1,4 +1,7 @@
-namespace Roivo.Core.Domain;
+using Roivo.Core.Domain.Enums;
+using Roivo.Core.Domain.Interfaces;
+
+namespace Roivo.Core.Domain.Entities;
 
 public class Invoice : ITenantScoped
 {
@@ -24,19 +27,4 @@ public class Invoice : ITenantScoped
     public DateTime? PaidAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public string? RawPayload { get; set; }
-}
-
-public enum InvoiceDirection
-{
-    Issued = 1,
-    Received = 2
-}
-
-public enum InvoiceStatus
-{
-    Open = 1,
-    Paid = 2,
-    PartiallyPaid = 3,
-    Overdue = 4,
-    Cancelled = 5
 }

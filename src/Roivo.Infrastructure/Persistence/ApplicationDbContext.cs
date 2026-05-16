@@ -2,7 +2,8 @@ using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using Roivo.Core.Domain;
+using Roivo.Core.Domain.Entities;
+using Roivo.Core.Domain.Interfaces;
 using Roivo.Infrastructure.MultiTenancy;
 
 namespace Roivo.Infrastructure.Persistence;
@@ -26,7 +27,12 @@ public class ApplicationDbContext(
     {
         base.OnModelCreating(builder);
         builder.UseOpenIddict<Guid>();
+        builder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
+        ApplyTenantFilters(builder);
+    }
 
+    private void ApplyTenantFilters(ModelBuilder builder)
+    {
         foreach (var entityType in builder.Model.GetEntityTypes())
         {
             if (typeof(ITenantScoped).IsAssignableFrom(entityType.ClrType))
@@ -37,26 +43,6 @@ public class ApplicationDbContext(
                 method.Invoke(this, new object[] { builder });
             }
         }
-
-        builder.Entity<Tenant>().Property(t => t.Type).HasConversion<string>().HasMaxLength(20);
-        builder.Entity<BankAccount>().Property(b => b.Currency).HasConversion<string>().HasMaxLength(3);
-        builder.Entity<BankTransaction>().Property(t => t.Currency).HasConversion<string>().HasMaxLength(3);
-        builder.Entity<Invoice>().Property(i => i.Currency).HasConversion<string>().HasMaxLength(3);
-        builder.Entity<Invoice>().Property(i => i.Direction).HasConversion<string>().HasMaxLength(20);
-        builder.Entity<Invoice>().Property(i => i.Status).HasConversion<string>().HasMaxLength(20);
-
-        builder.Entity<BankTransaction>()
-            .HasIndex(x => new { x.TenantId, x.BookingDate });
-
-        builder.Entity<Invoice>()
-            .HasIndex(x => new { x.TenantId, x.IssueDate });
-        builder.Entity<Invoice>()
-            .HasIndex(x => new { x.TenantId, x.AadeMark })
-            .IsUnique();
-
-        builder.Entity<Business>()
-            .HasIndex(x => new { x.TenantId, x.Afm })
-            .IsUnique();
     }
 
     private void ApplyTenantFilter<TEntity>(ModelBuilder builder) where TEntity : class, ITenantScoped

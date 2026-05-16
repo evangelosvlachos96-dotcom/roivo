@@ -1,4 +1,7 @@
-namespace Roivo.Core.Domain;
+using Roivo.Core.Domain.Enums;
+using Roivo.Core.Domain.Interfaces;
+
+namespace Roivo.Core.Domain.Entities;
 
 public class BankTransaction : ITenantScoped
 {

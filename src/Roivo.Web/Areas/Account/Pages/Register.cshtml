@@ -1,0 +1,76 @@
+@page
+@model Roivo.Web.Areas.Account.Pages.RegisterModel
+@{
+    ViewData["Title"] = "Εγγραφή";
+}
+
+<h2 class="h4 mb-3">Δημιουργία λογαριασμού</h2>
+<p class="text-muted small mb-4">Ξεκίνα με Roivo σε λιγότερο από ένα λεπτό.</p>
+
+<form method="post">
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert" style="display:@(ViewData.ModelState.IsValid ? "none" : "block")"></div>
+
+    <div class="mb-3">
+        <label class="form-label fw-semibold d-block">Τύπος λογαριασμού</label>
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" asp-for="Input.Type" id="type-accountant" value="Accountant" />
+            <label class="form-check-label" for="type-accountant">Λογιστικό γραφείο</label>
+        </div>
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" asp-for="Input.Type" id="type-business" value="Business" />
+            <label class="form-check-label" for="type-business">Επιχείρηση</label>
+        </div>
+        <span asp-validation-for="Input.Type" class="text-danger d-block small"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Input.FullName" class="form-label">Ονοματεπώνυμο</label>
+        <input asp-for="Input.FullName" class="form-control" autocomplete="name" />
+        <span asp-validation-for="Input.FullName" class="text-danger small"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Input.Email" class="form-label">Email</label>
+        <input asp-for="Input.Email" class="form-control" autocomplete="email" />
+        <span asp-validation-for="Input.Email" class="text-danger small"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Input.Password" class="form-label">Κωδικός</label>
+        <input asp-for="Input.Password" class="form-control" autocomplete="new-password" />
+        <span asp-validation-for="Input.Password" class="text-danger small"></span>
+        <div class="form-text">Τουλάχιστον 12 χαρακτήρες, με κεφαλαίο, αριθμό και σύμβολο.</div>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Input.ConfirmPassword" class="form-label">Επιβεβαίωση κωδικού</label>
+        <input asp-for="Input.ConfirmPassword" class="form-control" autocomplete="new-password" />
+        <span asp-validation-for="Input.ConfirmPassword" class="text-danger small"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Input.OrganizationName" class="form-label">Επωνυμία οργανισμού</label>
+        <input asp-for="Input.OrganizationName" class="form-control" placeholder="π.χ. Παπαδόπουλος Λογ. Γραφείο" />
+        <span asp-validation-for="Input.OrganizationName" class="text-danger small"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Input.Afm" class="form-label">ΑΦΜ</label>
+        <input asp-for="Input.Afm" class="form-control" inputmode="numeric" maxlength="9" />
+        <span asp-validation-for="Input.Afm" class="text-danger small"></span>
+    </div>
+
+    <div class="form-check mb-4">
+        <input asp-for="Input.AcceptTerms" class="form-check-input" />
+        <label asp-for="Input.AcceptTerms" class="form-check-label small">
+            Συμφωνώ με τους όρους χρήσης και την πολιτική απορρήτου.
+        </label>
+        <span asp-validation-for="Input.AcceptTerms" class="text-danger d-block small"></span>
+    </div>
+
+    <button type="submit" class="btn btn-primary w-100">Εγγραφή</button>
+</form>
+
+<p class="text-center mt-4 mb-0 small">
+    Έχεις ήδη λογαριασμό? <a asp-page="/Login">Σύνδεση</a>
+</p>

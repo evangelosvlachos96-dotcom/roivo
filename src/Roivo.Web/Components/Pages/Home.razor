@@ -1,10 +1,31 @@
 @page "/"
+@using Microsoft.AspNetCore.Components.Authorization
 @inject ApplicationDbContext Db
 
 <PageTitle>Roivo</PageTitle>
 
 <MudText Typo="Typo.h3" Class="mb-2">Roivo</MudText>
 <MudText Typo="Typo.body1" Class="mb-6">Η ροή της επιχείρησής σου, σε μία οθόνη.</MudText>
+
+<AuthorizeView>
+    <Authorized>
+        <MudButton Href="/dashboard" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large">
+            Πάνε στο dashboard
+        </MudButton>
+    </Authorized>
+    <NotAuthorized>
+        <div class="d-flex" style="gap: 12px;">
+            <MudButton Href="/Account/Login" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large">
+                Σύνδεση
+            </MudButton>
+            <MudButton Href="/Account/Register" Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Large">
+                Εγγραφή
+            </MudButton>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+<MudDivider Class="my-6" />
 
 @if (_loading)
 {

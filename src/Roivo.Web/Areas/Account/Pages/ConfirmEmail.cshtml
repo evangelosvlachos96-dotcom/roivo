@@ -1,0 +1,18 @@
+@page
+@model Roivo.Web.Areas.Account.Pages.ConfirmEmailModel
+@{
+    ViewData["Title"] = "Επιβεβαίωση email";
+}
+
+@if (Model.Succeeded)
+{
+    <h2 class="h4 mb-3 text-success">Το email σου επιβεβαιώθηκε</h2>
+    <p>Ο λογαριασμός σου ενεργοποιήθηκε. Μπορείς τώρα να συνδεθείς.</p>
+    <a asp-page="/Login" class="btn btn-primary w-100 mt-2">Σύνδεση</a>
+}
+else
+{
+    <h2 class="h4 mb-3 text-danger">Αποτυχία επιβεβαίωσης</h2>
+    <p>Το link έχει λήξει ή είναι άκυρο.</p>
+    <a asp-page="/Register" class="btn btn-outline-secondary w-100 mt-2">Εγγραφή ξανά</a>
+}

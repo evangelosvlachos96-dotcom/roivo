@@ -51,12 +51,23 @@ Both options expose Postgres on `localhost:5432` — the connection string is id
 ## Project structure
 
 - `src/Roivo.Web/` — Blazor Server app
-- `src/Roivo.Core/` — Domain entities, interfaces (no dependencies)
-- `src/Roivo.Infrastructure/` — EF Core, persistence, multi-tenancy
-- `src/Roivo.Aade/` — myDATA integration
-- `src/Roivo.Banking/` — PSD2 / open banking integration
-- `src/Roivo.Forecasting/` — Cashflow projection logic
+  - `Areas/Account/Pages/` — Razor Pages for auth flows (register, login, confirm email, reset password)
+  - `Components/` — Blazor components and pages (Home, Dashboard, layout)
+  - `Configuration/` — composition-root extension methods (`AddRoivoPersistence`, `AddRoivoIdentity`, etc.) and strongly-typed `Settings/` classes
+- `src/Roivo.Core/` — Domain layer (no dependencies)
+  - `Domain/Entities/` — EF Core entities
+  - `Domain/Enums/` — domain enums
+  - `Domain/Interfaces/` — domain abstractions (`ITenantScoped`)
+- `src/Roivo.Infrastructure/`
+  - `Persistence/` — `ApplicationDbContext` + `Configurations/` (one `IEntityTypeConfiguration<T>` per entity)
+  - `MultiTenancy/` — `ITenantContext` + HTTP-claim-backed implementation
+  - `Identity/`, `Email/`, `Auditing/` — Identity factory, MailKit sender, audit log writer
+  - `Migrations/` — EF Core migrations
+- `src/Roivo.Aade/` — myDATA integration (M4)
+- `src/Roivo.Banking/` — PSD2 / open banking integration (M5)
+- `src/Roivo.Forecasting/` — Cashflow projection logic (M7)
 - `tests/` — corresponding test projects
+- `docs/CONFIGURATION.md` — full configuration schema reference
 - `marketing/` — positioning and ad content
 - `later.md` — future ideas and post-MVP scope
 

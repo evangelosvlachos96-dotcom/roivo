@@ -1,4 +1,4 @@
-namespace Roivo.Core.Domain;
+namespace Roivo.Core.Domain.Enums;
 
 public enum Currency
 {

@@ -382,7 +382,7 @@ namespace Roivo.Infrastructure.Migrations
                     b.ToTable("OpenIddictTokens", (string)null);
                 });
 
-            modelBuilder.Entity("Roivo.Core.Domain.ApplicationUser", b =>
+            modelBuilder.Entity("Roivo.Core.Domain.Entities.ApplicationUser", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -462,7 +462,7 @@ namespace Roivo.Infrastructure.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
-            modelBuilder.Entity("Roivo.Core.Domain.AuditLog", b =>
+            modelBuilder.Entity("Roivo.Core.Domain.Entities.AuditLog", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -499,7 +499,7 @@ namespace Roivo.Infrastructure.Migrations
                     b.ToTable("AuditLogs");
                 });
 
-            modelBuilder.Entity("Roivo.Core.Domain.BankAccount", b =>
+            modelBuilder.Entity("Roivo.Core.Domain.Entities.BankAccount", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -543,7 +543,7 @@ namespace Roivo.Infrastructure.Migrations
                     b.ToTable("BankAccounts");
                 });
 
-            modelBuilder.Entity("Roivo.Core.Domain.BankTransaction", b =>
+            modelBuilder.Entity("Roivo.Core.Domain.Entities.BankTransaction", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -600,7 +600,7 @@ namespace Roivo.Infrastructure.Migrations
                     b.ToTable("BankTransactions");
                 });
 
-            modelBuilder.Entity("Roivo.Core.Domain.Business", b =>
+            modelBuilder.Entity("Roivo.Core.Domain.Entities.Business", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -640,7 +640,7 @@ namespace Roivo.Infrastructure.Migrations
                     b.ToTable("Businesses");
                 });
 
-            modelBuilder.Entity("Roivo.Core.Domain.Invoice", b =>
+            modelBuilder.Entity("Roivo.Core.Domain.Entities.Invoice", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -727,7 +727,7 @@ namespace Roivo.Infrastructure.Migrations
                     b.ToTable("Invoices");
                 });
 
-            modelBuilder.Entity("Roivo.Core.Domain.Tenant", b =>
+            modelBuilder.Entity("Roivo.Core.Domain.Entities.Tenant", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -768,7 +768,7 @@ namespace Roivo.Infrastructure.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
                 {
-                    b.HasOne("Roivo.Core.Domain.ApplicationUser", null)
+                    b.HasOne("Roivo.Core.Domain.Entities.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -777,7 +777,7 @@ namespace Roivo.Infrastructure.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
                 {
-                    b.HasOne("Roivo.Core.Domain.ApplicationUser", null)
+                    b.HasOne("Roivo.Core.Domain.Entities.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -792,7 +792,7 @@ namespace Roivo.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Roivo.Core.Domain.ApplicationUser", null)
+                    b.HasOne("Roivo.Core.Domain.Entities.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -801,7 +801,7 @@ namespace Roivo.Infrastructure.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
                 {
-                    b.HasOne("Roivo.Core.Domain.ApplicationUser", null)
+                    b.HasOne("Roivo.Core.Domain.Entities.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -832,9 +832,9 @@ namespace Roivo.Infrastructure.Migrations
                     b.Navigation("Authorization");
                 });
 
-            modelBuilder.Entity("Roivo.Core.Domain.ApplicationUser", b =>
+            modelBuilder.Entity("Roivo.Core.Domain.Entities.ApplicationUser", b =>
                 {
-                    b.HasOne("Roivo.Core.Domain.Tenant", "Tenant")
+                    b.HasOne("Roivo.Core.Domain.Entities.Tenant", "Tenant")
                         .WithMany()
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -843,9 +843,9 @@ namespace Roivo.Infrastructure.Migrations
                     b.Navigation("Tenant");
                 });
 
-            modelBuilder.Entity("Roivo.Core.Domain.BankAccount", b =>
+            modelBuilder.Entity("Roivo.Core.Domain.Entities.BankAccount", b =>
                 {
-                    b.HasOne("Roivo.Core.Domain.Business", "Business")
+                    b.HasOne("Roivo.Core.Domain.Entities.Business", "Business")
                         .WithMany()
                         .HasForeignKey("BusinessId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -854,9 +854,9 @@ namespace Roivo.Infrastructure.Migrations
                     b.Navigation("Business");
                 });
 
-            modelBuilder.Entity("Roivo.Core.Domain.BankTransaction", b =>
+            modelBuilder.Entity("Roivo.Core.Domain.Entities.BankTransaction", b =>
                 {
-                    b.HasOne("Roivo.Core.Domain.BankAccount", "BankAccount")
+                    b.HasOne("Roivo.Core.Domain.Entities.BankAccount", "BankAccount")
                         .WithMany()
                         .HasForeignKey("BankAccountId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -865,9 +865,9 @@ namespace Roivo.Infrastructure.Migrations
                     b.Navigation("BankAccount");
                 });
 
-            modelBuilder.Entity("Roivo.Core.Domain.Invoice", b =>
+            modelBuilder.Entity("Roivo.Core.Domain.Entities.Invoice", b =>
                 {
-                    b.HasOne("Roivo.Core.Domain.Business", "Business")
+                    b.HasOne("Roivo.Core.Domain.Entities.Business", "Business")
                         .WithMany()
                         .HasForeignKey("BusinessId")
                         .OnDelete(DeleteBehavior.Cascade)

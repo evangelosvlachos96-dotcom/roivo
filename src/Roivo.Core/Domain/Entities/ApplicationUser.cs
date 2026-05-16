@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 
-namespace Roivo.Core.Domain;
+namespace Roivo.Core.Domain.Entities;
 
 public class ApplicationUser : IdentityUser<Guid>
 {
