@@ -1,14 +1,13 @@
 using System.ComponentModel.DataAnnotations;
-using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
+using Roivo.Application.Abstractions;
 using Roivo.Core.Domain.Entities;
 using Roivo.Core.Domain.Enums;
 using Roivo.Core.Domain.Validation;
-using Roivo.Infrastructure.Auditing;
 using Roivo.Infrastructure.Email;
 using Roivo.Infrastructure.Persistence;
 
@@ -19,16 +18,22 @@ public class RegisterModel : PageModel
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ApplicationDbContext _db;
     private readonly IEmailSender _emailSender;
-    private readonly IAuditService _audit;
+    private readonly IAuditWriter _audit;
     private readonly ILogger<RegisterModel> _logger;
 
     public RegisterModel(
         UserManager<ApplicationUser> userManager,
         ApplicationDbContext db,
         IEmailSender emailSender,
-        IAuditService audit,
+        IAuditWriter audit,
         ILogger<RegisterModel> logger)
     {
+        ArgumentNullException.ThrowIfNull(userManager);
+        ArgumentNullException.ThrowIfNull(db);
+        ArgumentNullException.ThrowIfNull(emailSender);
+        ArgumentNullException.ThrowIfNull(audit);
+        ArgumentNullException.ThrowIfNull(logger);
+
         _userManager = userManager;
         _db = db;
         _emailSender = emailSender;
@@ -102,12 +107,12 @@ public class RegisterModel : PageModel
 
         if (existingTenant is not null && !Input.ConfirmDuplicate)
         {
-            await _audit.LogAsync(
+            await _audit.WriteAsync(
                 action: "RegistrationAfmDuplicateWarningShown",
                 tenantId: existingTenant.Id,
                 entityType: nameof(Tenant),
                 entityId: existingTenant.Id.ToString(),
-                details: JsonSerializer.Serialize(new { AttemptedEmail = Input.Email, Afm = Input.Afm }),
+                details: new { AttemptedEmail = Input.Email, Afm = Input.Afm },
                 cancellationToken: cancellationToken);
 
             ModelState.AddModelError(string.Empty,
@@ -215,13 +220,13 @@ public class RegisterModel : PageModel
             _logger.LogError(ex, "Failed to send confirmation email to {Email}", Input.Email);
         }
 
-        await _audit.LogAsync(
+        await _audit.WriteAsync(
             action: "UserRegistered",
             userId: user.Id,
             tenantId: tenant.Id,
             entityType: nameof(ApplicationUser),
             entityId: user.Id.ToString(),
-            details: JsonSerializer.Serialize(new { Type = Input.Type.ToString() }),
+            details: new { Type = Input.Type.ToString() },
             cancellationToken: cancellationToken);
 
         return RedirectToPage("/RegisterConfirmation", new { email = Input.Email });

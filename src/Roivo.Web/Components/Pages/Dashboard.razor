@@ -3,11 +3,12 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Identity
-@using Roivo.Infrastructure.MultiTenancy
+@using Roivo.Application.Features.Businesses.Queries.ListActiveBusinesses
+@using Roivo.Application.Features.Tenants.Queries.GetCurrentTenant
 @inject AuthenticationStateProvider AuthState
-@inject ApplicationDbContext Db
-@inject ITenantContext TenantContext
 @inject UserManager<ApplicationUser> UserManager
+@inject GetCurrentTenantHandler GetTenantHandler
+@inject ListActiveBusinessesHandler ListBusinessesHandler
 
 <PageTitle>Dashboard — Roivo</PageTitle>
 
@@ -83,18 +84,15 @@ else if (_tenant is not null)
             _fullName = currentUser.FullName;
             _email = currentUser.Email;
 
-            if (TenantContext.CurrentTenantId is Guid tenantId)
-            {
-                _tenant = await Db.Tenants
-                    .IgnoreQueryFilters()
-                    .FirstOrDefaultAsync(t => t.Id == tenantId);
-
-                _businessCount = await Db.Businesses.CountAsync();
-            }
-            else
+            _tenant = await GetTenantHandler.Handle(new GetCurrentTenantQuery(), CancellationToken.None);
+            if (_tenant is null)
             {
                 _error = "Δεν βρέθηκε tenant_id στο token σου.";
+                return;
             }
+
+            var businesses = await ListBusinessesHandler.Handle(new ListActiveBusinessesQuery(), CancellationToken.None);
+            _businessCount = businesses.Count;
         }
         catch (Exception ex)
         {

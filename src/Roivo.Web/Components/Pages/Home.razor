@@ -1,6 +1,7 @@
 @page "/"
 @using Microsoft.AspNetCore.Components.Authorization
-@inject ApplicationDbContext Db
+@using Roivo.Application.Features.Tenants.Queries.CountAllTenants
+@inject CountAllTenantsHandler CountTenants
 
 <PageTitle>Roivo</PageTitle>
 
@@ -49,7 +50,7 @@ else
     {
         try
         {
-            _tenantCount = await Db.Tenants.IgnoreQueryFilters().CountAsync();
+            _tenantCount = await CountTenants.Handle(new CountAllTenantsQuery(), CancellationToken.None);
         }
         catch (Exception ex)
         {

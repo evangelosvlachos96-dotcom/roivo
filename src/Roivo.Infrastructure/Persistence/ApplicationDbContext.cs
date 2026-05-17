@@ -2,9 +2,9 @@ using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Roivo.Application.Abstractions;
 using Roivo.Core.Domain.Entities;
 using Roivo.Core.Domain.Interfaces;
-using Roivo.Infrastructure.MultiTenancy;
 
 namespace Roivo.Infrastructure.Persistence;
 

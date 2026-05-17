@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Roivo.Aade/Roivo.Aade.csproj" />
+    <Project Path="src/Roivo.Application/Roivo.Application.csproj" />
     <Project Path="src/Roivo.Banking/Roivo.Banking.csproj" />
     <Project Path="src/Roivo.Core/Roivo.Core.csproj" />
     <Project Path="src/Roivo.Forecasting/Roivo.Forecasting.csproj" />

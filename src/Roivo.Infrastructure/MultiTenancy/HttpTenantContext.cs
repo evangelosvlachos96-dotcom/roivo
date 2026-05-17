@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Roivo.Application.Abstractions;
 
 namespace Roivo.Infrastructure.MultiTenancy;
 

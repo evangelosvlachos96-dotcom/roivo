@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Roivo.Core\Roivo.Core.csproj" />
+    <ProjectReference Include="..\Roivo.Application\Roivo.Application.csproj" />
     <ProjectReference Include="..\Roivo.Infrastructure\Roivo.Infrastructure.csproj" />
     <ProjectReference Include="..\Roivo.Aade\Roivo.Aade.csproj" />
     <ProjectReference Include="..\Roivo.Banking\Roivo.Banking.csproj" />

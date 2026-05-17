@@ -2,18 +2,21 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Roivo.Application.Abstractions;
 using Roivo.Core.Domain.Entities;
-using Roivo.Infrastructure.Auditing;
 
 namespace Roivo.Web.Areas.Account.Pages;
 
 public class ResetPasswordModel : PageModel
 {
     private readonly UserManager<ApplicationUser> _userManager;
-    private readonly IAuditService _audit;
+    private readonly IAuditWriter _audit;
 
-    public ResetPasswordModel(UserManager<ApplicationUser> userManager, IAuditService audit)
+    public ResetPasswordModel(UserManager<ApplicationUser> userManager, IAuditWriter audit)
     {
+        ArgumentNullException.ThrowIfNull(userManager);
+        ArgumentNullException.ThrowIfNull(audit);
+
         _userManager = userManager;
         _audit = audit;
     }
@@ -81,7 +84,7 @@ public class ResetPasswordModel : PageModel
 
         await _userManager.UpdateSecurityStampAsync(user);
 
-        await _audit.LogAsync(
+        await _audit.WriteAsync(
             action: "PasswordResetCompleted",
             userId: user.Id,
             tenantId: user.TenantId,

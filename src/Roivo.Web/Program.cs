@@ -1,4 +1,5 @@
 using MudBlazor.Services;
+using Roivo.Application.Configuration;
 using Roivo.Web.Components;
 using Roivo.Web.Configuration;
 using Serilog;
@@ -9,6 +10,7 @@ builder.Host.UseRoivoLogging();
 
 builder.Services
     .AddRoivoPersistence(builder.Configuration)
+    .AddRoivoApplication()
     .AddRoivoIdentity(builder.Configuration)
     .AddRoivoOpenIddict(builder.Configuration)
     .AddRoivoSecurity(builder.Configuration);

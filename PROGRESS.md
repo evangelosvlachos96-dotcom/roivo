@@ -116,3 +116,26 @@ Codebase organization before continuing on M2/M3. Catching the "hardcoded values
 ### Notes / lessons
 - ...
 ```
+
+## Architecture Refactor ✅ Completed 2026-05-16
+
+Introduced Roivo.Application layer organized by feature. Extracted all business logic from Razor components into command/query handlers. Created repository abstractions, implemented in Infrastructure. Added unit tests for all Business handlers. Net: same behavior, dramatically more testable and maintainable codebase.
+
+**Files moved / restructured:**
+- Roivo.Infrastructure/MultiTenancy/ITenantContext.cs → Roivo.Application/Abstractions/ITenantContext.cs
+- Roivo.Infrastructure/Auditing/AuditService.cs → Roivo.Infrastructure/Auditing/AuditWriter.cs (renamed; new contract takes anonymous-object details)
+- Razor components no longer reference EF Core, DbContext, or JsonSerializer
+
+**New projects:**
+- Roivo.Application
+- Roivo.Application.Tests
+
+**Test coverage:**
+- 24 unit tests for Business + query handlers
+- All passing
+
+**Dependency rules now enforced:**
+- Roivo.Core has zero EF Core references
+- Roivo.Application has zero EF Core references
+- Razor components have zero EF Core or DbContext references
+- Razor components have zero System.Text.Json references

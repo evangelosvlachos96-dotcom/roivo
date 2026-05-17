@@ -1,0 +1,131 @@
+@using MudBlazor
+@using Roivo.Core.Domain.Entities
+@using Roivo.Application.Features.Businesses.Commands.DeactivateBusiness
+@using Roivo.Application.Features.Businesses.Queries.ListActiveBusinesses
+@inject NavigationManager Nav
+@inject ListActiveBusinessesHandler ListHandler
+@inject DeactivateBusinessHandler DeactivateHandler
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@page "/businesses"
+@attribute [Authorize]
+
+<PageTitle>Επιχειρήσεις</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-6">
+    <MudText Typo="Typo.h4" GutterBottom="true">Επιχειρήσεις</MudText>
+    <MudText Typo="Typo.body1" Class="mb-4">
+        Διαχείριση των επιχειρήσεων που εκπροσωπείτε.
+    </MudText>
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+        <MudText Typo="Typo.h6">Λίστα επιχειρήσεων</MudText>
+        @if (!loading && businesses.Count > 0)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Outlined.Add"
+                       OnClick='() => Nav.NavigateTo("/businesses/new")'>
+                Προσθήκη επιχείρησης
+            </MudButton>
+        }
+    </MudStack>
+    @if (loading)
+    {
+        <MudProgressCircular Indeterminate="true" />
+    }
+    else if (businesses.Count == 0)
+    {
+        <MudPaper Class="pa-8 text-center">
+            <MudIcon Icon="@Icons.Material.Outlined.Business" Size="Size.Large" Class="mb-3" />
+            <MudText Typo="Typo.h6" GutterBottom="true">Δεν έχετε προσθέσει επιχειρήσεις ακόμα</MudText>
+            <MudText Typo="Typo.body2" Class="mb-4">
+                Ξεκινήστε προσθέτοντας την πρώτη επιχείρηση που εκπροσωπείτε.
+            </MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Outlined.Add"
+                       OnClick='() => Nav.NavigateTo("/businesses/new")'>
+                Προσθήκη επιχείρησης
+            </MudButton>
+        </MudPaper>
+    }
+    else
+    {
+        <MudTable Items="businesses" Hover="true" Striped="true">
+            <HeaderContent>
+                <MudTh>Όνομα</MudTh>
+                <MudTh>ΑΦΜ</MudTh>
+                <MudTh>ΚΑΔ</MudTh>
+                <MudTh>Κατάσταση</MudTh>
+                <MudTh></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Όνομα">@context.Name</MudTd>
+                <MudTd DataLabel="ΑΦΜ">@context.Afm</MudTd>
+                <MudTd DataLabel="ΚΑΔ">@(context.Kad ?? "—")</MudTd>
+                <MudTd DataLabel="Κατάσταση">
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success">Ενεργή</MudChip>
+                </MudTd>
+                <MudTd>
+                    <MudStack Row="true" Spacing="0">
+                        <MudIconButton Icon="@Icons.Material.Outlined.Edit"
+                                       Size="Size.Small"
+                                       OnClick="@(() => Nav.NavigateTo($"/businesses/{context.Id}/edit"))" />
+                        <MudIconButton Icon="@Icons.Material.Outlined.Block"
+                                       Size="Size.Small"
+                                       Color="Color.Error"
+                                       OnClick="@(() => HandleDeactivate(context))" />
+                    </MudStack>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+
+
+</MudContainer>
+@code {
+    private IReadOnlyList<Business> businesses = Array.Empty<Business>();
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBusinesses();
+    }
+
+    private async Task LoadBusinesses()
+    {
+        loading = true;
+        businesses = await ListHandler.Handle(new ListActiveBusinessesQuery(), CancellationToken.None);
+        loading = false;
+    }
+
+    private async Task HandleDeactivate(Business business)
+    {
+        var parameters = new DialogParameters<MudMessageBox>
+        {
+            { x => x.Title, "Απενεργοποίηση επιχείρησης" },
+            { x => x.Message, $"Σίγουρα θέλετε να απενεργοποιήσετε την επιχείρηση «{business.Name}»; Δεν θα διαγραφούν δεδομένα — απλώς θα αποκρυφτεί από τη λίστα." },
+            { x => x.YesText, "Απενεργοποίηση" },
+            { x => x.CancelText, "Άκυρο" }
+        };
+
+        var dialog = await DialogService.ShowAsync<MudMessageBox>("", parameters);
+        var result = await dialog.Result;
+
+        if (result is null || result.Canceled) return;
+
+        var outcome = await DeactivateHandler.Handle(new DeactivateBusinessCommand(business.Id), CancellationToken.None);
+
+        switch (outcome)
+        {
+            case DeactivateBusinessResult.Success:
+                await LoadBusinesses();
+                break;
+            case DeactivateBusinessResult.NotFound:
+                Snackbar.Add("Η επιχείρηση δεν βρέθηκε.", Severity.Warning);
+                await LoadBusinesses();
+                break;
+            case DeactivateBusinessResult.AlreadyInactive:
+                await LoadBusinesses();
+                break;
+        }
+    }
+}

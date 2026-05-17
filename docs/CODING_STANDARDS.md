@@ -235,3 +235,103 @@ Other rules:
   state behind. Prefer guarding (§1) before any field mutation.
 
 ---
+
+## DbContext usage in Blazor Server
+
+Blazor Server keeps a single scoped DbContext per circuit. Components that render concurrently (e.g., layout + page) can issue overlapping queries against the same context, which Npgsql cannot handle — resulting in "A second operation was started on this context instance" or NpgsqlOperationInProgressException.
+
+Pattern:
+
+- DbContextFactory is registered; the scoped ApplicationDbContext is sourced from it (one fresh context per scope).
+- Razor Components that own a single lifecycle and do sequential queries can inject ApplicationDbContext directly.
+- Razor Components that render concurrently with other components (layouts, cross-cutting widgets, anything that calls UserManager or runs a query during navigation) should inject IDbContextFactory<ApplicationDbContext> and create short-lived contexts inside each method:
+
+```csharp
+  await using var db = await DbFactory.CreateDbContextAsync();
+  var result = await db.Foos.ToListAsync();
+```
+
+- Background services and Hangfire jobs always use the factory — they have no DI scope of their own.
+- Identity (UserManager, SignInManager) keeps its standard wiring; the factory-backed scoped DbContext means UserManager's queries no longer collide with page queries when both fire in the same render tick.
+
+---
+
+## Filtering by entity state when loading by ID
+
+The global tenant query filter scopes all queries by TenantId. It does NOT scope by IsActive or other state flags — those are business-rule concerns specific to the operation.
+
+When loading an entity by ID for an action:
+
+- Filter by IsActive (or relevant state) at the callsite
+- Don't rely on the global filter to hide deactivated/archived records
+
+Example:
+
+```csharp
+// Loading a business for an "edit active business" page
+var business = await db.Businesses
+    .FirstOrDefaultAsync(b => b.Id == id && b.IsActive);
+```
+
+When loading an entity for a flow that explicitly needs inactive records (e.g., a "reactivate" action, an "archived items" tab), filter by IsActive == false instead. The global filter never sees IsActive — every callsite decides.
+
+---
+
+## Layered architecture
+
+Strict dependency flow:
+
+Roivo.Core → no references
+Roivo.Application → Roivo.Core only
+Roivo.Infrastructure → Roivo.Core + Roivo.Application (implements abstractions)
+Roivo.Web → all three
+
+### What lives where
+
+**Roivo.Core**
+- Domain entities (Business, Tenant, BankAccount, etc.)
+- Value objects (Currency enum, etc.)
+- Domain validators (AfmValidator)
+- Domain interfaces (ITenantScoped)
+- NO EF Core. NO infrastructure concerns.
+
+**Roivo.Application**
+- Features/{Domain}/Commands/{ActionName}/ — Command + Handler + Result trio
+- Features/{Domain}/Queries/{QueryName}/ — Query + Handler trio
+- Abstractions/ — repository interfaces, infrastructure-facing interfaces
+- Common/ — shared base types
+
+Features are organized vertically. Working on businesses? Everything in Features/Businesses/. Working on auth? Features/Auth/.
+
+**Roivo.Infrastructure**
+- Persistence/ApplicationDbContext.cs
+- Persistence/Configurations/ — IEntityTypeConfiguration<T> classes
+- Persistence/Repositories/ — implementations of Roivo.Application.Abstractions interfaces
+- Auditing/AuditWriter.cs
+- Identity/HttpTenantContext.cs, TenantClaimsPrincipalFactory.cs
+- External integrations (later: AADE, PSD2)
+- EF Core lives ONLY here.
+
+**Roivo.Web**
+- Razor components and Razor Pages
+- DI registration in Configuration/ extensions
+- Components inject handlers from Application, NOT repositories or DbContext
+- Components are thin: render UI, call handlers, map result to UI state
+
+### Component discipline rules
+
+A Razor component must not:
+- Import Microsoft.EntityFrameworkCore
+- Import Roivo.Infrastructure
+- Inject DbContext, DbContextFactory, or any repository
+- Call SaveChangesAsync, Add, Update, etc.
+- Serialize JSON for audit logging
+- Use System.Text.Json directly
+
+A Razor component should:
+- Inject command/query handlers
+- Build commands/queries from form input
+- Pattern-match on result types to determine UI behavior
+- Stay focused on rendering and user interaction
+
+---

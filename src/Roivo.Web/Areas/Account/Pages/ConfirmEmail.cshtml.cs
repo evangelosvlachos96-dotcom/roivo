@@ -1,18 +1,21 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Roivo.Application.Abstractions;
 using Roivo.Core.Domain.Entities;
-using Roivo.Infrastructure.Auditing;
 
 namespace Roivo.Web.Areas.Account.Pages;
 
 public class ConfirmEmailModel : PageModel
 {
     private readonly UserManager<ApplicationUser> _userManager;
-    private readonly IAuditService _audit;
+    private readonly IAuditWriter _audit;
 
-    public ConfirmEmailModel(UserManager<ApplicationUser> userManager, IAuditService audit)
+    public ConfirmEmailModel(UserManager<ApplicationUser> userManager, IAuditWriter audit)
     {
+        ArgumentNullException.ThrowIfNull(userManager);
+        ArgumentNullException.ThrowIfNull(audit);
+
         _userManager = userManager;
         _audit = audit;
     }
@@ -39,7 +42,7 @@ public class ConfirmEmailModel : PageModel
 
         if (Succeeded)
         {
-            await _audit.LogAsync(
+            await _audit.WriteAsync(
                 action: "EmailConfirmed",
                 userId: user.Id,
                 tenantId: user.TenantId,

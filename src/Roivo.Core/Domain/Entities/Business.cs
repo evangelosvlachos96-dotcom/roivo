@@ -12,5 +12,6 @@ public class Business : ITenantScoped
     public string? Address { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public string? AadeUserId { get; set; }
+    public bool IsActive { get; set; } = true;
     public string? AadeSubscriptionKeyEncrypted { get; set; }
 }

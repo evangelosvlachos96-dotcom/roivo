@@ -1,0 +1,254 @@
+@page "/businesses/new"
+@attribute [Authorize]
+
+@using Roivo.Application.Features.Businesses.Commands.CreateBusiness
+@using Roivo.Application.Features.Businesses.Commands.ReactivateBusiness
+@inject CreateBusinessHandler CreateHandler
+@inject ReactivateBusinessHandler ReactivateHandler
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<PageTitle>Νέα επιχείρηση</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-6">
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+        <MudIconButton Icon="@Icons.Material.Outlined.ArrowBack"
+                       OnClick='() => Nav.NavigateTo("/businesses")' />
+        <MudText Typo="Typo.h4">Νέα επιχείρηση</MudText>
+    </MudStack>
+
+    <MudPaper Class="pa-6">
+
+        @if (state == FormState.InactiveDuplicateDetected && inactiveDuplicate is not null)
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-4" Icon="@Icons.Material.Outlined.Info">
+                <MudText Typo="Typo.subtitle2" Class="mb-2">
+                    Έχετε ήδη απενεργοποιημένη επιχείρηση με αυτό το ΑΦΜ
+                </MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">
+                    Όνομα της προηγούμενης επιχείρησης: <strong>@inactiveDuplicate.OldName</strong>
+                    @if (!string.IsNullOrEmpty(inactiveDuplicate.OldAddress))
+                    {
+                        <br />
+                        <span>Διεύθυνση: @inactiveDuplicate.OldAddress</span>
+                    }
+                </MudText>
+            </MudAlert>
+
+            <MudText Typo="Typo.body2" Class="mb-4">
+                Τι θέλετε να κάνετε;
+            </MudText>
+
+            <MudPaper Outlined="true" Class="pa-4 mb-3">
+                <MudText Typo="Typo.subtitle2" Class="mb-2">
+                    <MudIcon Icon="@Icons.Material.Outlined.Refresh" Size="Size.Small" Class="mr-1" />
+                    Επανενεργοποίηση της προηγούμενης
+                </MudText>
+                <MudText Typo="Typo.body2" Class="mb-3" Color="Color.Secondary">
+                    Διατηρείται όλη η ιστορία της επιχείρησης (παραστατικά, τραπεζικοί λογαριασμοί κλπ).
+                    Τα νέα στοιχεία που πληκτρολογήσατε θα ενημερώσουν την υπάρχουσα εγγραφή.
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           OnClick="ReactivateExisting"
+                           Disabled="@(state == FormState.Saving)"
+                           FullWidth="true">
+                    @(state == FormState.Saving ? "Επανενεργοποίηση..." : "Επανενεργοποίηση")
+                </MudButton>
+            </MudPaper>
+
+            <MudPaper Outlined="true" Class="pa-4 mb-3">
+                <MudText Typo="Typo.subtitle2" Class="mb-2">
+                    <MudIcon Icon="@Icons.Material.Outlined.Add" Size="Size.Small" Class="mr-1" />
+                    Δημιουργία νέας εγγραφής
+                </MudText>
+                <MudText Typo="Typo.body2" Class="mb-3" Color="Color.Secondary">
+                    Δεν υποστηρίζεται για την ώρα — ο μοναδικός περιορισμός (TenantId, ΑΦΜ)
+                    απαιτεί πρώτη οριστική διαγραφή της απενεργοποιημένης εγγραφής, που δεν είναι διαθέσιμη.
+                </MudText>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                           OnClick="CreateNewAnyway"
+                           Disabled="@(state == FormState.Saving)"
+                           FullWidth="true">
+                    Δημιουργία νέας
+                </MudButton>
+            </MudPaper>
+
+            <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4">
+                <MudButton Variant="Variant.Text"
+                           OnClick="BackToForm"
+                           Disabled="@(state == FormState.Saving)">
+                    Πίσω στο φόρμα
+                </MudButton>
+            </MudStack>
+        }
+        else
+        {
+            <MudForm @ref="form" Model="model" @bind-IsValid="isFormValid">
+
+                <MudTextField @bind-Value="model.Name"
+                              Label="Όνομα επιχείρησης"
+                              Required="true"
+                              RequiredError="Το όνομα είναι υποχρεωτικό"
+                              MaxLength="200"
+                              Immediate="true"
+                              Class="mb-4" />
+
+                <MudTextField @bind-Value="model.Afm"
+                              Label="ΑΦΜ"
+                              Required="true"
+                              RequiredError="Το ΑΦΜ είναι υποχρεωτικό"
+                              Validation="@(new Func<string, string?>(ValidateAfm))"
+                              MaxLength="9"
+                              HelperText="9 ψηφία"
+                              Immediate="true"
+                              Class="mb-4" />
+
+                <MudTextField @bind-Value="model.Kad"
+                              Label="ΚΑΔ (προαιρετικό)"
+                              MaxLength="20"
+                              HelperText="Κωδικός αριθμός δραστηριότητας"
+                              Immediate="true"
+                              Class="mb-4" />
+
+                <MudTextField @bind-Value="model.Address"
+                              Label="Διεύθυνση (προαιρετικό)"
+                              MaxLength="300"
+                              Immediate="true"
+                              Class="mb-4" />
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <MudAlert Severity="Severity.Error" Class="mb-4">@errorMessage</MudAlert>
+                }
+
+                <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+                    <MudButton Variant="Variant.Text"
+                               OnClick='() => Nav.NavigateTo("/businesses")'
+                               Disabled="@(state == FormState.Saving)">
+                        Άκυρο
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               OnClick="HandleSave"
+                               Disabled="@(!isFormValid || state == FormState.Saving)">
+                        @(state == FormState.Saving ? "Αποθήκευση..." : "Αποθήκευση")
+                    </MudButton>
+                </MudStack>
+
+            </MudForm>
+        }
+
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private enum FormState { Editing, InactiveDuplicateDetected, Saving }
+
+    private MudForm form = null!;
+    private bool isFormValid;
+    private FormState state = FormState.Editing;
+    private string? errorMessage;
+    private BusinessFormModel model = new();
+    private CreateBusinessResult.InactiveDuplicate? inactiveDuplicate;
+
+    private string? ValidateAfm(string afm)
+    {
+        if (string.IsNullOrWhiteSpace(afm))
+            return null;
+
+        if (!Roivo.Core.Domain.Validation.AfmValidator.IsValid(afm))
+            return "Μη έγκυρο ΑΦΜ";
+
+        return null;
+    }
+
+    private async Task HandleSave()
+    {
+        await form.ValidateAsync();
+        if (!isFormValid) return;
+
+        state = FormState.Saving;
+        errorMessage = null;
+        StateHasChanged();
+
+        var result = await CreateHandler.Handle(
+            new CreateBusinessCommand(model.Name, model.Afm, model.Kad, model.Address),
+            CancellationToken.None);
+
+        switch (result)
+        {
+            case CreateBusinessResult.Success:
+                Nav.NavigateTo("/businesses");
+                return;
+            case CreateBusinessResult.InvalidAfm:
+                // Defensive — the form validator usually catches this first.
+                errorMessage = "Μη έγκυρο ΑΦΜ";
+                state = FormState.Editing;
+                return;
+            case CreateBusinessResult.ActiveDuplicate:
+                errorMessage = "Υπάρχει ήδη ενεργή επιχείρηση με αυτό το ΑΦΜ.";
+                state = FormState.Editing;
+                return;
+            case CreateBusinessResult.InactiveDuplicate dup:
+                inactiveDuplicate = dup;
+                state = FormState.InactiveDuplicateDetected;
+                return;
+        }
+    }
+
+    private async Task ReactivateExisting()
+    {
+        if (inactiveDuplicate is null) return;
+
+        state = FormState.Saving;
+        StateHasChanged();
+
+        var result = await ReactivateHandler.Handle(
+            new ReactivateBusinessCommand(inactiveDuplicate.ExistingId, model.Name, model.Kad, model.Address),
+            CancellationToken.None);
+
+        switch (result)
+        {
+            case ReactivateBusinessResult.Success:
+                Nav.NavigateTo("/businesses");
+                return;
+            case ReactivateBusinessResult.NotFound:
+                errorMessage = "Η επιχείρηση δεν βρέθηκε.";
+                BackToForm();
+                return;
+            case ReactivateBusinessResult.AlreadyActive:
+                errorMessage = "Η επιχείρηση είναι ήδη ενεργή.";
+                BackToForm();
+                return;
+            case ReactivateBusinessResult.ConflictsWithActive:
+                errorMessage = "Άλλη ενεργή επιχείρηση χρησιμοποιεί ήδη αυτό το ΑΦΜ.";
+                BackToForm();
+                return;
+        }
+    }
+
+    private void CreateNewAnyway()
+    {
+        // The DB unique index on (TenantId, Afm) prevents a parallel active row
+        // while an inactive one exists. Surface this directly instead of attempting
+        // a save that will fail at the constraint.
+        Snackbar.Add(
+            "Η δημιουργία νέας εγγραφής με το ίδιο ΑΦΜ δεν υποστηρίζεται. Χρησιμοποιήστε την επανενεργοποίηση.",
+            Severity.Warning);
+    }
+
+    private void BackToForm()
+    {
+        inactiveDuplicate = null;
+        state = FormState.Editing;
+    }
+
+    private class BusinessFormModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Afm { get; set; } = string.Empty;
+        public string? Kad { get; set; }
+        public string? Address { get; set; }
+    }
+}

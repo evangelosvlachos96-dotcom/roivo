@@ -1,0 +1,192 @@
+@page "/businesses/{Id:guid}/edit"
+@attribute [Authorize]
+
+@using Roivo.Core.Domain.Entities
+@using Roivo.Application.Features.Businesses.Commands.UpdateBusiness
+@using Roivo.Application.Features.Businesses.Queries.GetBusinessById
+@inject GetBusinessByIdHandler GetHandler
+@inject UpdateBusinessHandler UpdateHandler
+@inject NavigationManager Nav
+
+<PageTitle>Επεξεργασία επιχείρησης</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-6">
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+        <MudIconButton Icon="@Icons.Material.Outlined.ArrowBack"
+                       OnClick='() => Nav.NavigateTo("/businesses")' />
+        <MudText Typo="Typo.h4">Επεξεργασία επιχείρησης</MudText>
+    </MudStack>
+
+    @if (loading)
+    {
+        <MudPaper Class="pa-6 text-center">
+            <MudProgressCircular Indeterminate="true" />
+        </MudPaper>
+    }
+    else
+    {
+        <MudPaper Class="pa-6">
+            <MudForm @ref="form" Model="model" @bind-IsValid="isFormValid">
+
+                <MudTextField @bind-Value="model.Name"
+                              Label="Όνομα επιχείρησης"
+                              Required="true"
+                              RequiredError="Το όνομα είναι υποχρεωτικό"
+                              MaxLength="200"
+                              Immediate="true"
+                              Class="mb-4" />
+
+                <MudTextField @bind-Value="model.Afm"
+                              Label="ΑΦΜ"
+                              Required="true"
+                              RequiredError="Το ΑΦΜ είναι υποχρεωτικό"
+                              Validation="@(new Func<string, string?>(ValidateAfm))"
+                              MaxLength="9"
+                              HelperText="9 ψηφία"
+                              Immediate="true"
+                              Class="mb-4" />
+
+                <MudTextField @bind-Value="model.Kad"
+                              Label="ΚΑΔ (προαιρετικό)"
+                              MaxLength="20"
+                              HelperText="Κωδικός αριθμός δραστηριότητας"
+                              Immediate="true"
+                              Class="mb-4" />
+
+                <MudTextField @bind-Value="model.Address"
+                              Label="Διεύθυνση (προαιρετικό)"
+                              MaxLength="300"
+                              Immediate="true"
+                              Class="mb-4" />
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <MudAlert Severity="Severity.Error" Class="mb-4">@errorMessage</MudAlert>
+                }
+
+                <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+                    <MudButton Variant="Variant.Text"
+                               OnClick='() => Nav.NavigateTo("/businesses")'
+                               Disabled="@(!isFormValid || !IsDirty || saving)">
+                        Άκυρο
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               OnClick="HandleSave"
+                               Disabled="@(!isFormValid || !IsDirty || saving)">
+                        @(saving ? "Αποθήκευση..." : "Αποθήκευση")
+                    </MudButton>
+                </MudStack>
+
+            </MudForm>
+        </MudPaper>
+    }
+
+</MudContainer>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private BusinessFormModel originalSnapshot = new();
+    private MudForm form = null!;
+    private bool isFormValid;
+    private bool saving;
+    private bool loading = true;
+    private string? errorMessage;
+    private BusinessFormModel model = new();
+    private Business? existingBusiness;
+    private bool IsDirty =>
+        (model.Name?.Trim() ?? "") != (originalSnapshot.Name?.Trim() ?? "") ||
+        (model.Afm?.Trim() ?? "") != (originalSnapshot.Afm?.Trim() ?? "") ||
+        (model.Kad?.Trim() ?? "") != (originalSnapshot.Kad?.Trim() ?? "") ||
+        (model.Address?.Trim() ?? "") != (originalSnapshot.Address?.Trim() ?? "");
+
+    protected override async Task OnInitializedAsync()
+    {
+        existingBusiness = await GetHandler.Handle(new GetBusinessByIdQuery(Id, ActiveOnly: true), CancellationToken.None);
+
+        if (existingBusiness is null)
+        {
+            // Don't render the not-found view — redirect immediately.
+            // Avoids users getting stuck on a half-page with no working back navigation.
+            Nav.NavigateTo("/businesses");
+            return;
+        }
+
+        model = new BusinessFormModel
+        {
+            Name = existingBusiness.Name,
+            Afm = existingBusiness.Afm,
+            Kad = existingBusiness.Kad,
+            Address = existingBusiness.Address
+        };
+
+        originalSnapshot = new BusinessFormModel
+        {
+            Name = existingBusiness.Name,
+            Afm = existingBusiness.Afm,
+            Kad = existingBusiness.Kad,
+            Address = existingBusiness.Address
+        };
+
+        loading = false;
+    }
+
+    private string? ValidateAfm(string afm)
+    {
+        if (string.IsNullOrWhiteSpace(afm))
+            return null;
+
+        if (!Roivo.Core.Domain.Validation.AfmValidator.IsValid(afm))
+            return "Μη έγκυρο ΑΦΜ";
+
+        return null;
+    }
+
+    private async Task HandleSave()
+    {
+        if (existingBusiness is null) return;
+
+        await form.ValidateAsync();
+        if (!isFormValid || !IsDirty) return;
+
+        saving = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var result = await UpdateHandler.Handle(
+                new UpdateBusinessCommand(existingBusiness.Id, model.Name, model.Afm, model.Kad, model.Address),
+                CancellationToken.None);
+
+            switch (result)
+            {
+                case UpdateBusinessResult.Success:
+                    Nav.NavigateTo("/businesses");
+                    return;
+                case UpdateBusinessResult.InvalidAfm:
+                    errorMessage = "Μη έγκυρο ΑΦΜ";
+                    return;
+                case UpdateBusinessResult.NotFound:
+                    errorMessage = "Η επιχείρηση δεν υπάρχει πλέον.";
+                    return;
+                case UpdateBusinessResult.ActiveDuplicateAfm:
+                    errorMessage = "Υπάρχει ήδη άλλη ενεργή επιχείρηση με αυτό το ΑΦΜ.";
+                    return;
+            }
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private class BusinessFormModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Afm { get; set; } = string.Empty;
+        public string? Kad { get; set; }
+        public string? Address { get; set; }
+    }
+}

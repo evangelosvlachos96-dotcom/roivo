@@ -3,8 +3,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
+using Roivo.Application.Abstractions;
 using Roivo.Core.Domain.Entities;
-using Roivo.Infrastructure.Auditing;
 using Roivo.Infrastructure.Email;
 
 namespace Roivo.Web.Areas.Account.Pages;
@@ -13,15 +13,20 @@ public class ForgotPasswordModel : PageModel
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IEmailSender _emailSender;
-    private readonly IAuditService _audit;
+    private readonly IAuditWriter _audit;
     private readonly ILogger<ForgotPasswordModel> _logger;
 
     public ForgotPasswordModel(
         UserManager<ApplicationUser> userManager,
         IEmailSender emailSender,
-        IAuditService audit,
+        IAuditWriter audit,
         ILogger<ForgotPasswordModel> logger)
     {
+        ArgumentNullException.ThrowIfNull(userManager);
+        ArgumentNullException.ThrowIfNull(emailSender);
+        ArgumentNullException.ThrowIfNull(audit);
+        ArgumentNullException.ThrowIfNull(logger);
+
         _userManager = userManager;
         _emailSender = emailSender;
         _audit = audit;
@@ -84,7 +89,7 @@ public class ForgotPasswordModel : PageModel
                 _logger.LogError(ex, "Failed to send password reset email to {Email}", Input.Email);
             }
 
-            await _audit.LogAsync(
+            await _audit.WriteAsync(
                 action: "PasswordResetRequested",
                 userId: user.Id,
                 tenantId: user.TenantId,

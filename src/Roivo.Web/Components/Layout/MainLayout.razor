@@ -1,4 +1,9 @@
 @inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Identity
+@using Roivo.Core.Domain.Entities
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthState
+@inject UserManager<ApplicationUser> UserManager
 
 <MudThemeProvider />
 <MudPopoverProvider />
@@ -6,9 +11,77 @@
 <MudSnackbarProvider />
 
 <MudLayout>
+    <MudAppBar Elevation="1" Color="Color.Default">
+        <MudText Typo="Typo.h6" Class="cursor-pointer" 
+                 @onclick='() => Nav.NavigateTo("/")'>
+            Roivo
+        </MudText>
+
+        <MudSpacer />
+
+        <AuthorizeView>
+            <Authorized>
+                <MudButton Variant="Variant.Text"
+                           StartIcon="@Icons.Material.Outlined.Dashboard"
+                           OnClick='() => Nav.NavigateTo("/dashboard")'>
+                    Πίνακας ελέγχου
+                </MudButton>
+                <MudButton Variant="Variant.Text"
+                           StartIcon="@Icons.Material.Outlined.Business"
+                           OnClick='() => Nav.NavigateTo("/businesses")'>
+                    Επιχειρήσεις
+                </MudButton>
+
+                <MudMenu Icon="@Icons.Material.Outlined.AccountCircle" 
+                         Color="Color.Inherit"
+                         AnchorOrigin="Origin.BottomRight"
+                         TransformOrigin="Origin.TopRight">
+                    <MudMenuItem>
+                        <MudText Typo="Typo.body2">@displayName</MudText>
+                    </MudMenuItem>
+                    <MudDivider />
+                    <MudMenuItem>
+                        <form action="/Account/Logout" method="post">
+                            <AntiforgeryToken />
+                            <button type="submit" 
+                                    style="background: none; border: none; padding: 0; cursor: pointer; color: inherit; font: inherit;">
+                                Έξοδος
+                            </button>
+                        </form>
+                    </MudMenuItem>
+                </MudMenu>
+            </Authorized>
+            <NotAuthorized>
+                <MudButton Variant="Variant.Text"
+                           OnClick='() => Nav.NavigateTo("/Account/Login")'>
+                    Σύνδεση
+                </MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           OnClick='() => Nav.NavigateTo("/Account/Register")'>
+                    Εγγραφή
+                </MudButton>
+            </NotAuthorized>
+        </AuthorizeView>
+    </MudAppBar>
+
     <MudMainContent>
         <MudContainer MaxWidth="MaxWidth.Large" Class="pa-6">
             @Body
         </MudContainer>
     </MudMainContent>
 </MudLayout>
+
+@code {
+    private string displayName = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthState.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated != true) return;
+
+        // UserManager uses its own scoped store; with the factory-backed
+        // scoped DbContext registration, this no longer races with page queries.
+        var user = await UserManager.GetUserAsync(authState.User);
+        displayName = user?.FullName ?? user?.Email ?? "";
+    }
+}

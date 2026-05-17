@@ -2,8 +2,8 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Roivo.Application.Abstractions;
 using Roivo.Core.Domain.Entities;
-using Roivo.Infrastructure.Auditing;
 
 namespace Roivo.Web.Areas.Account.Pages;
 
@@ -11,13 +11,17 @@ public class LoginModel : PageModel
 {
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly UserManager<ApplicationUser> _userManager;
-    private readonly IAuditService _audit;
+    private readonly IAuditWriter _audit;
 
     public LoginModel(
         SignInManager<ApplicationUser> signInManager,
         UserManager<ApplicationUser> userManager,
-        IAuditService audit)
+        IAuditWriter audit)
     {
+        ArgumentNullException.ThrowIfNull(signInManager);
+        ArgumentNullException.ThrowIfNull(userManager);
+        ArgumentNullException.ThrowIfNull(audit);
+
         _signInManager = signInManager;
         _userManager = userManager;
         _audit = audit;
@@ -67,7 +71,7 @@ public class LoginModel : PageModel
                 user.LastLoginAt = DateTime.UtcNow;
                 await _userManager.UpdateAsync(user);
 
-                await _audit.LogAsync(
+                await _audit.WriteAsync(
                     action: "LoginSucceeded",
                     userId: user.Id,
                     tenantId: user.TenantId,
@@ -92,7 +96,7 @@ public class LoginModel : PageModel
         if (result.IsLockedOut)
         {
             var lockedUser = await _userManager.FindByEmailAsync(Input.Email);
-            await _audit.LogAsync(
+            await _audit.WriteAsync(
                 action: "AccountLockedOut",
                 userId: lockedUser?.Id,
                 tenantId: lockedUser?.TenantId,
@@ -107,7 +111,7 @@ public class LoginModel : PageModel
         if (result.IsNotAllowed)
         {
             var blockedUser = await _userManager.FindByEmailAsync(Input.Email);
-            await _audit.LogAsync(
+            await _audit.WriteAsync(
                 action: "LoginBlockedNotAllowed",
                 userId: blockedUser?.Id,
                 tenantId: blockedUser?.TenantId,
@@ -119,7 +123,7 @@ public class LoginModel : PageModel
             return Page();
         }
 
-        await _audit.LogAsync(
+        await _audit.WriteAsync(
             action: "LoginFailed",
             details: $"email={Input.Email}",
             cancellationToken: cancellationToken);
