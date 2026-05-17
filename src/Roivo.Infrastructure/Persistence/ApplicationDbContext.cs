@@ -52,7 +52,8 @@ public class ApplicationDbContext(
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        if (_tenantContext.CurrentTenantId is Guid tenantId)
+        var tenantId = _tenantContext.CurrentTenantId;
+        if (tenantId != Guid.Empty)
         {
             foreach (var entry in ChangeTracker.Entries<ITenantScoped>())
             {
