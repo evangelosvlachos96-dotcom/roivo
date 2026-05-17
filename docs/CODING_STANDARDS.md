@@ -335,3 +335,25 @@ A Razor component should:
 - Stay focused on rendering and user interaction
 
 ---
+
+## DbContext lifecycle rule (MANDATORY)
+
+ApplicationDbContext must never be injected directly into types we author.
+
+- Repositories, audit writers, claims factories, and any custom service that touches the database must inject IDbContextFactory<ApplicationDbContext>.
+- Each method creates a fresh context via `await using var db = await _factory.CreateDbContextAsync(ct);`.
+- No private fields holding DbContext state across method calls.
+- Repository write methods save internally before returning.
+- Entities returned from a repository are detached — mutate them, then call UpdateAsync to persist.
+
+The only exception: framework types we don't control (Identity's UserStore, OpenIddict's stores, Hangfire's job storage). These manage their own context scoping.
+
+Why this rule exists:
+- Blazor Server shares scoped services across prerender + interactive render.
+- Two near-simultaneous calls on the same context cause "A second operation was started on this context instance" errors.
+- Stateless services with per-method contexts make this class of bug impossible.
+
+Enforcement:
+- grep the codebase for "ApplicationDbContext" as a constructor parameter — should appear ONLY in framework-related registration code, never in our own services.
+
+---

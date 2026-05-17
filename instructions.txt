@@ -1,541 +1,79 @@
-HOLISTIC REFACTOR: Introduce Roivo.Application layer with feature-based CQRS handlers.
-
-CONTEXT:
-We're moving from a fat-component architecture to a properly layered one. Business logic currently lives in Razor components (Roivo.Web/Components/Pages/Businesses.razor, BusinessCreate.razor, BusinessEdit.razor). This refactor extracts that logic into a new Roivo.Application project organized by feature, with CQRS-style command/query handlers.
-
-This is purely structural. No new features, no behavior changes. End state: same smoke tests pass, but the code is dramatically more testable and maintainable.
-
-ARCHITECTURE DECISIONS (locked, do not deviate):
-
-- Lightweight pure-domain: entities stay in Roivo.Core. Core has ZERO references to EF Core or Microsoft.EntityFrameworkCore.* packages. Entity configurations live in Roivo.Infrastructure/Persistence/Configurations/ (already do).
-- Feature-based folders in Application: Features/Businesses/, Features/Tenants/ (later), etc.
-- CQRS via handler classes, NO MediatR. Each command/query has its own handler class. Razor components inject and call handlers directly.
-- Result types: each command/query returns a discriminated union — abstract record + sealed inner records.
-- Repository interfaces live in Roivo.Application/Abstractions/. Implementations live in Roivo.Infrastructure.
-- ITenantContext moves to Roivo.Application/Abstractions/ITenantContext.cs (it's used by both Application and Infrastructure).
-
-DEPENDENCY FLOW (enforce strictly):
-- Roivo.Core ← references nothing (pure entities + validators)
-- Roivo.Application ← references Roivo.Core only
-- Roivo.Infrastructure ← references Roivo.Core + Roivo.Application (to implement Application's abstractions)
-- Roivo.Web ← references all three (for DI registration and component injection)
-
-The unusual one: Infrastructure references Application. This is correct — Application defines the abstractions (interfaces), Infrastructure provides the implementations. This is the Dependency Inversion Principle.
-
-PHASE 1: Project scaffolding and abstractions
-
-Step 1.1 — Create Roivo.Application project
-
-- Add new class library: src/Roivo.Application/Roivo.Application.csproj
-- Target framework: net10.0
-- Reference Roivo.Core
-- Update Roivo.Web.csproj to reference Roivo.Application
-- Update Roivo.Infrastructure.csproj to reference Roivo.Application
-
-Step 1.2 — Create the test project
-
-- Add new xUnit test project: tests/Roivo.Application.Tests/Roivo.Application.Tests.csproj
-- Target framework: net10.0
-- Reference Roivo.Application + Roivo.Core
-- Install NuGet packages: xunit (latest stable), xunit.runner.visualstudio, FluentAssertions, Microsoft.NET.Test.Sdk
-
-Step 1.3 — Define abstractions in Roivo.Application/Abstractions/
-
-Move ITenantContext from Roivo.Infrastructure/MultiTenancy/ to Roivo.Application/Abstractions/ITenantContext.cs. Update its namespace to Roivo.Application.Abstractions. The Infrastructure implementation HttpTenantContext stays in Infrastructure but now implements the Application interface — update the using directive there.
-
-Create Roivo.Application/Abstractions/IBusinessRepository.cs:
-
-```csharp
-namespace Roivo.Application.Abstractions;
-
-using Roivo.Core.Domain.Entities;
-
-public interface IBusinessRepository
-{
-    Task<Business?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<Business?> GetByIdActiveOnlyAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<Business?> FindByAfmAsync(string afm, bool activeOnly, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<Business>> ListActiveAsync(CancellationToken cancellationToken = default);
-    Task<bool> AfmExistsAsync(string afm, bool activeOnly, Guid? excludeId = null, CancellationToken cancellationToken = default);
-    Task AddAsync(Business business, CancellationToken cancellationToken = default);
-    Task SaveChangesAsync(CancellationToken cancellationToken = default);
-}
-```
-
-Create Roivo.Application/Abstractions/IAuditWriter.cs (RENAMES IAuditService — clearer intent):
-
-```csharp
-namespace Roivo.Application.Abstractions;
-
-public interface IAuditWriter
-{
-    Task WriteAsync(
-        string action,
-        Guid? userId = null,
-        Guid? tenantId = null,
-        string? entityType = null,
-        string? entityId = null,
-        object? details = null,
-        CancellationToken cancellationToken = default);
-}
-```
-
-Note: details is now object (serialized internally by the implementation) instead of pre-serialized string. Cleaner caller code.
-
-Step 1.4 — Implement abstractions in Infrastructure
-
-Create Roivo.Infrastructure/Persistence/Repositories/BusinessRepository.cs implementing IBusinessRepository. Use the existing IDbContextFactory<ApplicationDbContext>. Each method creates a fresh DbContext, performs the operation, disposes. Apply standard null guards in constructor.
-
-Create Roivo.Infrastructure/Auditing/AuditWriter.cs implementing IAuditWriter. Replace the existing AuditService class. Use IDbContextFactory<ApplicationDbContext>. Serialize details internally with System.Text.Json.JsonSerializer. Wrap in try/catch — audit failures log to Serilog but don't throw.
-
-Delete the old IAuditService and AuditService files after AuditWriter is in place. Update all references throughout the codebase to use IAuditWriter / AuditWriter and the new method name WriteAsync (was LogAsync).
-
-Step 1.5 — Update DI registration
-
-In Roivo.Web/Configuration (or wherever extension methods live), add:
-
-```csharp
-public static IServiceCollection AddRoivoApplication(this IServiceCollection services)
-{
-    // Handlers will be registered in Phase 2
-    return services;
-}
-```
-
-In Infrastructure registration, register the new implementations:
-
-```csharp
-services.AddScoped<IBusinessRepository, BusinessRepository>();
-services.AddScoped<IAuditWriter, AuditWriter>();
-// keep ITenantContext registration but the type now lives in Roivo.Application.Abstractions
-services.AddScoped<ITenantContext, HttpTenantContext>();
-```
-
-Call AddRoivoApplication() in Program.cs alongside existing registrations.
-
-Step 1.6 — Verify Phase 1 builds clean
-
-dotnet build the whole solution. No errors. Razor components still use the old API for now — they'll be updated in Phase 4. The app should still run and behave identically.
-
-If anything was missed (a using directive, a reference), fix it before declaring Phase 1 done.
-
-PHASE 2: Implement Business feature handlers in Application
-
-Step 2.1 — Create folder structure:
-
-src/Roivo.Application/Features/Businesses/Commands/
-  CreateBusiness/
-  UpdateBusiness/
-  DeactivateBusiness/
-  ReactivateBusiness/
-src/Roivo.Application/Features/Businesses/Queries/
-  GetBusinessById/
-  ListActiveBusinesses/
-
-Each command folder gets 3 files: Command, Handler, Result. Each query folder gets 2-3 files: Query, Handler, optional Result.
-
-Step 2.2 — CreateBusiness feature
-
-File: src/Roivo.Application/Features/Businesses/Commands/CreateBusiness/CreateBusinessCommand.cs
-
-```csharp
-namespace Roivo.Application.Features.Businesses.Commands.CreateBusiness;
-
-public sealed record CreateBusinessCommand(
-    string Name,
-    string Afm,
-    string? Kad,
-    string? Address);
-```
-
-File: CreateBusinessResult.cs
-
-```csharp
-namespace Roivo.Application.Features.Businesses.Commands.CreateBusiness;
-
-public abstract record CreateBusinessResult
-{
-    public sealed record Success(Guid BusinessId) : CreateBusinessResult;
-    public sealed record InvalidAfm : CreateBusinessResult;
-    public sealed record ActiveDuplicate(string Afm) : CreateBusinessResult;
-    public sealed record InactiveDuplicate(Guid ExistingId, string OldName, string? OldAddress) : CreateBusinessResult;
-}
-```
-
-File: CreateBusinessHandler.cs
-
-```csharp
-namespace Roivo.Application.Features.Businesses.Commands.CreateBusiness;
-
-using Roivo.Application.Abstractions;
-using Roivo.Core.Domain.Entities;
-using Roivo.Core.Domain.Validation;
-
-public sealed class CreateBusinessHandler
-{
-    private readonly IBusinessRepository _repository;
-    private readonly IAuditWriter _audit;
-    private readonly ITenantContext _tenant;
-
-    public CreateBusinessHandler(
-        IBusinessRepository repository,
-        IAuditWriter audit,
-        ITenantContext tenant)
-    {
-        ArgumentNullException.ThrowIfNull(repository);
-        ArgumentNullException.ThrowIfNull(audit);
-        ArgumentNullException.ThrowIfNull(tenant);
-
-        _repository = repository;
-        _audit = audit;
-        _tenant = tenant;
-    }
-
-    public async Task<CreateBusinessResult> Handle(CreateBusinessCommand command, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(command);
-
-        var afm = (command.Afm ?? string.Empty).Trim();
-        var name = (command.Name ?? string.Empty).Trim();
-
-        if (!AfmValidator.IsValid(afm))
-            return new CreateBusinessResult.InvalidAfm();
-
-        // Check active duplicate first — that's a hard block.
-        if (await _repository.AfmExistsAsync(afm, activeOnly: true, excludeId: null, cancellationToken))
-            return new CreateBusinessResult.ActiveDuplicate(afm);
-
-        // Check inactive duplicate — surfaces a reactivation option to the caller.
-        var inactive = await _repository.FindByAfmAsync(afm, activeOnly: false, cancellationToken);
-        if (inactive is not null && !inactive.IsActive)
-        {
-            return new CreateBusinessResult.InactiveDuplicate(inactive.Id, inactive.Name, inactive.Address);
-        }
-
-        var business = new Business
-        {
-            Name = name,
-            Afm = afm,
-            Kad = string.IsNullOrWhiteSpace(command.Kad) ? null : command.Kad.Trim(),
-            Address = string.IsNullOrWhiteSpace(command.Address) ? null : command.Address.Trim()
-            // TenantId is set by ApplicationDbContext.SaveChangesAsync override
-        };
-
-        await _repository.AddAsync(business, cancellationToken);
-        await _repository.SaveChangesAsync(cancellationToken);
-
-        await _audit.WriteAsync(
-            action: "BusinessCreated",
-            tenantId: _tenant.CurrentTenantId,
-            entityType: nameof(Business),
-            entityId: business.Id.ToString(),
-            details: new { business.Name, business.Afm },
-            cancellationToken: cancellationToken);
-
-        return new CreateBusinessResult.Success(business.Id);
-    }
-}
-```
-
-Step 2.3 — UpdateBusiness feature
-
-Following the same pattern, create:
-- UpdateBusinessCommand: Id, Name, Afm, Kad, Address
-- UpdateBusinessResult: Success, InvalidAfm, NotFound, ActiveDuplicateAfm
-- UpdateBusinessHandler: load business via repository (active only), validate AFM, check duplicate (excluding self), apply changes (only fields that actually changed), save, audit log "BusinessUpdated" with from/to diff for changed fields only (no diff = no audit entry).
-
-Step 2.4 — DeactivateBusiness feature
-
-- DeactivateBusinessCommand: Id
-- DeactivateBusinessResult: Success, NotFound, AlreadyInactive
-- DeactivateBusinessHandler: load by Id (active only filter), set IsActive=false, save, audit "BusinessDeactivated" with Name + Afm snapshot.
-
-Step 2.5 — ReactivateBusiness feature
-
-- ReactivateBusinessCommand: Id, Name, Kad, Address (the new values the user typed during the reactivation flow)
-- ReactivateBusinessResult: Success, NotFound, AlreadyActive, ConflictsWithActive (if another active business has same AFM somehow)
-- ReactivateBusinessHandler: load by Id (any active state), check it's inactive, check no active business has the same AFM, apply name/Kad/Address from command, flip IsActive=true, save, audit "BusinessReactivated".
-
-Step 2.6 — GetBusinessById query
-
-- GetBusinessByIdQuery: Id, ActiveOnly (bool, default true)
-- GetBusinessByIdHandler: returns Business? — repository call directly.
-- No Result type — null indicates not found. This is a simple read, no business outcomes.
-
-Step 2.7 — ListActiveBusinesses query
-
-- ListActiveBusinessesQuery: no parameters (tenant scope is automatic).
-- ListActiveBusinessesHandler: returns IReadOnlyList<Business> from repository.
-
-Step 2.8 — Register all handlers in DI
-
-In AddRoivoApplication extension, register every handler as scoped:
-
-```csharp
-services.AddScoped<CreateBusinessHandler>();
-services.AddScoped<UpdateBusinessHandler>();
-services.AddScoped<DeactivateBusinessHandler>();
-services.AddScoped<ReactivateBusinessHandler>();
-services.AddScoped<GetBusinessByIdHandler>();
-services.AddScoped<ListActiveBusinessesHandler>();
-```
-
-Handlers are stateless, request-scoped, no shared state across calls.
-
-Step 2.9 — Verify Phase 2 builds
-
-dotnet build clean. Handlers exist and are registered, but nothing in Web calls them yet — they're dead code at this point. That's fine; Phase 4 wires them up.
-
-PHASE 3: Unit tests for Business handlers
-
-Step 3.1 — Create fake repository in test project
-
-In tests/Roivo.Application.Tests/Fakes/FakeBusinessRepository.cs, implement IBusinessRepository backed by a Dictionary<Guid, Business>. Methods operate on the dictionary. No DB.
-
-Step 3.2 — Create fake audit writer
-
-In tests/Roivo.Application.Tests/Fakes/FakeAuditWriter.cs, implement IAuditWriter that captures calls into a List<AuditCall> for assertions.
-
-```csharp
-public record AuditCall(string Action, Guid? TenantId, string? EntityType, string? EntityId, object? Details);
-
-public sealed class FakeAuditWriter : IAuditWriter
-{
-    public List<AuditCall> Calls { get; } = new();
-
-    public Task WriteAsync(string action, Guid? userId = null, Guid? tenantId = null, string? entityType = null, string? entityId = null, object? details = null, CancellationToken cancellationToken = default)
-    {
-        Calls.Add(new AuditCall(action, tenantId, entityType, entityId, details));
-        return Task.CompletedTask;
-    }
-}
-```
-
-Step 3.3 — Create fake tenant context
-
-```csharp
-public sealed class FakeTenantContext : ITenantContext
-{
-    public Guid CurrentTenantId { get; set; } = Guid.NewGuid();
-}
-```
-
-Step 3.4 — Write handler tests
-
-Cover, at minimum:
-
-CreateBusinessHandler:
-- Happy path: valid input → Success, business in repo, audit written
-- Invalid AFM → InvalidAfm result, nothing in repo, no audit
-- Active duplicate → ActiveDuplicate result, no new business added
-- Inactive duplicate → InactiveDuplicate result with old details, no new business added
-- Trims whitespace from name and AFM
-- Empty Kad/Address strings stored as null
-
-UpdateBusinessHandler:
-- Happy path
-- Not found
-- Invalid AFM
-- Active duplicate of another business
-- No changes → no audit entry written
-- Audit details capture only changed fields
-
-DeactivateBusinessHandler:
-- Happy path
-- Not found
-- Already inactive
-
-ReactivateBusinessHandler:
-- Happy path with new name/address
-- Not found
-- Already active
-- Conflicts with active business with same AFM
-
-GetBusinessByIdHandler, ListActiveBusinessesHandler:
-- Simple positive cases
-
-Aim for ~20 tests. Use FluentAssertions. Make tests readable — Arrange-Act-Assert with comments where useful.
-
-Run dotnet test. All should pass.
-
-PHASE 4: Refactor Razor components to use handlers
-
-Step 4.1 — Businesses.razor (list page)
-
-Remove: @inject IDbContextFactory<ApplicationDbContext> DbFactory, @inject IAuditService Audit (or IAuditWriter), @using Microsoft.EntityFrameworkCore, @using Roivo.Infrastructure.Persistence.
-
-Add: @inject ListActiveBusinessesHandler ListHandler, @inject DeactivateBusinessHandler DeactivateHandler, @inject IDialogService DialogService, @inject NavigationManager Nav.
-
-LoadBusinesses now calls ListHandler.Handle(new ListActiveBusinessesQuery(), CancellationToken.None) — returns the list directly.
-
-HandleDeactivate now calls DeactivateHandler.Handle(new DeactivateBusinessCommand(business.Id), ct). Pattern-match the result — Success reloads list, NotFound shows a brief snackbar message, AlreadyInactive ignores.
-
-Step 4.2 — BusinessCreate.razor
-
-Remove all DbContextFactory, Audit, EF Core imports.
-
-Add: @inject CreateBusinessHandler CreateHandler, @inject ReactivateBusinessHandler ReactivateHandler.
-
-HandleSave calls CreateHandler.Handle(new CreateBusinessCommand(model.Name, model.Afm, model.Kad, model.Address), ct).
-
-Pattern-match the result:
-- Success → Nav to /businesses
-- InvalidAfm → errorMessage = "Μη έγκυρο ΑΦΜ" (shouldn't happen — form validator catches first — but defensive)
-- ActiveDuplicate → errorMessage = "Υπάρχει ήδη ενεργή επιχείρηση με αυτό το ΑΦΜ."
-- InactiveDuplicate (with details) → inactiveDuplicate = ...; state = InactiveDuplicateDetected;
-
-The existing FormState enum and reactivation UI stays as-is. Only HandleSave's internals change. ReactivateExisting calls ReactivateHandler.Handle(new ReactivateBusinessCommand(inactiveDuplicate.Id, model.Name, model.Kad, model.Address), ct). CreateNewAnyway becomes simpler — it tries CreateHandler again with a flag in the command (or we add a separate command CreateBusinessForceNew). For now, given the DB constraint complication, CreateNewAnyway shows a toast saying it's not currently supported and returns to form.
-
-Step 4.3 — BusinessEdit.razor
-
-Remove all DbContextFactory, Audit, EF Core imports.
-
-Add: @inject GetBusinessByIdHandler GetHandler, @inject UpdateBusinessHandler UpdateHandler.
-
-OnInitializedAsync calls GetHandler.Handle(new GetBusinessByIdQuery(Id, ActiveOnly: true), ct). Null → redirect to /businesses. Otherwise populate model and snapshot.
-
-HandleSave calls UpdateHandler.Handle(new UpdateBusinessCommand(existingBusiness.Id, model.Name, model.Afm, model.Kad, model.Address), ct). Pattern-match outcomes.
-
-Step 4.4 — MainLayout.razor
-
-No changes — it uses UserManager which is fine.
-
-Step 4.5 — Dashboard.razor
-
-Same business count query goes through ListActiveBusinessesHandler if used.
-
-Step 4.6 — Verify Phase 4
-
-dotnet build clean. Run the app. Smoke test:
-- Log in
-- Create a business — succeeds
-- Create with duplicate active AFM — clean error message
-- Deactivate, then create with same AFM — reactivation prompt appears
-- Edit a business — works
-- Deactivate again — works
-- Navigate to a non-existent /businesses/{guid}/edit — redirects
-
-If smoke tests pass, Phase 4 is done.
-
-PHASE 5: Cleanup and documentation
-
-Step 5.1 — Verify dependency rules
-
-- Search Roivo.Core for "Microsoft.EntityFrameworkCore" — should be ZERO matches.
-- Search Roivo.Application for "Microsoft.EntityFrameworkCore" — should be ZERO matches.
-- Search Roivo.Web/Components for "ApplicationDbContext" — should be ZERO matches.
-- Search Roivo.Web/Components for "JsonSerializer" — should be ZERO matches.
-- Search Roivo.Web/Components for "Microsoft.EntityFrameworkCore" — should be ZERO matches.
-
-If any of these turn up matches, fix the leakage.
-
-Step 5.2 — Delete dead code
-
-- Old IAuditService and AuditService files (if not already deleted)
-- Any handlers or services from the old approach
-- Old MultiTenancy folder in Infrastructure if ITenantContext was relocated (move HttpTenantContext to Roivo.Infrastructure/Identity/ or somewhere logical, but ITenantContext interface lives in Application now)
-
-Step 5.3 — Update docs/CODING_STANDARDS.md
-
-Append a new section:
+Append a new entry to later.md under the "Pricing tiers and premium features" section, or create a new section called "Cost optimization (post-scale)". Add this content:
 
 ```markdown
-## Layered architecture
+## Adaptive sync scheduling (M11+, scale-dependent)
 
-Strict dependency flow:
+Idea: instead of syncing every customer at a fixed daily time, learn each customer's behavior pattern and schedule syncs to be fresh when they're active. Reduces API cost by avoiding wasted refreshes for inactive accounts.
 
-Roivo.Core → no references
-Roivo.Application → Roivo.Core only
-Roivo.Infrastructure → Roivo.Core + Roivo.Application (implements abstractions)
-Roivo.Web → all three
+### Why this matters
 
-### What lives where
+- PSD2 bank API calls cost real money (roughly €0.10-0.30 per refresh at GoCardless/Tink scale).
+- At 50 customers: maybe €50-100/month potential savings — not worth the engineering investment.
+- At 1,000 customers: ~€1,000-2,000/month savings — worth building.
+- At 10,000+ customers: critical — €10k+/month at stake.
 
-**Roivo.Core**
-- Domain entities (Business, Tenant, BankAccount, etc.)
-- Value objects (Currency enum, etc.)
-- Domain validators (AfmValidator)
-- Domain interfaces (ITenantScoped)
-- NO EF Core. NO infrastructure concerns.
+Decision: do not build until we cross ~500 paying customers. Track the API spend metric to know when.
 
-**Roivo.Application**
-- Features/{Domain}/Commands/{ActionName}/ — Command + Handler + Result trio
-- Features/{Domain}/Queries/{QueryName}/ — Query + Handler trio
-- Abstractions/ — repository interfaces, infrastructure-facing interfaces
-- Common/ — shared base types
+### Two signals worth capturing
 
-Features are organized vertically. Working on businesses? Everything in Features/Businesses/. Working on auth? Features/Auth/.
+1. **Login times** — tells us when the user wants fresh data. UX signal.
+2. **Bank transaction timestamps** — tells us when the bank's data actually changes. Freshness signal.
 
-**Roivo.Infrastructure**
-- Persistence/ApplicationDbContext.cs
-- Persistence/Configurations/ — IEntityTypeConfiguration<T> classes
-- Persistence/Repositories/ — implementations of Roivo.Application.Abstractions interfaces
-- Auditing/AuditWriter.cs
-- Identity/HttpTenantContext.cs, TenantClaimsPrincipalFactory.cs
-- External integrations (later: AADE, PSD2)
-- EF Core lives ONLY here.
+These often don't align (owner checks in the morning, transactions happen throughout the day). The "best sync time" depends on which signal we optimize for. Probably need both — sync slightly before typical login if the user has a pattern, otherwise sync after the bank's likely activity window.
 
-**Roivo.Web**
-- Razor components and Razor Pages
-- DI registration in Configuration/ extensions
-- Components inject handlers from Application, NOT repositories or DbContext
-- Components are thin: render UI, call handlers, map result to UI state
+### Two possible implementations
 
-### Component discipline rules
+**Option A: Per-customer learned schedule (complex)**
+- Collect telemetry: login timestamps, transaction timestamps
+- Cluster per customer to find their "active window"
+- Schedule sync to land 30-60 minutes before their active window
+- Re-cluster monthly for new customers, every 6 months once stable
+- User can manually reset the recommendation (e.g., when their business policy changes)
+- Estimated effort: 4-8 weeks
+- Failure modes: new customers (no history), erratic patterns, vacations/holidays, accountant vs client hour misalignment
 
-A Razor component must not:
-- Import Microsoft.EntityFrameworkCore
-- Import Roivo.Infrastructure
-- Inject DbContext, DbContextFactory, or any repository
-- Call SaveChangesAsync, Add, Update, etc.
-- Serialize JSON for audit logging
-- Use System.Text.Json directly
+**Option B: Bucket-based schedule (pragmatic)**
+- 3-4 fixed buckets:
+  - "Morning checker" → sync at 5am
+  - "Evening checker" → sync at 5pm
+  - "Always-on" → sync 2x/day
+  - "Sporadic" → sync every 2 days
+- Each customer assigned to a bucket based on first 30 days of behavior
+- Re-assigned quarterly
+- Estimated effort: 1-2 weeks
+- Captures ~80% of personalization value at much lower complexity
 
-A Razor component should:
-- Inject command/query handlers
-- Build commands/queries from form input
-- Pattern-match on result types to determine UI behavior
-- Stay focused on rendering and user interaction
+Probably start with Option B when we cross the threshold, evolve to Option A only if data shows meaningful additional savings.
+
+### Subscription tier interaction
+
+- Free tier: daily sync at fixed off-peak time (e.g., 3am Greece). No personalization.
+- Premium tier: adaptive scheduling enabled. Sync runs at the learned-optimal time. Plus 2-3 on-demand refreshes per day.
+- Enterprise/accountant tier (future): sync runs multiple times per day, can be configured by user, plus on-demand.
+
+### Telemetry and privacy notes
+
+- Collecting login times and transaction patterns counts as behavioral profiling under GDPR.
+- Privacy policy must disclose: "We analyze your usage patterns to optimize when we refresh your data, minimizing costs and ensuring freshness when you're active."
+- Users must be able to opt out (defaults to fixed schedule if they do).
+- Data retention: behavioral data older than 6 months can be deleted (no value beyond pattern learning).
+
+### User controls
+
+- "Reset sync recommendation" button — when a business changes its operating pattern, user can wipe the learned schedule and restart learning.
+- "Show me when Roivo last synced" — transparency, builds trust.
+- "Force refresh now" — manual override, always available (counts against premium quota if applicable).
+
+### Open questions to resolve when we build this
+
+- Does the accountant's pattern matter, or the client business's pattern? They could be different.
+- How to handle customers who use Roivo across multiple time zones (rare in Greece, but for future EU expansion)?
+- Cron precision — do we need minute-level scheduling, or is 15-minute buckets fine?
 ```
 
-Step 5.4 — Update PROGRESS.md
+After editing, verify:
+- The new section appears appropriately in later.md
+- Existing content is preserved
+- No duplicate headings
 
-Append:
-
-```markdown
-## Architecture Refactor ✅ Completed [today's date]
-
-Introduced Roivo.Application layer organized by feature. Extracted all business logic from Razor components into command/query handlers. Created repository abstractions, implemented in Infrastructure. Added unit tests for all Business handlers. Net: same behavior, dramatically more testable and maintainable codebase.
-
-**Files moved / restructured:**
-- Roivo.Infrastructure/MultiTenancy/ITenantContext.cs → Roivo.Application/Abstractions/ITenantContext.cs
-- Roivo.Infrastructure/Auditing/AuditService.cs → Roivo.Infrastructure/Auditing/AuditWriter.cs (renamed)
-- Razor components reduced from ~500 lines total business logic to ~80 lines (UI only)
-
-**New projects:**
-- Roivo.Application
-- Roivo.Application.Tests
-
-**Test coverage:**
-- 20+ unit tests for Business handlers
-- All passing
-
-**Dependency rules now enforced:**
-- Roivo.Core has zero EF Core references
-- Roivo.Application has zero EF Core references
-- Razor components have zero EF Core or DbContext references
-```
-
-CONSTRAINTS:
-- This is structural only. No new features.
-- All existing smoke tests must still pass at the end.
-- No new NuGet packages beyond xunit and FluentAssertions for the test project.
-- Apply CODING_STANDARDS.md throughout: null-guards on all constructors, why-not-what comments, XML docs on the cross-project public surface (handler types, command/query types, result types, repository interfaces).
-- Build must be clean after each phase.
-
-DELIVERABLE AT EACH PHASE:
-- Phase 1 done: report new project structure, confirm build clean, no behavior change
-- Phase 2 done: report list of all handler files, confirm build clean
-- Phase 3 done: report test count, all passing
-- Phase 4 done: report which components changed, confirm smoke test passes manually
-- Phase 5 done: report dependency-check grep results, all clean
+Markdown only, no build needed.

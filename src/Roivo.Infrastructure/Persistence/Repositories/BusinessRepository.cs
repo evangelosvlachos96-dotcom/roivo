@@ -8,11 +8,6 @@ public sealed class BusinessRepository : IBusinessRepository
 {
     private readonly IDbContextFactory<ApplicationDbContext> _factory;
 
-    // The repository owns short-lived contexts. The pending-state for AddAsync
-    // is kept on a single context spanning Add → SaveChanges to satisfy callers
-    // that follow the "stage then save" pattern from the abstraction.
-    private ApplicationDbContext? _pending;
-
     public BusinessRepository(IDbContextFactory<ApplicationDbContext> factory)
     {
         ArgumentNullException.ThrowIfNull(factory);
@@ -66,37 +61,23 @@ public sealed class BusinessRepository : IBusinessRepository
         return await query.AnyAsync(cancellationToken);
     }
 
-    public async Task AddAsync(Business business, CancellationToken cancellationToken = default)
+    public async Task<Business> AddAsync(Business business, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(business);
 
-        // Lazily open a tracked context for the staged add. SaveChangesAsync
-        // will commit and dispose it.
-        _pending ??= await _factory.CreateDbContextAsync(cancellationToken);
-        await _pending.Businesses.AddAsync(business, cancellationToken);
+        await using var db = await _factory.CreateDbContextAsync(cancellationToken);
+        await db.Businesses.AddAsync(business, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        return business;
     }
 
-    public async Task UpdateAsync(Business business, CancellationToken cancellationToken = default)
+    public async Task<Business> UpdateAsync(Business business, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(business);
 
         await using var db = await _factory.CreateDbContextAsync(cancellationToken);
         db.Businesses.Update(business);
         await db.SaveChangesAsync(cancellationToken);
-    }
-
-    public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        if (_pending is null) return;
-
-        try
-        {
-            await _pending.SaveChangesAsync(cancellationToken);
-        }
-        finally
-        {
-            await _pending.DisposeAsync();
-            _pending = null;
-        }
+        return business;
     }
 }

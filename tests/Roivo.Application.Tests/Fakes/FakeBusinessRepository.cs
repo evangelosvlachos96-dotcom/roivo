@@ -6,7 +6,6 @@ namespace Roivo.Application.Tests.Fakes;
 public sealed class FakeBusinessRepository : IBusinessRepository
 {
     public Dictionary<Guid, Business> Store { get; } = new();
-    private readonly List<Business> _pendingAdds = new();
 
     public Task<Business?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         => Task.FromResult(Store.TryGetValue(id, out var b) ? Clone(b) : null);
@@ -42,24 +41,16 @@ public sealed class FakeBusinessRepository : IBusinessRepository
         return Task.FromResult(exists);
     }
 
-    public Task AddAsync(Business business, CancellationToken cancellationToken = default)
-    {
-        _pendingAdds.Add(business);
-        return Task.CompletedTask;
-    }
-
-    public Task UpdateAsync(Business business, CancellationToken cancellationToken = default)
+    public Task<Business> AddAsync(Business business, CancellationToken cancellationToken = default)
     {
         Store[business.Id] = Clone(business);
-        return Task.CompletedTask;
+        return Task.FromResult(business);
     }
 
-    public Task SaveChangesAsync(CancellationToken cancellationToken = default)
+    public Task<Business> UpdateAsync(Business business, CancellationToken cancellationToken = default)
     {
-        foreach (var b in _pendingAdds)
-            Store[b.Id] = Clone(b);
-        _pendingAdds.Clear();
-        return Task.CompletedTask;
+        Store[business.Id] = Clone(business);
+        return Task.FromResult(business);
     }
 
     // Detach from caller mutations so tests assert on a stable snapshot.

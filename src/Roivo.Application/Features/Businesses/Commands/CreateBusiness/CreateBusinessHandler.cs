@@ -54,8 +54,7 @@ public sealed class CreateBusinessHandler
             // TenantId is set by ApplicationDbContext.SaveChangesAsync override
         };
 
-        await _repository.AddAsync(business, cancellationToken);
-        await _repository.SaveChangesAsync(cancellationToken);
+        business = await _repository.AddAsync(business, cancellationToken);
 
         await _audit.WriteAsync(
             action: "BusinessCreated",

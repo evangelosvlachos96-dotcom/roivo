@@ -70,6 +70,113 @@ Week 12: Launch — landing page, beta deploy, 3 design partners onboarded
 - Build a free public tool that estimates VAT obligations — lead magnet for the paid product
 - Partner with one or two Greek banks for co-marketing
 
+### Pricing tiers and premium features
+
+These are product-level decisions about what's free/basic vs premium. Revisit when pricing tiers are designed (post-launch, after first 10 paying customers reveal what they value).
+
+#### Forecast horizon
+
+- Free / basic tier: 90 days (covers core VAT + ΕΦΚΑ + προκαταβολή window)
+- Premium tier: 30 / 60 / 90 / 180 / 365 day toggle
+- Premium tier: accuracy indicator showing confidence dropping past 90 days
+- Rationale: longer-horizon planning is genuinely more valuable for tax planning, especially for accountants planning annual obligations. Real differentiation, not artificial gating.
+
+#### Sync frequency and on-demand refresh
+
+- Free / basic tier: daily sync at 3am (covers the "tell me what happened yesterday" use case)
+- Premium tier: on-demand refresh button (2-3 manual refreshes per day, rate-limited)
+- Premium tier: smart adaptive sync — auto-refresh when user logs in, immediate sync after detected high-value transactions
+- Rationale: bank API calls (PSD2 via GoCardless/Tink) cost roughly €0.10–0.30 per account per refresh. Premium tier covers this cost. Daily-only at scale (1000 customers) ≈ €100-300/month total. Multiple-times-daily would be €2k-6k/month — needs to be monetized.
+
+#### Other potential premium features (capture as we think of them)
+
+- White-label option for accounting firms (their logo, custom domain)
+- API access for accountants to integrate Roivo data into their own tools
+- Multi-currency support (for businesses with EU clients beyond Greece)
+- SMS notifications (vs free email only)
+- Priority support / faster response SLA
+- Advanced reports / custom report builder
+- Data export to common accounting software (Pylon, Softone import format)
+
+#### Tier design principles to remember
+
+- Every premium feature should have real cost behind it (API spend, infrastructure, support load) — not just artificial limits to force upgrades
+- Free tier must be genuinely useful on its own — most users stay free, premium covers the cost of the few who upgrade
+- Avoid quota-based pricing (X invoices/month) for accountants — they manage many businesses and quotas create friction at exactly the wrong moment
+
+## Cost optimization (post-scale)
+
+Ideas to reduce per-customer infrastructure cost once volume justifies the engineering effort. Do not build any of these until the underlying metric (API spend, hosting bill, etc.) crosses the threshold noted in each entry.
+
+### Adaptive sync scheduling (M11+, scale-dependent)
+
+Idea: instead of syncing every customer at a fixed daily time, learn each customer's behavior pattern and schedule syncs to be fresh when they're active. Reduces API cost by avoiding wasted refreshes for inactive accounts.
+
+#### Why this matters
+
+- PSD2 bank API calls cost real money (roughly €0.10-0.30 per refresh at GoCardless/Tink scale).
+- At 50 customers: maybe €50-100/month potential savings — not worth the engineering investment.
+- At 1,000 customers: ~€1,000-2,000/month savings — worth building.
+- At 10,000+ customers: critical — €10k+/month at stake.
+
+Decision: do not build until we cross ~500 paying customers. Track the API spend metric to know when.
+
+#### Two signals worth capturing
+
+1. **Login times** — tells us when the user wants fresh data. UX signal.
+2. **Bank transaction timestamps** — tells us when the bank's data actually changes. Freshness signal.
+
+These often don't align (owner checks in the morning, transactions happen throughout the day). The "best sync time" depends on which signal we optimize for. Probably need both — sync slightly before typical login if the user has a pattern, otherwise sync after the bank's likely activity window.
+
+#### Two possible implementations
+
+**Option A: Per-customer learned schedule (complex)**
+- Collect telemetry: login timestamps, transaction timestamps
+- Cluster per customer to find their "active window"
+- Schedule sync to land 30-60 minutes before their active window
+- Re-cluster monthly for new customers, every 6 months once stable
+- User can manually reset the recommendation (e.g., when their business policy changes)
+- Estimated effort: 4-8 weeks
+- Failure modes: new customers (no history), erratic patterns, vacations/holidays, accountant vs client hour misalignment
+
+**Option B: Bucket-based schedule (pragmatic)**
+- 3-4 fixed buckets:
+  - "Morning checker" → sync at 5am
+  - "Evening checker" → sync at 5pm
+  - "Always-on" → sync 2x/day
+  - "Sporadic" → sync every 2 days
+- Each customer assigned to a bucket based on first 30 days of behavior
+- Re-assigned quarterly
+- Estimated effort: 1-2 weeks
+- Captures ~80% of personalization value at much lower complexity
+
+Probably start with Option B when we cross the threshold, evolve to Option A only if data shows meaningful additional savings.
+
+#### Subscription tier interaction
+
+- Free tier: daily sync at fixed off-peak time (e.g., 3am Greece). No personalization.
+- Premium tier: adaptive scheduling enabled. Sync runs at the learned-optimal time. Plus 2-3 on-demand refreshes per day.
+- Enterprise/accountant tier (future): sync runs multiple times per day, can be configured by user, plus on-demand.
+
+#### Telemetry and privacy notes
+
+- Collecting login times and transaction patterns counts as behavioral profiling under GDPR.
+- Privacy policy must disclose: "We analyze your usage patterns to optimize when we refresh your data, minimizing costs and ensuring freshness when you're active."
+- Users must be able to opt out (defaults to fixed schedule if they do).
+- Data retention: behavioral data older than 6 months can be deleted (no value beyond pattern learning).
+
+#### User controls
+
+- "Reset sync recommendation" button — when a business changes its operating pattern, user can wipe the learned schedule and restart learning.
+- "Show me when Roivo last synced" — transparency, builds trust.
+- "Force refresh now" — manual override, always available (counts against premium quota if applicable).
+
+#### Open questions to resolve when we build this
+
+- Does the accountant's pattern matter, or the client business's pattern? They could be different.
+- How to handle customers who use Roivo across multiple time zones (rare in Greece, but for future EU expansion)?
+- Cron precision — do we need minute-level scheduling, or is 15-minute buckets fine?
+
 ## Rules for using this file
 
 1. When a new idea appears during build phase, capture it here with one sentence.
