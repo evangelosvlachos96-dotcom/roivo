@@ -50,6 +50,20 @@ public sealed class BusinessRepository : IBusinessRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Guid>> ListIdsWithAadeCredentialsAcrossAllTenantsAsync(CancellationToken cancellationToken = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(cancellationToken);
+        // IgnoreQueryFilters because the cron runs without a tenant scope.
+        return await db.Businesses
+            .AsNoTracking()
+            .IgnoreQueryFilters()
+            .Where(b => b.IsActive
+                     && b.AadeUserIdEncrypted != null
+                     && b.AadeSubscriptionKeyEncrypted != null)
+            .Select(b => b.Id)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<bool> AfmExistsAsync(string afm, bool activeOnly, Guid? excludeId = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(afm);
