@@ -1,79 +1,436 @@
-Append a new entry to later.md under the "Pricing tiers and premium features" section, or create a new section called "Cost optimization (post-scale)". Add this content:
+MILESTONE 4: AADE myDATA integration — full implementation in one pass.
 
-```markdown
-## Adaptive sync scheduling (M11+, scale-dependent)
+CRITICAL: This is large. You must execute it phase by phase, reporting build/test status at the end of EACH phase before continuing to the next. If a phase has a build error or test failure, STOP and report — do not proceed to the next phase. This protects us from compounding errors across 40+ files.
 
-Idea: instead of syncing every customer at a fixed daily time, learn each customer's behavior pattern and schedule syncs to be fresh when they're active. Reduces API cost by avoiding wasted refreshes for inactive accounts.
+### Domain context (read carefully — this informs every decision)
 
-### Why this matters
+Roivo is a Greek B2B SaaS for cashflow intelligence. M4 connects to AADE myDATA, the Greek tax authority's invoice API. Users connect their AADE credentials (user_id + subscription_key) to their Business records. Nightly background sync pulls their invoices and stores them in our Invoices table.
 
-- PSD2 bank API calls cost real money (roughly €0.10-0.30 per refresh at GoCardless/Tink scale).
-- At 50 customers: maybe €50-100/month potential savings — not worth the engineering investment.
-- At 1,000 customers: ~€1,000-2,000/month savings — worth building.
-- At 10,000+ customers: critical — €10k+/month at stake.
+Key facts about AADE myDATA:
+- Two environments: mydata-dev.azure-api.net (dev/test) and mydatapi.aade.gr (production)
+- For M4 we point at the DEV environment only — production is later
+- Auth headers: aade-user-id (the user ID) and Ocp-Apim-Subscription-Key (the key)
+- Responses are XML, not JSON. Use System.Xml.Linq for parsing.
+- Key endpoints we use:
+  - RequestDocs — fetch invoices issued TO this AFM (incoming)
+  - RequestMyIncome — fetch invoices issued BY this AFM (outgoing)
+  - We pull both per business and store them with a Direction enum (Incoming/Outgoing)
+- Greek time (Europe/Athens) at the AADE side; we store UTC internally
+- Document types: AADE uses code strings like "1.1" (sales invoice), "2.1" (services invoice), etc. We store the code as-is plus a human-readable name from a lookup table.
 
-Decision: do not build until we cross ~500 paying customers. Track the API spend metric to know when.
+Architecture decisions (locked):
+- New project: Roivo.Aade (already scaffolded as empty stub — fill it in)
+- Application layer defines IAadeClient, IAadeCredentialStore abstractions
+- Roivo.Aade implements them
+- Hangfire schedules the nightly cron and on-demand jobs
+- ASP.NET Core Data Protection API for encrypting subscription keys at rest
+- AFM mismatch (credentials return data for a different AFM than the business has) → BLOCK the connection, force user to fix the business AFM or re-enter credentials. No partial-allow path in M4.
+- Rate-limit credential validation: max 5 attempts per business per hour (anti-enumeration)
 
-### Two signals worth capturing
+Roivo.Application already has full CQRS structure from M3. M4 adds the Aade feature folder following the same pattern.
 
-1. **Login times** — tells us when the user wants fresh data. UX signal.
-2. **Bank transaction timestamps** — tells us when the bank's data actually changes. Freshness signal.
+### PHASE 1: Application layer abstractions and contracts
 
-These often don't align (owner checks in the morning, transactions happen throughout the day). The "best sync time" depends on which signal we optimize for. Probably need both — sync slightly before typical login if the user has a pattern, otherwise sync after the bank's likely activity window.
+Create src/Roivo.Application/Abstractions/Aade/ folder with:
 
-### Two possible implementations
+IAadeClient.cs:
+```csharp
+using Roivo.Application.Abstractions.Aade.Results;
 
-**Option A: Per-customer learned schedule (complex)**
-- Collect telemetry: login timestamps, transaction timestamps
-- Cluster per customer to find their "active window"
-- Schedule sync to land 30-60 minutes before their active window
-- Re-cluster monthly for new customers, every 6 months once stable
-- User can manually reset the recommendation (e.g., when their business policy changes)
-- Estimated effort: 4-8 weeks
-- Failure modes: new customers (no history), erratic patterns, vacations/holidays, accountant vs client hour misalignment
+namespace Roivo.Application.Abstractions.Aade;
 
-**Option B: Bucket-based schedule (pragmatic)**
-- 3-4 fixed buckets:
-  - "Morning checker" → sync at 5am
-  - "Evening checker" → sync at 5pm
-  - "Always-on" → sync 2x/day
-  - "Sporadic" → sync every 2 days
-- Each customer assigned to a bucket based on first 30 days of behavior
-- Re-assigned quarterly
-- Estimated effort: 1-2 weeks
-- Captures ~80% of personalization value at much lower complexity
-
-Probably start with Option B when we cross the threshold, evolve to Option A only if data shows meaningful additional savings.
-
-### Subscription tier interaction
-
-- Free tier: daily sync at fixed off-peak time (e.g., 3am Greece). No personalization.
-- Premium tier: adaptive scheduling enabled. Sync runs at the learned-optimal time. Plus 2-3 on-demand refreshes per day.
-- Enterprise/accountant tier (future): sync runs multiple times per day, can be configured by user, plus on-demand.
-
-### Telemetry and privacy notes
-
-- Collecting login times and transaction patterns counts as behavioral profiling under GDPR.
-- Privacy policy must disclose: "We analyze your usage patterns to optimize when we refresh your data, minimizing costs and ensuring freshness when you're active."
-- Users must be able to opt out (defaults to fixed schedule if they do).
-- Data retention: behavioral data older than 6 months can be deleted (no value beyond pattern learning).
-
-### User controls
-
-- "Reset sync recommendation" button — when a business changes its operating pattern, user can wipe the learned schedule and restart learning.
-- "Show me when Roivo last synced" — transparency, builds trust.
-- "Force refresh now" — manual override, always available (counts against premium quota if applicable).
-
-### Open questions to resolve when we build this
-
-- Does the accountant's pattern matter, or the client business's pattern? They could be different.
-- How to handle customers who use Roivo across multiple time zones (rare in Greece, but for future EU expansion)?
-- Cron precision — do we need minute-level scheduling, or is 15-minute buckets fine?
+public interface IAadeClient
+{
+    Task<AadeValidationResult> ValidateCredentialsAsync(string userId, string subscriptionKey, CancellationToken ct = default);
+    Task<AadeFetchResult> FetchInvoicesAsync(string userId, string subscriptionKey, DateTime? sinceUtc, CancellationToken ct = default);
+}
 ```
 
-After editing, verify:
-- The new section appears appropriately in later.md
-- Existing content is preserved
-- No duplicate headings
+IAadeCredentialStore.cs:
+```csharp
+namespace Roivo.Application.Abstractions.Aade;
 
-Markdown only, no build needed.
+public interface IAadeCredentialStore
+{
+    Task StoreAsync(Guid businessId, string userId, string subscriptionKey, CancellationToken ct = default);
+    Task<AadeCredentials?> RetrieveAsync(Guid businessId, CancellationToken ct = default);
+    Task ClearAsync(Guid businessId, CancellationToken ct = default);
+    Task<bool> HasCredentialsAsync(Guid businessId, CancellationToken ct = default);
+}
+
+public sealed record AadeCredentials(string UserId, string SubscriptionKey);
+```
+
+IAadeRateLimiter.cs:
+```csharp
+namespace Roivo.Application.Abstractions.Aade;
+
+public interface IAadeRateLimiter
+{
+    Task<bool> TryAcquireValidationSlotAsync(Guid businessId, CancellationToken ct = default);
+}
+```
+
+Result types in src/Roivo.Application/Abstractions/Aade/Results/:
+
+AadeValidationResult.cs:
+```csharp
+namespace Roivo.Application.Abstractions.Aade.Results;
+
+public abstract record AadeValidationResult
+{
+    public sealed record Success(string AfmFromAade) : AadeValidationResult;
+    public sealed record InvalidCredentials : AadeValidationResult;
+    public sealed record NetworkError(string Message) : AadeValidationResult;
+    public sealed record AadeServerError(int StatusCode, string Message) : AadeValidationResult;
+}
+```
+
+AadeFetchResult.cs:
+```csharp
+namespace Roivo.Application.Abstractions.Aade.Results;
+
+public abstract record AadeFetchResult
+{
+    public sealed record Success(IReadOnlyList<AadeInvoiceDto> Incoming, IReadOnlyList<AadeInvoiceDto> Outgoing) : AadeFetchResult;
+    public sealed record InvalidCredentials : AadeFetchResult;
+    public sealed record NetworkError(string Message) : AadeFetchResult;
+    public sealed record AadeServerError(int StatusCode, string Message) : AadeFetchResult;
+}
+
+public sealed record AadeInvoiceDto(
+    string Mark,
+    string CounterpartyAfm,
+    string CounterpartyName,
+    DateTime IssueDate,
+    string DocumentTypeCode,
+    decimal GrossAmount,
+    string Currency,
+    string RawXml);
+```
+
+Build, confirm clean. No tests yet (these are pure contracts).
+
+REPORT phase 1 build status before proceeding.
+
+### PHASE 2: Application feature handlers — Aade commands and queries
+
+Create folder structure:
+
+src/Roivo.Application/Features/Aade/Commands/
+  ConnectAade/
+    ConnectAadeCommand.cs
+    ConnectAadeHandler.cs
+    ConnectAadeResult.cs
+  DisconnectAade/
+    DisconnectAadeCommand.cs
+    DisconnectAadeHandler.cs
+    DisconnectAadeResult.cs
+  SyncBusinessInvoices/
+    SyncBusinessInvoicesCommand.cs
+    SyncBusinessInvoicesHandler.cs
+    SyncBusinessInvoicesResult.cs
+
+src/Roivo.Application/Features/Aade/Queries/
+  GetAadeConnectionStatus/
+    GetAadeConnectionStatusQuery.cs
+    GetAadeConnectionStatusHandler.cs
+  ListConnectedBusinesses/
+    ListConnectedBusinessesQuery.cs
+    ListConnectedBusinessesHandler.cs
+
+ConnectAadeCommand:
+```csharp
+public sealed record ConnectAadeCommand(Guid BusinessId, string UserId, string SubscriptionKey);
+```
+
+ConnectAadeResult:
+```csharp
+public abstract record ConnectAadeResult
+{
+    public sealed record Success(Guid BusinessId) : ConnectAadeResult;
+    public sealed record BusinessNotFound : ConnectAadeResult;
+    public sealed record Forbidden(string Reason) : ConnectAadeResult;
+    public sealed record RateLimited : ConnectAadeResult;
+    public sealed record InvalidCredentials : ConnectAadeResult;
+    public sealed record AfmMismatch(string BusinessAfm, string CredentialsAfm) : ConnectAadeResult;
+    public sealed record AadeUnavailable(string Message) : ConnectAadeResult;
+}
+```
+
+ConnectAadeHandler flow:
+1. Null-guard all deps (constructor injects IBusinessRepository, IAadeClient, IAadeCredentialStore, IAadeRateLimiter, IAuditWriter, ITenantContext).
+2. Load business via IBusinessRepository.GetByIdActiveOnlyAsync — null → BusinessNotFound.
+3. Permission check: only Accountants can connect AADE for any business; Business tenants can only connect for their own primary business. Add this rule to BusinessPermissions.cs in Core:
+```csharp
+   public static bool CanManageAadeFor(TenantType tenantType) => true; // Both can, but UI restricts business tenants to their primary
+```
+4. Try acquire rate limit slot via IAadeRateLimiter — if denied → RateLimited.
+5. Call IAadeClient.ValidateCredentialsAsync — handle each variant. Return matching result on failure.
+6. On validation Success: compare AFM returned by AADE vs business.Afm. If mismatch → AfmMismatch result.
+7. Store credentials via IAadeCredentialStore.StoreAsync.
+8. Audit log: "AadeConnected" with business name, AFM, and (importantly) NOT the credentials.
+9. Return Success.
+
+DisconnectAadeHandler:
+- Loads business, checks permission, calls IAadeCredentialStore.ClearAsync, audits, returns Success/NotFound.
+
+SyncBusinessInvoicesHandler:
+- Loads business and credentials. If no credentials → NotConnected result variant.
+- Calls IAadeClient.FetchInvoicesAsync with business.LastAadeSyncAt as `sinceUtc`.
+- On Success: persists Invoice entities (upsert by AadeMark — the Mark is the unique key). Sets business.LastAadeSyncAt = DateTime.UtcNow.
+- Audits run: "AadeSyncCompleted" with counts of new/updated invoices.
+- Result variants: Success(int newCount, int updatedCount), NotConnected, NetworkError, AadeServerError.
+
+GetAadeConnectionStatusHandler:
+- Returns: IsConnected, LastSyncAt, MaybeUserIdMasked (first 4 chars + ***).
+
+ListConnectedBusinessesHandler:
+- Returns all businesses with credentials connected, used by the nightly cron job.
+
+You'll need to add IInvoiceRepository to Application abstractions for the sync flow. Define:
+```csharp
+public interface IInvoiceRepository
+{
+    Task<Invoice?> GetByAadeMarkAsync(string mark, CancellationToken ct = default);
+    Task UpsertAsync(Invoice invoice, CancellationToken ct = default);
+    Task<int> CountByBusinessAsync(Guid businessId, CancellationToken ct = default);
+}
+```
+
+Implement minimal InvoiceRepository in Infrastructure following the stateless-factory pattern from BusinessRepository.
+
+Register all new handlers and repositories in AddRoivoApplication and AddRoivoPersistence extensions.
+
+Business entity changes — add LastAadeSyncAt property (DateTime?, nullable). This needs a migration. Generate the migration but DO NOT apply it yet.
+
+REPORT phase 2 build status before proceeding.
+
+### PHASE 3: Unit tests for all Aade handlers
+
+Create tests/Roivo.Application.Tests/Features/Aade/ folder with:
+
+ConnectAadeHandlerTests — at minimum:
+- Success path with valid creds and matching AFM
+- BusinessNotFound when business doesn't exist
+- RateLimited when rate limiter denies
+- InvalidCredentials when AADE rejects
+- AfmMismatch when AADE returns different AFM
+- AadeUnavailable on network error
+- Forbidden when tenant type lacks permission (after we add tenant-type-specific rules)
+- Credentials never appear in audit log details
+
+DisconnectAadeHandlerTests — Success, NotFound
+
+SyncBusinessInvoicesHandlerTests — at minimum:
+- Success with new invoices: upserts correctly, sets LastAadeSyncAt
+- Success with no new invoices: still sets LastAadeSyncAt, counts are zero
+- Success with updated existing invoices: updates not duplicates
+- NotConnected when credentials missing
+- NetworkError surfaces correctly
+- Existing invoices with same AadeMark are updated, not duplicated
+
+GetAadeConnectionStatusHandlerTests — connected vs not connected.
+
+You'll need fake implementations: FakeAadeClient, FakeAadeCredentialStore, FakeAadeRateLimiter, FakeInvoiceRepository. Put them in tests/Roivo.Application.Tests/Fakes/.
+
+Target ~25 new tests minimum. dotnet test should run cleanly with all tests passing.
+
+REPORT phase 3 test count and status before proceeding.
+
+### PHASE 4: Infrastructure — real AADE client, credential store, rate limiter, Hangfire jobs
+
+Roivo.Aade project becomes the home for AADE-specific code. Add references:
+- Roivo.Aade references Roivo.Application + Roivo.Core
+- Roivo.Web references Roivo.Aade (for DI registration)
+- Add nuget package: System.Net.Http.Json (likely already in .NET 10)
+
+Create src/Roivo.Aade/Configuration/AadeSettings.cs:
+```csharp
+public sealed class AadeSettings
+{
+    public required string BaseUrl { get; init; } // "https://mydata-dev.azure-api.net" for dev
+    public required int TimeoutSeconds { get; init; } = 30;
+    public required int MaxRetries { get; init; } = 3;
+}
+```
+
+Bind in appsettings.json:
+```json
+"Aade": {
+  "BaseUrl": "https://mydata-dev.azure-api.net",
+  "TimeoutSeconds": 30,
+  "MaxRetries": 3
+}
+```
+
+Create src/Roivo.Aade/AadeHttpClient.cs implementing IAadeClient:
+- Constructor injects HttpClient (named "Aade"), IOptions<AadeSettings>, ILogger
+- ValidateCredentialsAsync: GET /RequestMyIncome with minimal date range, parse response — if 200 + valid XML, extract AFM from response, return Success. If 401 → InvalidCredentials. If 5xx → AadeServerError. If timeout/network → NetworkError.
+- FetchInvoicesAsync: makes two calls in parallel — RequestMyIncome (outgoing) and RequestDocs (incoming). Parse XML to AadeInvoiceDto list. Return Success.
+
+XML parsing — use System.Xml.Linq. AADE's response structure (simplified):
+```xml
+<RequestedDoc>
+  <invoicesDoc>
+    <invoice>
+      <issuer><vatNumber>...</vatNumber></issuer>
+      <counterpart><vatNumber>...</vatNumber><name>...</name></counterpart>
+      <invoiceHeader>
+        <issueDate>2024-01-15</issueDate>
+        <invoiceType>1.1</invoiceType>
+        <currency>EUR</currency>
+      </invoiceHeader>
+      <invoiceSummary>
+        <totalGrossValue>1240.00</totalGrossValue>
+      </invoiceSummary>
+      <mark>400001234567890</mark>
+    </invoice>
+  </invoicesDoc>
+</RequestedDoc>
+```
+
+Store the full raw XML of each invoice in AadeInvoiceDto.RawXml for forensics.
+
+Register HttpClient with Polly for retries in Roivo.Aade/Configuration/AadeServiceCollectionExtensions.cs:
+```csharp
+services.AddHttpClient("Aade", client =>
+{
+    client.BaseAddress = new Uri(settings.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds);
+})
+.AddPolicyHandler(GetRetryPolicy(settings.MaxRetries));
+```
+
+Where GetRetryPolicy uses Polly with exponential backoff: retry on 5xx and network failures only (NOT on 401/403 — those are credential errors).
+
+Create src/Roivo.Aade/EncryptedCredentialStore.cs implementing IAadeCredentialStore:
+- Constructor injects IDataProtectionProvider, IDbContextFactory<ApplicationDbContext>, ILogger
+- Creates an IDataProtector with purpose "Roivo.Aade.Credentials"
+- StoreAsync: encrypts userId AND subscriptionKey, stores both encrypted strings on the Business entity in fields AadeUserIdEncrypted and AadeSubscriptionKeyEncrypted. The current AadeUserId field needs to be renamed to AadeUserIdEncrypted in a migration.
+- RetrieveAsync: loads business, decrypts both, returns AadeCredentials. Returns null if either field is null.
+- ClearAsync: sets both encrypted fields to null on the business.
+- HasCredentialsAsync: checks if both fields are non-null.
+
+Create src/Roivo.Aade/InMemoryAadeRateLimiter.cs implementing IAadeRateLimiter:
+- Uses IMemoryCache to track validation attempts per businessId
+- 5 attempts per hour ceiling
+- Returns false if ceiling exceeded
+- Note: in-memory means it resets on app restart — for M4 this is fine, document the limitation. Distributed rate limiting via Redis is later.md.
+
+Hangfire jobs in Roivo.Aade/Jobs/:
+
+NightlyAadeSyncJob.cs:
+- Hangfire RecurringJob registered for nightly Athens 3 AM (use Cron.Daily(3) but configure Hangfire to use Europe/Athens time zone)
+- Public Execute() method: gets ListConnectedBusinessesHandler, iterates, enqueues a SyncSingleBusinessJob per business
+
+SyncSingleBusinessJob.cs:
+- Public Execute(Guid businessId) — Hangfire passes the businessId from the enqueued args
+- Resolves SyncBusinessInvoicesHandler via DI, calls Handle, logs result
+- On NetworkError or AadeServerError, throws — Hangfire's retry policy will retry with exponential backoff
+- On InvalidCredentials, logs warning but doesn't throw (no point retrying — credentials are bad)
+
+Register the cron in Program.cs:
+```csharp
+RecurringJob.AddOrUpdate<NightlyAadeSyncJob>(
+    "nightly-aade-sync",
+    job => job.Execute(),
+    Cron.Daily(3),
+    new RecurringJobOptions { TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Athens") });
+```
+
+Generate the migration for:
+- Adding LastAadeSyncAt to Business
+- Renaming AadeUserId to AadeUserIdEncrypted
+
+DO NOT apply the migration yet.
+
+REPORT phase 4 build status and migration name before proceeding.
+
+### PHASE 5: UI — connect/disconnect flow
+
+Create src/Roivo.Web/Components/Pages/BusinessAade.razor at route /businesses/{Id:guid}/aade:
+- Page renders three states: NotConnected, Connected, Connecting (form)
+- NotConnected: shows explanation + "Σύνδεση με AADE" button → switches state to Connecting
+- Connecting: form with two fields (AADE User ID, Subscription Key), Connect button calls ConnectAadeHandler. Pattern-match result and show appropriate UI message.
+- Connected: shows masked user ID, last sync timestamp, "Συγχρονισμός τώρα" button (triggers manual sync via SyncBusinessInvoicesHandler), "Αποσύνδεση" button (calls DisconnectAadeHandler with confirmation dialog)
+
+On BusinessEdit.razor add a section at the bottom (only visible when editing an existing business, not on Create): "AADE myDATA" subtitle, current connection status one-liner, button "Διαχείριση σύνδεσης AADE" → navigates to /businesses/{Id}/aade.
+
+Update Businesses.razor list table: add a column "AADE" showing a small icon — checkmark if connected, dash if not.
+
+CRITICAL UI rules — apply CODING_STANDARDS.md:
+- All form errors are user-friendly Greek
+- No DbContext anywhere in components
+- Components inject handlers only
+- Pattern-match all result types — don't use exceptions
+
+AFM mismatch UX:
+- If ConnectAadeResult.AfmMismatch is returned, show: "Τα στοιχεία σύνδεσης ανήκουν σε επιχείρηση με ΑΦΜ {CredentialsAfm}, αλλά η επιχείρηση στο Roivo έχει ΑΦΜ {BusinessAfm}. Δεν είναι δυνατή η σύνδεση. Διορθώστε το ΑΦΜ της επιχείρησης ή χρησιμοποιήστε τα σωστά credentials."
+- Provide a link back to the business edit page so they can fix the AFM
+- No alternative path — block as you specified
+
+REPORT phase 5 with build status.
+
+### PHASE 6: Final wiring + report
+
+1. Run dotnet build on the whole solution — must be clean.
+2. Run dotnet test — all tests should pass (existing 57 + new ~25).
+3. Apply the migration: dotnet ef database update from src/Roivo.Infrastructure with --startup-project ../Roivo.Web.
+4. Update PROGRESS.md with the M4 entry including:
+   - All phases completed
+   - Test counts before and after
+   - Files created (count + list)
+   - Migration name applied
+   - Known gaps / things to verify in smoke test
+5. Update CODING_STANDARDS.md with one section: "External API integrations" — describing the IExternalApi → Application-defined interface pattern, with Polly retries in Infrastructure, fake implementations for tests, real implementations only called via the abstraction.
+6. Update later.md with M4 follow-ups:
+   - Smart adaptive sync scheduling (already documented)
+   - AFM-update flow when mismatch detected (currently user has to leave the AADE page, edit business, come back)
+   - AADE production environment switch (currently dev only)
+   - Distributed rate limiter when scaling beyond 1 server
+
+### Final report shape
+
+Structure your final report as:
+PHASE 1: Application abstractions
+Files created: X
+Build: clean / errors
+PHASE 2: Application handlers
+Files created: X
+Build: clean / errors
+Migration generated: yes/no, name: ...
+PHASE 3: Tests
+New tests: X
+Total tests: X
+Pass: X / Fail: X
+PHASE 4: Infrastructure
+Files created: X
+Build: clean / errors
+PHASE 5: UI
+Files created/modified: X
+Build: clean / errors
+PHASE 6: Final
+Migration applied: yes/no
+PROGRESS.md updated: yes/no
+CODING_STANDARDS.md updated: yes/no
+later.md updated: yes/no
+ARCHITECTURAL NOTES:
+
+Anything you found unclear or had to make a judgment call on
+Anything you flagged as "this needs human review"
+Anything that doesn't match the architecture but you couldn't find a clean alternative
+
+
+### Hard constraints
+
+- ALL new code follows CODING_STANDARDS.md: constructor null guards via ArgumentNullException.ThrowIfNull, why-not-what comments, XML docs on cross-project public surfaces, ConfigureAwait(false) in Roivo.Application and Roivo.Aade.
+- Credentials NEVER appear in audit logs, NEVER in logs at log level Information or above, NEVER in exception messages.
+- Every external HTTP call wrapped in Polly retry with exponential backoff.
+- All handlers return result types — no throwing for expected business outcomes.
+- Components inject handlers only, no DbContext.
+- One migration generated covering BOTH schema changes (LastAadeSyncAt + AadeUserId rename).
+- Existing tests must still pass.
+- Hangfire jobs use IDbContextFactory pattern (we already documented this rule).
+
+If any phase has a build error or test failure, STOP immediately. Report what failed. Don't try to fix it by chaining more changes — let the user respond first.

@@ -357,3 +357,59 @@ Enforcement:
 - grep the codebase for "ApplicationDbContext" as a constructor parameter — should appear ONLY in framework-related registration code, never in our own services.
 
 ---
+
+## Rich domain entities
+
+Domain entities use private setters and expose explicit methods for state changes. This keeps invariants enforceable in one place — the entity itself.
+
+Pattern:
+- Properties have private setters (TenantId is the one exception, set by SaveChangesAsync override).
+- Constructor is private; create via static factory method (e.g., Business.Create).
+- Each state mutation is a method (Rename, ChangeAfm, Deactivate, etc.) that validates and applies the change.
+- Invalid state throws DomainException (or a derived type like InvalidAfmException).
+- Handlers wrap entity calls in try-catch for the relevant domain exceptions, return appropriate result variants.
+
+Why:
+- The entity protects its own data integrity. No code path can corrupt state by setting properties directly.
+- Operations are explicit and discoverable — reading the entity shows what operations exist.
+- Tests cover state invariants directly without needing handlers or DB.
+
+## Permission rules
+
+Permission rules (who can do what) live in pure-function static classes in Roivo.Core/Domain/{Aggregate}/{Aggregate}Permissions.cs. They take role/type as input, return booleans.
+
+- Handlers check permissions before mutating: if not allowed, return a Forbidden result variant.
+- UI components check the same methods to decide which controls to render or disable.
+- Permission methods are pure functions — no I/O, no DB. Easily unit-testable.
+
+Why this split:
+- The entity enforces state rules (can't deactivate something already inactive).
+- The handler enforces access rules (can this role deactivate at all).
+- Both layers test independently.
+
+---
+
+## External API integrations
+
+Third-party APIs (AADE myDATA, GoCardless, future banking integrations) follow
+the same shape as internal persistence:
+
+- **Roivo.Application** defines the interface (e.g., `IAadeClient`) and a
+  discriminated-union result type (`AadeValidationResult.Success | InvalidCredentials | NetworkError | AadeServerError`). No HTTP types leak.
+- **A dedicated infrastructure project** (e.g., `Roivo.Aade`) holds the real
+  implementation: typed HttpClient registration, Polly retry policy, XML/JSON
+  parsing, secrets handling. References Application, never the reverse.
+- **Tests substitute a fake** (e.g., `FakeAadeClient`) that returns programmed
+  results. Handlers under test never touch the network.
+- **Polly retries only transient failures** — 5xx and network errors. Never
+  4xx (credential errors must surface immediately, not retry-and-fail).
+- **Credentials are written through a dedicated encrypted store**
+  (`IAadeCredentialStore` + `EncryptedCredentialStore`) that uses ASP.NET Data
+  Protection. Never log them, never include them in audit details, never put
+  them in exception messages.
+- **Background sync uses Hangfire**: a recurring job fans out per-business jobs;
+  per-business jobs throw on transient failures so Hangfire retries with
+  exponential backoff. Domain failures (e.g., invalid credentials) log a
+  warning and return without throwing — no point retrying.
+
+---

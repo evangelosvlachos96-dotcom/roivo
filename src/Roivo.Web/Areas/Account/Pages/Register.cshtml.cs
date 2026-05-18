@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Hangfire;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -17,26 +18,26 @@ public class RegisterModel : PageModel
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ApplicationDbContext _db;
-    private readonly IEmailSender _emailSender;
+    private readonly IBackgroundJobClient _backgroundJobs;
     private readonly IAuditWriter _audit;
     private readonly ILogger<RegisterModel> _logger;
 
     public RegisterModel(
         UserManager<ApplicationUser> userManager,
         ApplicationDbContext db,
-        IEmailSender emailSender,
+        IBackgroundJobClient backgroundJobs,
         IAuditWriter audit,
         ILogger<RegisterModel> logger)
     {
         ArgumentNullException.ThrowIfNull(userManager);
         ArgumentNullException.ThrowIfNull(db);
-        ArgumentNullException.ThrowIfNull(emailSender);
+        ArgumentNullException.ThrowIfNull(backgroundJobs);
         ArgumentNullException.ThrowIfNull(audit);
         ArgumentNullException.ThrowIfNull(logger);
 
         _userManager = userManager;
         _db = db;
-        _emailSender = emailSender;
+        _backgroundJobs = backgroundJobs;
         _audit = audit;
         _logger = logger;
     }
@@ -175,12 +176,10 @@ public class RegisterModel : PageModel
 
         if (Input.Type == TenantType.Business)
         {
-            var business = new Business
-            {
-                Name = Input.OrganizationName,
-                Afm = Input.Afm,
-                TenantId = tenant.Id,
-            };
+            // Registration runs anonymously, so the SaveChanges override can't
+            // resolve a tenant_id claim — assign explicitly.
+            var business = Business.Create(Input.OrganizationName, Input.Afm, kad: null, address: null);
+            business.TenantId = tenant.Id;
             _db.Businesses.Add(business);
             await _db.SaveChangesAsync(cancellationToken);
         }
@@ -211,14 +210,10 @@ public class RegisterModel : PageModel
             </div>
             """;
 
-        try
-        {
-            await _emailSender.SendEmailAsync(Input.Email, "Επιβεβαίωση email - Roivo", html, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to send confirmation email to {Email}", Input.Email);
-        }
+        // Enqueue the email send. Hangfire runs it in the background and retries
+        // on failure; the user gets the confirmation-pending page immediately
+        // without waiting for SMTP.
+        _backgroundJobs.Enqueue<EmailJob>(job => job.SendAsync(Input.Email, "Επιβεβαίωση email - Roivo", html));
 
         await _audit.WriteAsync(
             action: "UserRegistered",

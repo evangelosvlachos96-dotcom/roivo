@@ -2,6 +2,7 @@ using FluentAssertions;
 using Roivo.Application.Features.Businesses.Commands.UpdateBusiness;
 using Roivo.Application.Tests.Fakes;
 using Roivo.Core.Domain.Entities;
+using Roivo.Core.Domain.Enums;
 
 namespace Roivo.Application.Tests.Features.Businesses;
 
@@ -10,16 +11,17 @@ public class UpdateBusinessHandlerTests
     private const string ValidAfm = "094014201";
     private const string AnotherValidAfm = "123456783";
 
-    private (UpdateBusinessHandler handler, FakeBusinessRepository repo, FakeAuditWriter audit) BuildSut()
+    private static (UpdateBusinessHandler handler, FakeBusinessRepository repo, FakeAuditWriter audit) BuildSut(TenantType tenantType = TenantType.Accountant)
     {
         var repo = new FakeBusinessRepository();
         var audit = new FakeAuditWriter();
-        return (new UpdateBusinessHandler(repo, audit, new FakeTenantContext()), repo, audit);
+        var tenant = new FakeTenantContext { CurrentTenantType = tenantType };
+        return (new UpdateBusinessHandler(repo, audit, tenant), repo, audit);
     }
 
     private static Business SeedActive(FakeBusinessRepository repo, string name = "Acme", string afm = ValidAfm, string? kad = null, string? address = null)
     {
-        var b = new Business { Id = Guid.NewGuid(), Name = name, Afm = afm, Kad = kad, Address = address, IsActive = true };
+        var b = Business.Create(name, afm, kad, address);
         repo.Store[b.Id] = b;
         return b;
     }
@@ -109,5 +111,31 @@ public class UpdateBusinessHandlerTests
         var details = audit.Calls.Single().Details.Should().BeAssignableTo<IDictionary<string, object?>>().Subject;
         details.Should().ContainKey("Address");
         details.Should().NotContainKeys("Name", "Afm", "Kad");
+    }
+
+    [Fact]
+    public async Task Forbidden_when_business_tenant_tries_to_change_afm()
+    {
+        var (handler, repo, audit) = BuildSut(TenantType.Business);
+        var existing = SeedActive(repo, "Acme", ValidAfm);
+
+        var result = await handler.Handle(new UpdateBusinessCommand(existing.Id, "Acme", AnotherValidAfm, null, null));
+
+        result.Should().BeOfType<UpdateBusinessResult.Forbidden>();
+        repo.Store[existing.Id].Afm.Should().Be(ValidAfm);
+        audit.Calls.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Succeeds_when_business_tenant_changes_name_only()
+    {
+        var (handler, repo, audit) = BuildSut(TenantType.Business);
+        var existing = SeedActive(repo, "Old Name", ValidAfm);
+
+        var result = await handler.Handle(new UpdateBusinessCommand(existing.Id, "New Name", ValidAfm, null, null));
+
+        result.Should().BeOfType<UpdateBusinessResult.Success>();
+        repo.Store[existing.Id].Name.Should().Be("New Name");
+        audit.Calls.Should().ContainSingle();
     }
 }

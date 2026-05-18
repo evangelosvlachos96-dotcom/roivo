@@ -33,6 +33,11 @@ public static class IdentityExtensions
             .AddEntityFrameworkStores<ApplicationDbContext>()
             .AddDefaultTokenProviders();
 
+        // SecurityStampValidatorOptions.ValidationInterval is left at the default
+        // 30 minutes. The defensive sign-out in MainLayout catches deleted users
+        // on the next navigation, so the tight 1-minute interval (which made
+        // Identity's scoped DbContext race with other queries) isn't needed.
+
         services.AddScoped<IUserClaimsPrincipalFactory<ApplicationUser>, TenantClaimsPrincipalFactory>();
         services.AddAuthorization();
         services.AddCascadingAuthenticationState();

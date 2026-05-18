@@ -19,6 +19,18 @@ Week 10: Notifications — email + in-app alerts, customer payment reminders
 Week 11: Polish — bilingual UI (Greek + English), error handling, audit log review, security pass  
 Week 12: Launch — landing page, beta deploy, 3 design partners onboarded  
 
+## M3 follow-ups (revisit during UI polish pass)
+
+- Business list display: currently shows Name, AFM, KAD, status. Decide whether to show Address inline in the list, or only in a future Business Profile detail page (e.g., /businesses/{id}). Detail page route doesn't exist yet — only Edit. Adding a profile page is M4-M5 work alongside AADE/banking data display per business.
+
+## M4 follow-ups (revisit after first AADE sync runs in dev)
+
+- **AFM-update flow on mismatch**: today, if AADE returns a different AFM than the Business holds, the connect page links the user back to the business edit form. There's no direct "update the business AFM and retry" inline path. Wire one once we see real users hit this.
+- **AADE production environment switch**: M4 hits the dev host only (`mydata-dev.azure-api.net`). Production switch is config-driven — add a second `AadeSettings` profile + a guard against accidentally pointing dev at prod.
+- **Distributed rate limiter**: `InMemoryAadeRateLimiter` is per-process. When we scale beyond one instance, swap to Redis-backed counters (linked from the "adaptive sync scheduling" entry below).
+- **Smart adaptive sync scheduling**: see existing "Cost optimization (post-scale)" entry — relevant once AADE rate-of-change data starts informing per-business cron timing.
+- **Hangfire dashboard authorization**: mounted at `/hangfire` in dev only. For prod, gate behind an admin-only authorization filter rather than removing it.
+
 ## M4 enhancements
 
 - After first successful AADE sync, compare AADE-returned company info (name, AFM, KAD) with Roivo tenant info. If mismatch, offer to update tenant data. This is the real "verify business identity" check — happens organically when the user proves they have AADE credentials, rather than artificially at registration time.

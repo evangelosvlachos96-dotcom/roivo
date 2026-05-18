@@ -36,7 +36,7 @@ else if (_tenant is not null)
             </MudItem>
             <MudItem xs="12" sm="3">
                 <MudText Typo="Typo.caption" Class="mud-text-secondary">Τύπος</MudText>
-                <MudText Typo="Typo.body1">@_tenant.Type</MudText>
+                <MudText Typo="Typo.body1">@GetTenantTypeLabel(_tenant.Type)</MudText>
             </MudItem>
             <MudItem xs="12" sm="3">
                 <MudText Typo="Typo.caption" Class="mud-text-secondary">ΑΦΜ</MudText>
@@ -103,4 +103,11 @@ else if (_tenant is not null)
             _loading = false;
         }
     }
+
+    private static string GetTenantTypeLabel(Roivo.Core.Domain.Enums.TenantType type) => type switch
+    {
+        Roivo.Core.Domain.Enums.TenantType.Accountant => "Λογιστής",
+        Roivo.Core.Domain.Enums.TenantType.Business => "Ιδιοκτήτης επιχείρησης",
+        _ => "Άγνωστος τύπος"
+    };
 }

@@ -2,6 +2,7 @@ using FluentAssertions;
 using Roivo.Application.Features.Businesses.Commands.CreateBusiness;
 using Roivo.Application.Tests.Fakes;
 using Roivo.Core.Domain.Entities;
+using Roivo.Core.Domain.Enums;
 
 namespace Roivo.Application.Tests.Features.Businesses;
 
@@ -11,11 +12,11 @@ public class CreateBusinessHandlerTests
     private const string ValidAfm = "094014201";
     private const string AnotherValidAfm = "123456783";
 
-    private (CreateBusinessHandler handler, FakeBusinessRepository repo, FakeAuditWriter audit, FakeTenantContext tenant) BuildSut()
+    private static (CreateBusinessHandler handler, FakeBusinessRepository repo, FakeAuditWriter audit, FakeTenantContext tenant) BuildSut(TenantType tenantType = TenantType.Accountant)
     {
         var repo = new FakeBusinessRepository();
         var audit = new FakeAuditWriter();
-        var tenant = new FakeTenantContext();
+        var tenant = new FakeTenantContext { CurrentTenantType = tenantType };
         return (new CreateBusinessHandler(repo, audit, tenant), repo, audit, tenant);
     }
 
@@ -56,7 +57,7 @@ public class CreateBusinessHandlerTests
     public async Task Active_duplicate_returns_ActiveDuplicate_and_does_not_add()
     {
         var (handler, repo, audit, _) = BuildSut();
-        repo.Store[Guid.NewGuid()] = new Business { Name = "Existing", Afm = ValidAfm, IsActive = true };
+        repo.Store[Guid.NewGuid()] = Business.Create("Existing", ValidAfm, null, null);
 
         var result = await handler.Handle(new CreateBusinessCommand("New", ValidAfm, null, null));
 
@@ -70,20 +71,14 @@ public class CreateBusinessHandlerTests
     public async Task Inactive_duplicate_returns_InactiveDuplicate_with_old_details()
     {
         var (handler, repo, audit, _) = BuildSut();
-        var existingId = Guid.NewGuid();
-        repo.Store[existingId] = new Business
-        {
-            Id = existingId,
-            Name = "Old Name",
-            Afm = ValidAfm,
-            Address = "Old Address",
-            IsActive = false
-        };
+        var existing = Business.Create("Old Name", ValidAfm, null, "Old Address");
+        existing.Deactivate();
+        repo.Store[existing.Id] = existing;
 
         var result = await handler.Handle(new CreateBusinessCommand("New Name", ValidAfm, null, null));
 
         var inactive = result.Should().BeOfType<CreateBusinessResult.InactiveDuplicate>().Subject;
-        inactive.ExistingId.Should().Be(existingId);
+        inactive.ExistingId.Should().Be(existing.Id);
         inactive.OldName.Should().Be("Old Name");
         inactive.OldAddress.Should().Be("Old Address");
         repo.Store.Should().HaveCount(1);
@@ -120,11 +115,24 @@ public class CreateBusinessHandlerTests
     public async Task Different_AFM_does_not_collide_with_existing()
     {
         var (handler, repo, _, _) = BuildSut();
-        repo.Store[Guid.NewGuid()] = new Business { Name = "Other", Afm = AnotherValidAfm, IsActive = true };
+        repo.Store[Guid.NewGuid()] = Business.Create("Other", AnotherValidAfm, null, null);
 
         var result = await handler.Handle(new CreateBusinessCommand("Acme", ValidAfm, null, null));
 
         result.Should().BeOfType<CreateBusinessResult.Success>();
         repo.Store.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task Forbidden_when_tenant_is_business_type()
+    {
+        var (handler, repo, audit, _) = BuildSut(TenantType.Business);
+
+        var result = await handler.Handle(new CreateBusinessCommand("Acme", ValidAfm, null, null));
+
+        result.Should().BeOfType<CreateBusinessResult.Forbidden>()
+            .Which.Reason.Should().NotBeNullOrEmpty();
+        repo.Store.Should().BeEmpty();
+        audit.Calls.Should().BeEmpty();
     }
 }

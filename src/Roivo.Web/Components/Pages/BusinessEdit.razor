@@ -2,11 +2,15 @@
 @attribute [Authorize]
 
 @using Roivo.Core.Domain.Entities
+@using Roivo.Application.Abstractions
+@using Roivo.Application.Features.Aade.Queries.GetAadeConnectionStatus
 @using Roivo.Application.Features.Businesses.Commands.UpdateBusiness
 @using Roivo.Application.Features.Businesses.Queries.GetBusinessById
 @inject GetBusinessByIdHandler GetHandler
 @inject UpdateBusinessHandler UpdateHandler
+@inject GetAadeConnectionStatusHandler AadeStatusHandler
 @inject NavigationManager Nav
+@inject ITenantContext TenantContext
 
 <PageTitle>Επεξεργασία επιχείρησης</PageTitle>
 
@@ -36,16 +40,19 @@
                               MaxLength="200"
                               Immediate="true"
                               Class="mb-4" />
+                @if (BusinessPermissions.CanEditAfm(TenantContext.CurrentTenantType))
+                {
+                    <MudTextField @bind-Value="model.Afm"
+                                  Label="ΑΦΜ"
+                                  Required="true"
+                                  RequiredError="Το ΑΦΜ είναι υποχρεωτικό"
+                                  Validation="@(new Func<string, string?>(ValidateAfm))"
+                                  MaxLength="9"
+                                  HelperText="9 ψηφία"
+                                  Immediate="true"
+                                  Class="mb-4" />
+                }
 
-                <MudTextField @bind-Value="model.Afm"
-                              Label="ΑΦΜ"
-                              Required="true"
-                              RequiredError="Το ΑΦΜ είναι υποχρεωτικό"
-                              Validation="@(new Func<string, string?>(ValidateAfm))"
-                              MaxLength="9"
-                              HelperText="9 ψηφία"
-                              Immediate="true"
-                              Class="mb-4" />
 
                 <MudTextField @bind-Value="model.Kad"
                               Label="ΚΑΔ (προαιρετικό)"
@@ -67,8 +74,7 @@
 
                 <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
                     <MudButton Variant="Variant.Text"
-                               OnClick='() => Nav.NavigateTo("/businesses")'
-                               Disabled="@(!isFormValid || !IsDirty || saving)">
+                               OnClick='() => Nav.NavigateTo("/businesses")'>
                         Άκυρο
                     </MudButton>
                     <MudButton Variant="Variant.Filled"
@@ -80,6 +86,20 @@
                 </MudStack>
 
             </MudForm>
+        </MudPaper>
+
+        <MudPaper Class="pa-6 mt-4">
+            <MudText Typo="Typo.h6" Class="mb-2">AADE myDATA</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+                @(aadeStatus?.IsConnected == true
+                    ? $"Συνδεδεμένη. Τελευταίος συγχρονισμός: {(aadeStatus.LastSyncAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")}"
+                    : "Δεν έχει συνδεθεί ακόμα.")
+            </MudText>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Outlined.SyncAlt"
+                       OnClick='() => Nav.NavigateTo($"/businesses/{Id}/aade")'>
+                Διαχείριση σύνδεσης AADE
+            </MudButton>
         </MudPaper>
     }
 
@@ -95,6 +115,7 @@
     private string? errorMessage;
     private BusinessFormModel model = new();
     private Business? existingBusiness;
+    private AadeConnectionStatus? aadeStatus;
     private bool IsDirty =>
         (model.Name?.Trim() ?? "") != (originalSnapshot.Name?.Trim() ?? "") ||
         (model.Afm?.Trim() ?? "") != (originalSnapshot.Afm?.Trim() ?? "") ||
@@ -128,6 +149,8 @@
             Kad = existingBusiness.Kad,
             Address = existingBusiness.Address
         };
+
+        aadeStatus = await AadeStatusHandler.Handle(new GetAadeConnectionStatusQuery(existingBusiness.Id), CancellationToken.None);
 
         loading = false;
     }

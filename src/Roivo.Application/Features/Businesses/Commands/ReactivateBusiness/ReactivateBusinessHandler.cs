@@ -1,5 +1,7 @@
 using Roivo.Application.Abstractions;
+using Roivo.Core.Domain.Businesses;
 using Roivo.Core.Domain.Entities;
+using Roivo.Core.Domain.Exceptions;
 
 namespace Roivo.Application.Features.Businesses.Commands.ReactivateBusiness;
 
@@ -27,24 +29,27 @@ public sealed class ReactivateBusinessHandler
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        if (!BusinessPermissions.CanReactivate(_tenant.CurrentTenantType))
+            return new ReactivateBusinessResult.Forbidden("Δεν επιτρέπεται η επανενεργοποίηση επιχείρησης από αυτόν τον τύπο λογαριασμού.");
+
         var entity = await _repository.GetByIdAsync(command.Id, cancellationToken);
         if (entity is null)
             return new ReactivateBusinessResult.NotFound();
 
-        if (entity.IsActive)
-            return new ReactivateBusinessResult.AlreadyActive();
-
-        // Guard against the race where another active business already holds
-        // this AFM (e.g., a parallel create completed between deactivation
-        // and reactivation).
         if (await _repository.AfmExistsAsync(entity.Afm, activeOnly: true, excludeId: entity.Id, cancellationToken))
             return new ReactivateBusinessResult.ConflictsWithActive(entity.Afm);
 
-        entity.IsActive = true;
-        entity.Name = (command.Name ?? string.Empty).Trim();
-        entity.Kad = string.IsNullOrWhiteSpace(command.Kad) ? null : command.Kad.Trim();
-        entity.Address = string.IsNullOrWhiteSpace(command.Address) ? null : command.Address.Trim();
+        try
+        {
+            entity.Reactivate();
+        }
+        catch (DomainException)
+        {
+            return new ReactivateBusinessResult.AlreadyActive();
+        }
 
+        // Reactivation restores the prior state exactly — no name/address
+        // overwrite. The user edits via the normal update flow if they want.
         await _repository.UpdateAsync(entity, cancellationToken);
 
         await _audit.WriteAsync(

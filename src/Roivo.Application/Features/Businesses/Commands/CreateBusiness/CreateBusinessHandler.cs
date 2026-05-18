@@ -1,6 +1,7 @@
 using Roivo.Application.Abstractions;
+using Roivo.Core.Domain.Businesses;
 using Roivo.Core.Domain.Entities;
-using Roivo.Core.Domain.Validation;
+using Roivo.Core.Domain.Exceptions;
 
 namespace Roivo.Application.Features.Businesses.Commands.CreateBusiness;
 
@@ -28,31 +29,29 @@ public sealed class CreateBusinessHandler
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        var afm = (command.Afm ?? string.Empty).Trim();
-        var name = (command.Name ?? string.Empty).Trim();
+        if (!BusinessPermissions.CanCreate(_tenant.CurrentTenantType))
+            return new CreateBusinessResult.Forbidden("Δεν επιτρέπεται η δημιουργία νέας επιχείρησης από αυτόν τον τύπο λογαριασμού.");
 
-        if (!AfmValidator.IsValid(afm))
+        Business business;
+        try
+        {
+            business = Business.Create(command.Name, command.Afm, command.Kad, command.Address);
+        }
+        catch (InvalidAfmException)
+        {
             return new CreateBusinessResult.InvalidAfm();
+        }
 
-        // Check active duplicate first — that's a hard block.
-        if (await _repository.AfmExistsAsync(afm, activeOnly: true, excludeId: null, cancellationToken))
-            return new CreateBusinessResult.ActiveDuplicate(afm);
+        // Run duplicate checks against the normalized AFM before persisting so
+        // callers see the dedicated result variants instead of a DB exception.
+        if (await _repository.AfmExistsAsync(business.Afm, activeOnly: true, excludeId: null, cancellationToken))
+            return new CreateBusinessResult.ActiveDuplicate(business.Afm);
 
-        // Check inactive duplicate — surfaces a reactivation option to the caller.
-        var inactive = await _repository.FindByAfmAsync(afm, activeOnly: false, cancellationToken);
+        var inactive = await _repository.FindByAfmAsync(business.Afm, activeOnly: false, cancellationToken);
         if (inactive is not null && !inactive.IsActive)
         {
             return new CreateBusinessResult.InactiveDuplicate(inactive.Id, inactive.Name, inactive.Address);
         }
-
-        var business = new Business
-        {
-            Name = name,
-            Afm = afm,
-            Kad = string.IsNullOrWhiteSpace(command.Kad) ? null : command.Kad.Trim(),
-            Address = string.IsNullOrWhiteSpace(command.Address) ? null : command.Address.Trim()
-            // TenantId is set by ApplicationDbContext.SaveChangesAsync override
-        };
 
         business = await _repository.AddAsync(business, cancellationToken);
 

@@ -1,9 +1,9 @@
 @inherits LayoutComponentBase
-@using Microsoft.AspNetCore.Identity
-@using Roivo.Core.Domain.Entities
+@using Microsoft.EntityFrameworkCore
+@using Roivo.Infrastructure.Persistence
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthState
-@inject UserManager<ApplicationUser> UserManager
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
 
 <MudThemeProvider />
 <MudPopoverProvider />
@@ -12,7 +12,7 @@
 
 <MudLayout>
     <MudAppBar Elevation="1" Color="Color.Default">
-        <MudText Typo="Typo.h6" Class="cursor-pointer" 
+        <MudText Typo="Typo.h6" Class="cursor-pointer"
                  @onclick='() => Nav.NavigateTo("/")'>
             Roivo
         </MudText>
@@ -32,32 +32,31 @@
                     Επιχειρήσεις
                 </MudButton>
 
-                <MudMenu Icon="@Icons.Material.Outlined.AccountCircle" 
+                <MudMenu Icon="@Icons.Material.Outlined.AccountCircle"
                          Color="Color.Inherit"
                          AnchorOrigin="Origin.BottomRight"
                          TransformOrigin="Origin.TopRight">
-                    <MudMenuItem>
+                    <MudMenuItem Disabled="true">
                         <MudText Typo="Typo.body2">@displayName</MudText>
                     </MudMenuItem>
                     <MudDivider />
-                    <MudMenuItem>
-                        <form action="/Account/Logout" method="post">
-                            <AntiforgeryToken />
-                            <button type="submit" 
-                                    style="background: none; border: none; padding: 0; cursor: pointer; color: inherit; font: inherit;">
-                                Έξοδος
-                            </button>
-                        </form>
+                    @* Logout goes through /Account/SignOutAndRedirect (GET) instead of POST /Account/Logout
+                       because MudMenuItem competes with form-submit click events, causing intermittent lag.
+                       The GET endpoint signs out and redirects to /. CSRF risk is minimal — the damage
+                       envelope of a forced logout is zero. The form-based POST logout on Home.razor stays
+                       as-is for backward compatibility with users navigating via the main page. *@
+                    <MudMenuItem OnClick='() => Nav.NavigateTo("/Account/SignOutAndRedirect", forceLoad: true)'>
+                        Έξοδος
                     </MudMenuItem>
                 </MudMenu>
             </Authorized>
             <NotAuthorized>
                 <MudButton Variant="Variant.Text"
-                           OnClick='() => Nav.NavigateTo("/Account/Login")'>
+                           OnClick='() => Nav.NavigateTo("/Account/Login", forceLoad: true)'>
                     Σύνδεση
                 </MudButton>
                 <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                           OnClick='() => Nav.NavigateTo("/Account/Register")'>
+                           OnClick='() => Nav.NavigateTo("/Account/Register", forceLoad: true)'>
                     Εγγραφή
                 </MudButton>
             </NotAuthorized>
@@ -79,9 +78,29 @@
         var authState = await AuthState.GetAuthenticationStateAsync();
         if (authState.User.Identity?.IsAuthenticated != true) return;
 
-        // UserManager uses its own scoped store; with the factory-backed
-        // scoped DbContext registration, this no longer races with page queries.
-        var user = await UserManager.GetUserAsync(authState.User);
-        displayName = user?.FullName ?? user?.Email ?? "";
+        var userIdValue = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(userIdValue, out var userId)) return;
+
+        // Direct factory query instead of UserManager.GetUserAsync. UserManager
+        // uses Identity's scoped DbContext, which races with other queries
+        // during Blazor circuit startup. The factory gives us a fully isolated
+        // context. UserManager remains the right abstraction everywhere else
+        // (registration, password reset, etc.) — only the per-render display
+        // lookup here bypasses it for performance and isolation.
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var user = await db.Users
+            .Where(u => u.Id == userId)
+            .Select(u => new { u.FullName, u.Email })
+            .FirstOrDefaultAsync();
+
+        if (user is null)
+        {
+            // Auth cookie is valid but the user row is gone. Force clean sign-out
+            // via the GET endpoint so it hits a Razor Page handler, not Blazor routing.
+            Nav.NavigateTo("/Account/SignOutAndRedirect", forceLoad: true);
+            return;
+        }
+
+        displayName = user.FullName ?? user.Email ?? "";
     }
 }

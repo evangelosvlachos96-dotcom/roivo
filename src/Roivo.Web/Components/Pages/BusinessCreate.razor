@@ -1,12 +1,13 @@
 @page "/businesses/new"
 @attribute [Authorize]
 
+@using Roivo.Application.Abstractions
 @using Roivo.Application.Features.Businesses.Commands.CreateBusiness
 @using Roivo.Application.Features.Businesses.Commands.ReactivateBusiness
 @inject CreateBusinessHandler CreateHandler
 @inject ReactivateBusinessHandler ReactivateHandler
 @inject NavigationManager Nav
-@inject ISnackbar Snackbar
+@inject ITenantContext TenantContext
 
 <PageTitle>Νέα επιχείρηση</PageTitle>
 
@@ -57,27 +58,9 @@
                 </MudButton>
             </MudPaper>
 
-            <MudPaper Outlined="true" Class="pa-4 mb-3">
-                <MudText Typo="Typo.subtitle2" Class="mb-2">
-                    <MudIcon Icon="@Icons.Material.Outlined.Add" Size="Size.Small" Class="mr-1" />
-                    Δημιουργία νέας εγγραφής
-                </MudText>
-                <MudText Typo="Typo.body2" Class="mb-3" Color="Color.Secondary">
-                    Δεν υποστηρίζεται για την ώρα — ο μοναδικός περιορισμός (TenantId, ΑΦΜ)
-                    απαιτεί πρώτη οριστική διαγραφή της απενεργοποιημένης εγγραφής, που δεν είναι διαθέσιμη.
-                </MudText>
-                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
-                           OnClick="CreateNewAnyway"
-                           Disabled="@(state == FormState.Saving)"
-                           FullWidth="true">
-                    Δημιουργία νέας
-                </MudButton>
-            </MudPaper>
-
             <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4">
                 <MudButton Variant="Variant.Text"
-                           OnClick="BackToForm"
-                           Disabled="@(state == FormState.Saving)">
+                           OnClick="BackToForm">
                     Πίσω στο φόρμα
                 </MudButton>
             </MudStack>
@@ -124,8 +107,7 @@
 
                 <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
                     <MudButton Variant="Variant.Text"
-                               OnClick='() => Nav.NavigateTo("/businesses")'
-                               Disabled="@(state == FormState.Saving)">
+                               OnClick='() => Nav.NavigateTo("/businesses")'>
                         Άκυρο
                     </MudButton>
                     <MudButton Variant="Variant.Filled"
@@ -151,6 +133,15 @@
     private string? errorMessage;
     private BusinessFormModel model = new();
     private CreateBusinessResult.InactiveDuplicate? inactiveDuplicate;
+
+    protected override void OnInitialized()
+    {
+        // Defend against direct URL navigation by tenants that can't create.
+        if (!BusinessPermissions.CanCreate(TenantContext.CurrentTenantType))
+        {
+            Nav.NavigateTo("/businesses");
+        }
+    }
 
     private string? ValidateAfm(string afm)
     {
@@ -205,7 +196,7 @@
         StateHasChanged();
 
         var result = await ReactivateHandler.Handle(
-            new ReactivateBusinessCommand(inactiveDuplicate.ExistingId, model.Name, model.Kad, model.Address),
+            new ReactivateBusinessCommand(inactiveDuplicate.ExistingId),
             CancellationToken.None);
 
         switch (result)
@@ -226,16 +217,6 @@
                 BackToForm();
                 return;
         }
-    }
-
-    private void CreateNewAnyway()
-    {
-        // The DB unique index on (TenantId, Afm) prevents a parallel active row
-        // while an inactive one exists. Surface this directly instead of attempting
-        // a save that will fail at the constraint.
-        Snackbar.Add(
-            "Η δημιουργία νέας εγγραφής με το ίδιο ΑΦΜ δεν υποστηρίζεται. Χρησιμοποιήστε την επανενεργοποίηση.",
-            Severity.Warning);
     }
 
     private void BackToForm()

@@ -21,7 +21,8 @@ public sealed class GetCurrentTenantHandler
     {
         ArgumentNullException.ThrowIfNull(query);
 
-        if (_tenant.CurrentTenantId is not Guid id)
+        var id = _tenant.CurrentTenantId;
+        if (id == Guid.Empty)
             return Task.FromResult<Tenant?>(null);
 
         return _repository.GetByIdAsync(id, cancellationToken);

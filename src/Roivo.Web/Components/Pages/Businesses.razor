@@ -1,12 +1,16 @@
 @using MudBlazor
 @using Roivo.Core.Domain.Entities
+@using Roivo.Application.Abstractions
+@using Roivo.Application.Abstractions.Aade
 @using Roivo.Application.Features.Businesses.Commands.DeactivateBusiness
 @using Roivo.Application.Features.Businesses.Queries.ListActiveBusinesses
 @inject NavigationManager Nav
 @inject ListActiveBusinessesHandler ListHandler
 @inject DeactivateBusinessHandler DeactivateHandler
+@inject IAadeCredentialStore AadeStore
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject ITenantContext TenantContext
 @page "/businesses"
 @attribute [Authorize]
 
@@ -19,7 +23,7 @@
     </MudText>
     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
         <MudText Typo="Typo.h6">Λίστα επιχειρήσεων</MudText>
-        @if (!loading && businesses.Count > 0)
+        @if (!loading && businesses.Count > 0 && BusinessPermissions.CanCreate(TenantContext.CurrentTenantType))
         {
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
                        StartIcon="@Icons.Material.Outlined.Add"
@@ -40,11 +44,14 @@
             <MudText Typo="Typo.body2" Class="mb-4">
                 Ξεκινήστε προσθέτοντας την πρώτη επιχείρηση που εκπροσωπείτε.
             </MudText>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                       StartIcon="@Icons.Material.Outlined.Add"
-                       OnClick='() => Nav.NavigateTo("/businesses/new")'>
-                Προσθήκη επιχείρησης
-            </MudButton>
+            @if (BusinessPermissions.CanCreate(TenantContext.CurrentTenantType))
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Outlined.Add"
+                           OnClick='() => Nav.NavigateTo("/businesses/new")'>
+                    Προσθήκη επιχείρησης
+                </MudButton>
+            }
         </MudPaper>
     }
     else
@@ -54,6 +61,7 @@
                 <MudTh>Όνομα</MudTh>
                 <MudTh>ΑΦΜ</MudTh>
                 <MudTh>ΚΑΔ</MudTh>
+                <MudTh>AADE</MudTh>
                 <MudTh>Κατάσταση</MudTh>
                 <MudTh></MudTh>
             </HeaderContent>
@@ -61,6 +69,16 @@
                 <MudTd DataLabel="Όνομα">@context.Name</MudTd>
                 <MudTd DataLabel="ΑΦΜ">@context.Afm</MudTd>
                 <MudTd DataLabel="ΚΑΔ">@(context.Kad ?? "—")</MudTd>
+                <MudTd DataLabel="AADE">
+                    @if (aadeConnected.Contains(context.Id))
+                    {
+                        <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Color="Color.Success" Size="Size.Small" />
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">—</MudText>
+                    }
+                </MudTd>
                 <MudTd DataLabel="Κατάσταση">
                     <MudChip T="string" Size="Size.Small" Color="Color.Success">Ενεργή</MudChip>
                 </MudTd>
@@ -69,10 +87,13 @@
                         <MudIconButton Icon="@Icons.Material.Outlined.Edit"
                                        Size="Size.Small"
                                        OnClick="@(() => Nav.NavigateTo($"/businesses/{context.Id}/edit"))" />
-                        <MudIconButton Icon="@Icons.Material.Outlined.Block"
-                                       Size="Size.Small"
-                                       Color="Color.Error"
-                                       OnClick="@(() => HandleDeactivate(context))" />
+                        @if (BusinessPermissions.CanDeactivate(TenantContext.CurrentTenantType))
+                        {
+                            <MudIconButton Icon="@Icons.Material.Outlined.Block"
+                                           Size="Size.Small"
+                                           Color="Color.Error"
+                                           OnClick="@(() => HandleDeactivate(context))" />
+                        }
                     </MudStack>
                 </MudTd>
             </RowTemplate>
@@ -83,6 +104,7 @@
 </MudContainer>
 @code {
     private IReadOnlyList<Business> businesses = Array.Empty<Business>();
+    private HashSet<Guid> aadeConnected = new();
     private bool loading = true;
 
     protected override async Task OnInitializedAsync()
@@ -94,6 +116,18 @@
     {
         loading = true;
         businesses = await ListHandler.Handle(new ListActiveBusinessesQuery(), CancellationToken.None);
+
+        // Per-row AADE connectivity flag. N queries against a hot in-memory
+        // dataset for our scale (~tens of businesses per tenant); the list
+        // becomes a join when invoice volume justifies it.
+        var connectedSet = new HashSet<Guid>();
+        foreach (var b in businesses)
+        {
+            if (await AadeStore.HasCredentialsAsync(b.Id, CancellationToken.None))
+                connectedSet.Add(b.Id);
+        }
+        aadeConnected = connectedSet;
+
         loading = false;
     }
 

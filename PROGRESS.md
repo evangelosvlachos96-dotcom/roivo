@@ -139,3 +139,27 @@ Introduced Roivo.Application layer organized by feature. Extracted all business 
 - Roivo.Application has zero EF Core references
 - Razor components have zero EF Core or DbContext references
 - Razor components have zero System.Text.Json references
+
+## Milestone 4: AADE myDATA integration ✅ Completed 2026-05-17
+
+Full read-only sync against the AADE myDATA dev API. Per-business credentials stored encrypted (ASP.NET Data Protection). Nightly Hangfire cron at 03:00 Europe/Athens fans out per-business sync jobs. UI for connect/disconnect/sync-now with AFM-mismatch hard-block.
+
+**Test counts:** Roivo.Application.Tests 49 (was 29, +20), Roivo.Core.Tests 28 (unchanged). All passing.
+
+**Files created (~30):**
+- Application abstractions: `IAadeClient`, `IAadeCredentialStore`, `IAadeRateLimiter`, `IInvoiceRepository`, `AadeValidationResult`, `AadeFetchResult` + `AadeInvoiceDto`
+- 5 Aade features: ConnectAade, DisconnectAade, SyncBusinessInvoices (commands + results + handlers), GetAadeConnectionStatus, ListConnectedBusinesses (queries + handlers)
+- Roivo.Aade project filled out: `AadeHttpClient`, `EncryptedCredentialStore`, `InMemoryAadeRateLimiter`, `NightlyAadeSyncJob`, `SyncSingleBusinessJob`, `AadeSettings`, `AadeServiceCollectionExtensions`
+- Infrastructure: `InvoiceRepository`, `ApplicationDbContextDesignTimeFactory`
+- UI: `BusinessAade.razor` (3-state connect page)
+- Tests: 4 fakes (`FakeAadeClient`, `FakeAadeCredentialStore`, `FakeAadeRateLimiter`, `FakeInvoiceRepository`) + 4 test classes
+
+**Migration applied:** `20260518013159_AddAadeFieldsToBusiness` — `RenameColumn AadeUserId → AadeUserIdEncrypted`, `AddColumn LastAadeSyncAt`.
+
+**Architectural notes / known gaps for smoke testing:**
+- `InMemoryAadeRateLimiter` is per-process; multi-instance deploys will lose the global ceiling (acceptable for MVP, documented in later.md).
+- Hangfire dashboard at `/hangfire` is dev-only and unauthenticated; prod gating noted in later.md.
+- `Newtonsoft.Json` 13.0.3 overrides the vulnerable 11.0.1 transitive from `Hangfire.Core`.
+- `ListConnectedBusinessesHandler` returns IDs across all tenants (cron is system-wide); the new `IBusinessRepository.ListIdsWithAadeCredentialsAcrossAllTenantsAsync` uses `IgnoreQueryFilters`.
+- `AadeHttpClient`'s `ValidateCredentialsAsync` extracts the caller's AFM from the first invoice's `issuer/vatNumber`. If the user has no invoices in the probe window, the AFM-mismatch check can't fire — needs a real-world test with a clean AADE account to confirm.
+- Smoke test needed: log in → connect a business → click "Συγχρονισμός τώρα" against the AADE dev endpoint; verify invoices appear and `LastAadeSyncAt` updates.

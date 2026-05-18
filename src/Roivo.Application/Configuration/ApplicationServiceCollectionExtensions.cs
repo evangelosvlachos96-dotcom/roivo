@@ -5,6 +5,11 @@ using Roivo.Application.Features.Businesses.Commands.ReactivateBusiness;
 using Roivo.Application.Features.Businesses.Commands.UpdateBusiness;
 using Roivo.Application.Features.Businesses.Queries.GetBusinessById;
 using Roivo.Application.Features.Businesses.Queries.ListActiveBusinesses;
+using Roivo.Application.Features.Aade.Commands.ConnectAade;
+using Roivo.Application.Features.Aade.Commands.DisconnectAade;
+using Roivo.Application.Features.Aade.Commands.SyncBusinessInvoices;
+using Roivo.Application.Features.Aade.Queries.GetAadeConnectionStatus;
+using Roivo.Application.Features.Aade.Queries.ListConnectedBusinesses;
 using Roivo.Application.Features.Tenants.Queries.CountAllTenants;
 using Roivo.Application.Features.Tenants.Queries.GetCurrentTenant;
 
@@ -29,6 +34,12 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ListActiveBusinessesHandler>();
         services.AddScoped<GetCurrentTenantHandler>();
         services.AddScoped<CountAllTenantsHandler>();
+
+        services.AddScoped<ConnectAadeHandler>();
+        services.AddScoped<DisconnectAadeHandler>();
+        services.AddScoped<SyncBusinessInvoicesHandler>();
+        services.AddScoped<GetAadeConnectionStatusHandler>();
+        services.AddScoped<ListConnectedBusinessesHandler>();
 
         return services;
     }

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Hangfire;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -12,23 +13,23 @@ namespace Roivo.Web.Areas.Account.Pages;
 public class ForgotPasswordModel : PageModel
 {
     private readonly UserManager<ApplicationUser> _userManager;
-    private readonly IEmailSender _emailSender;
+    private readonly IBackgroundJobClient _backgroundJobs;
     private readonly IAuditWriter _audit;
     private readonly ILogger<ForgotPasswordModel> _logger;
 
     public ForgotPasswordModel(
         UserManager<ApplicationUser> userManager,
-        IEmailSender emailSender,
+        IBackgroundJobClient backgroundJobs,
         IAuditWriter audit,
         ILogger<ForgotPasswordModel> logger)
     {
         ArgumentNullException.ThrowIfNull(userManager);
-        ArgumentNullException.ThrowIfNull(emailSender);
+        ArgumentNullException.ThrowIfNull(backgroundJobs);
         ArgumentNullException.ThrowIfNull(audit);
         ArgumentNullException.ThrowIfNull(logger);
 
         _userManager = userManager;
-        _emailSender = emailSender;
+        _backgroundJobs = backgroundJobs;
         _audit = audit;
         _logger = logger;
     }
@@ -80,14 +81,9 @@ public class ForgotPasswordModel : PageModel
                 </div>
                 """;
 
-            try
-            {
-                await _emailSender.SendEmailAsync(Input.Email, "Επαναφορά κωδικού - Roivo", html, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to send password reset email to {Email}", Input.Email);
-            }
+            // Enqueue the email send so the user gets the "check your inbox"
+            // page immediately. Hangfire will retry on SMTP failure.
+            _backgroundJobs.Enqueue<EmailJob>(job => job.SendAsync(Input.Email, "Επαναφορά κωδικού - Roivo", html));
 
             await _audit.WriteAsync(
                 action: "PasswordResetRequested",

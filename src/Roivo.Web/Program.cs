@@ -1,4 +1,7 @@
+using Hangfire;
 using MudBlazor.Services;
+using Roivo.Aade.Configuration;
+using Roivo.Aade.Jobs;
 using Roivo.Application.Configuration;
 using Roivo.Web.Components;
 using Roivo.Web.Configuration;
@@ -11,6 +14,8 @@ builder.Host.UseRoivoLogging();
 builder.Services
     .AddRoivoPersistence(builder.Configuration)
     .AddRoivoApplication()
+    .AddRoivoBackgroundJobs(builder.Configuration)
+    .AddRoivoAade(builder.Configuration)
     .AddRoivoIdentity(builder.Configuration)
     .AddRoivoOpenIddict(builder.Configuration)
     .AddRoivoSecurity(builder.Configuration);
@@ -30,6 +35,22 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
+
+if (app.Environment.IsDevelopment())
+{
+    // Dashboard is unauthenticated by default; only mount it in dev where
+    // anything that could reach it is already a trusted developer.
+    app.UseHangfireDashboard("/hangfire");
+}
+
+// Register the nightly AADE sync. 03:00 in Europe/Athens — off-peak for our
+// users and aligned with AADE's own quieter window.
+RecurringJob.AddOrUpdate<NightlyAadeSyncJob>(
+    "nightly-aade-sync",
+    job => job.Execute(),
+    Cron.Daily(3),
+    new RecurringJobOptions { TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Athens") });
+
 app.MapRazorPages();
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 

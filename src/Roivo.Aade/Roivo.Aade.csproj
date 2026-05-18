@@ -1,8 +1,21 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\Roivo.Banking\Roivo.Banking.csproj" />
+    <ProjectReference Include="..\Roivo.Application\Roivo.Application.csproj" />
     <ProjectReference Include="..\Roivo.Core\Roivo.Core.csproj" />
+    <ProjectReference Include="..\Roivo.Infrastructure\Roivo.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hangfire.Core" Version="1.8.23" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="10.0.0" />
+    <!-- Override transitive 11.0.1 pulled in by Hangfire.Core (advisory GHSA-5crp-9r3c-p9vr). -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
   <PropertyGroup>
