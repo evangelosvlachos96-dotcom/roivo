@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Roivo.Application.Abstractions;
+using Roivo.Core.Domain.Auditing;
 using Roivo.Core.Domain.Entities;
 using Roivo.Infrastructure.Persistence;
 
@@ -29,7 +30,7 @@ public sealed class AuditWriter : IAuditWriter
     }
 
     public async Task WriteAsync(
-        string action,
+        AuditAction action,
         Guid? userId = null,
         Guid? tenantId = null,
         string? entityType = null,
@@ -37,7 +38,8 @@ public sealed class AuditWriter : IAuditWriter
         object? details = null,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(action);
+        // Use the enum's name so the DB column stays human-readable in pgAdmin.
+        var actionName = action.ToString();
 
         try
         {
@@ -52,7 +54,7 @@ public sealed class AuditWriter : IAuditWriter
 
             var entry = new AuditLog
             {
-                Action = action,
+                Action = actionName,
                 EntityType = entityType ?? string.Empty,
                 EntityId = Guid.TryParse(entityId, out var parsed) ? parsed : Guid.Empty,
                 UserId = userId,
@@ -69,7 +71,7 @@ public sealed class AuditWriter : IAuditWriter
         catch (Exception ex)
         {
             // Audit writes must never crash the originating request.
-            _logger.LogError(ex, "Failed to write audit log entry for action {Action}", action);
+            _logger.LogError(ex, "Failed to write audit log entry for action {Action}", actionName);
         }
     }
 }
