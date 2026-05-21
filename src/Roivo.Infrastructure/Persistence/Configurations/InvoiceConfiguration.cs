@@ -20,6 +20,11 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
             .HasConversion<string>()
             .HasMaxLength(20);
 
+        builder.Property(i => i.NetAmount).HasPrecision(18, 2);
+        builder.Property(i => i.VatAmount).HasPrecision(18, 2);
+        builder.Property(i => i.GrossAmount).HasPrecision(18, 2);
+        builder.Property(i => i.CancelledByMark).HasMaxLength(64);
+
         builder.HasIndex(i => new { i.TenantId, i.IssueDate });
         builder.HasIndex(i => new { i.TenantId, i.AadeMark }).IsUnique();
     }

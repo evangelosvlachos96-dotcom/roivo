@@ -11,5 +11,8 @@ public class BusinessConfiguration : IEntityTypeConfiguration<Business>
         builder.Property(b => b.IsActive)
              .HasDefaultValue(true);
         builder.HasIndex(b => new { b.TenantId, b.Afm }).IsUnique();
+
+        builder.Property(b => b.LastAadeIncomingMark);
+        builder.Property(b => b.LastAadeOutgoingMark);
     }
 }

@@ -20,6 +20,7 @@ public class ApplicationDbContext(
     public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
     public DbSet<BankTransaction> BankTransactions => Set<BankTransaction>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
+    public DbSet<IncomeBookEntry> IncomeBookEntries => Set<IncomeBookEntry>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 

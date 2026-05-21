@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Roivo.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using Roivo.Infrastructure.Persistence;
 namespace Roivo.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260521194550_AddAadeMarkColumns")]
+    partial class AddAadeMarkColumns
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -657,70 +660,6 @@ namespace Roivo.Infrastructure.Migrations
                     b.ToTable("Businesses");
                 });
 
-            modelBuilder.Entity("Roivo.Core.Domain.Entities.IncomeBookEntry", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("BusinessId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("CounterpartyAfm")
-                        .IsRequired()
-                        .HasMaxLength(9)
-                        .HasColumnType("character varying(9)");
-
-                    b.Property<string>("Currency")
-                        .IsRequired()
-                        .HasMaxLength(3)
-                        .HasColumnType("character varying(3)");
-
-                    b.Property<string>("DocumentTypeCode")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
-
-                    b.Property<decimal>("GrossValue")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<int>("InvoiceCount")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("IssueDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<long>("MaxMark")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("MinMark")
-                        .HasColumnType("bigint");
-
-                    b.Property<decimal>("NetValue")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.Property<DateTime>("SyncedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid");
-
-                    b.Property<decimal>("VatAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId");
-
-                    b.HasIndex("BusinessId", "CounterpartyAfm", "IssueDate", "DocumentTypeCode")
-                        .IsUnique();
-
-                    b.ToTable("IncomeBookEntries", (string)null);
-                });
-
             modelBuilder.Entity("Roivo.Core.Domain.Entities.Invoice", b =>
                 {
                     b.Property<Guid>("Id")
@@ -739,10 +678,6 @@ namespace Roivo.Infrastructure.Migrations
 
                     b.Property<Guid>("BusinessId")
                         .HasColumnType("uuid");
-
-                    b.Property<string>("CancelledByMark")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
 
                     b.Property<string>("CounterpartyAfm")
                         .IsRequired()
@@ -765,8 +700,7 @@ namespace Roivo.Infrastructure.Migrations
                         .HasColumnType("character varying(20)");
 
                     b.Property<decimal>("GrossAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("numeric");
 
                     b.Property<string>("InvoiceType")
                         .IsRequired()
@@ -776,14 +710,16 @@ namespace Roivo.Infrastructure.Migrations
                         .HasColumnType("date");
 
                     b.Property<decimal>("NetAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("numeric");
 
                     b.Property<int>("Number")
                         .HasColumnType("integer");
 
                     b.Property<DateTime?>("PaidAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RawPayload")
+                        .HasColumnType("text");
 
                     b.Property<string>("Series")
                         .HasColumnType("text");
@@ -797,8 +733,7 @@ namespace Roivo.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("VatAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("numeric");
 
                     b.HasKey("Id");
 
