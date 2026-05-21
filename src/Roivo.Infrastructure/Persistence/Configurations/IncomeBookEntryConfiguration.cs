@@ -13,7 +13,9 @@ public sealed class IncomeBookEntryConfiguration : IEntityTypeConfiguration<Inco
 
         builder.Property(e => e.BusinessId).IsRequired();
         builder.Property(e => e.TenantId).IsRequired();
-        builder.Property(e => e.CounterpartyAfm).IsRequired().HasMaxLength(9);
+        // 20 chars: usually a 9-char Greek AFM, but AADE returns EU counterparties
+        // with longer VAT-number formats. See entity comment.
+        builder.Property(e => e.CounterpartyAfm).IsRequired().HasMaxLength(20);
         builder.Property(e => e.IssueDate).IsRequired();
         builder.Property(e => e.DocumentTypeCode).IsRequired().HasMaxLength(10);
         builder.Property(e => e.NetValue).HasPrecision(18, 2);
