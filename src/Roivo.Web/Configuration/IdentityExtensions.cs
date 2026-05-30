@@ -14,6 +14,7 @@ public static class IdentityExtensions
             .Bind(configuration.GetSection("Identity"))
             .ValidateDataAnnotations()
             .ValidateOnStart();
+         
 
         var settings = configuration.GetSection("Identity").Get<IdentitySettings>()
             ?? throw new InvalidOperationException("Missing 'Identity' configuration section.");
