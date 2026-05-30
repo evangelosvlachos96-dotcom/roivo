@@ -166,7 +166,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        business = await GetBusinessHandler.Handle(new GetBusinessByIdQuery(Id, ActiveOnly: true), CancellationToken.None);
+        await RefreshBusinessAsync();
         if (business is null)
         {
             loading = false;
@@ -175,6 +175,14 @@
 
         await RefreshStatusAsync();
         loading = false;
+    }
+
+    // Re-reads the Business entity so derived UI state (the failure banner)
+    // reflects current DB state after Sync/Connect/Disconnect, not the
+    // snapshot taken at OnInitializedAsync.
+    private async Task RefreshBusinessAsync()
+    {
+        business = await GetBusinessHandler.Handle(new GetBusinessByIdQuery(Id, ActiveOnly: true), CancellationToken.None);
     }
 
     private async Task RefreshStatusAsync()
@@ -205,6 +213,9 @@
                     Snackbar.Add("Επιτυχής σύνδεση με AADE.", Severity.Success);
                     input.UserId = string.Empty;
                     input.SubscriptionKey = string.Empty;
+                    // Reconnect clears failure state server-side; re-read so a
+                    // prior-failure banner disappears.
+                    await RefreshBusinessAsync();
                     await RefreshStatusAsync();
                     return;
                 case ConnectAadeResult.BusinessNotFound:
@@ -270,6 +281,8 @@
             case DisconnectAadeResult.Success:
                 Snackbar.Add("Η σύνδεση αποσυνδέθηκε.", Severity.Info);
                 state = ScreenState.NotConnected;
+                // Disconnect clears failure state server-side; re-read.
+                await RefreshBusinessAsync();
                 await RefreshStatusAsync();
                 break;
             case DisconnectAadeResult.BusinessNotFound:
@@ -293,6 +306,9 @@
             {
                 case SyncBusinessInvoicesResult.Success ok:
                     Snackbar.Add($"Συγχρονισμός ολοκληρώθηκε: {ok.NewCount} νέα, {ok.UpdatedCount} ενημερωμένα.", Severity.Success);
+                    // A successful sync clears HasAadeFailure server-side; re-read
+                    // so the banner reflects that without a full page refresh.
+                    await RefreshBusinessAsync();
                     await RefreshStatusAsync();
                     break;
                 case SyncBusinessInvoicesResult.NotConnected:
@@ -301,6 +317,9 @@
                     break;
                 case SyncBusinessInvoicesResult.InvalidCredentials:
                     Snackbar.Add("Τα AADE credentials απορρίφθηκαν. Συνδεθείτε ξανά.", Severity.Error);
+                    // Handler set HasAadeFailure="InvalidCredentials"; re-read so
+                    // the banner appears immediately.
+                    await RefreshBusinessAsync();
                     await RefreshStatusAsync();
                     break;
                 case SyncBusinessInvoicesResult.NetworkError ne:

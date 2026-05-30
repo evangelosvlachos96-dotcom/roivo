@@ -1,314 +1,589 @@
-Add AADE connection health tracking to detect when credentials stop working, show user-facing banner immediately, and send email after 24+ hours of failure.
+Create three documentation files that give a complete mental map of the Roivo codebase. These docs are FOR a solo founder who has been driving the design but wants deep code-level understanding of what's been built.
 
-### Background
+CRITICAL: every claim must trace to real code in the repo. Use grep/view to verify names, paths, methods. Do NOT fabricate or work from memory of past instructions — read the current state of the code. Mermaid diagrams (GitHub-native rendering).
 
-The resilience patterns doc identified that we detect AFM mismatch (specific case) but not general credential failure beyond a log line. Customer experience: sync silently fails, user doesn't know why invoices stopped arriving.
+### Task 1: Create docs/ARCHITECTURE.md
 
-Solution: track failure state on Business entity, show banner in UI when broken, email user via Hangfire job if broken >24 hours.
+Structure:
 
-### Task 1: Add failure tracking fields to Business
+````markdown
+# Roivo Architecture
 
-In src/Roivo.Core/Domain/Entities/Business.cs, add three properties:
+A complete map of the Roivo codebase. Read this before modifying any 
+significant code; debug through docs/FLOWS.md alongside this document.
 
-```csharp
-public bool HasAadeFailure { get; private set; }
-public DateTime? AadeLastFailureAt { get; private set; }
-public string? AadeLastFailureReason { get; private set; }
-public DateTime? AadeFailureEmailSentAt { get; private set; }
+## Project layout
+
+[Generate `tree`-style listing of src/ and tests/ with one-line description 
+of each project's responsibility. Use real folder names from the repo.]
+
+## Project dependencies
+
+```mermaid
+graph TD
+    Web[Roivo.Web] --> Aade[Roivo.Aade]
+    Web --> Infrastructure[Roivo.Infrastructure]
+    Web --> Application[Roivo.Application]
+    Web --> Core[Roivo.Core]
+    Web --> Resources[Roivo.Resources]
+    Infrastructure --> Application
+    Infrastructure --> Core
+    Infrastructure --> Resources
+    Aade --> Application
+    Aade --> Core
+    Application --> Core
+    
+    Core:::pure
+    Resources:::pure
+    
+    classDef pure fill:#e1f5e1,stroke:#0a0
 ```
 
-The `AadeFailureEmailSentAt` tracks when we last sent the 24-hour notification email. Prevents duplicate emails — we only send once per failure period.
+[Verify the actual dependencies in .csproj files match this. Adjust diagram 
+if reality differs. Add a note explaining the rule: "lower layers never 
+reference higher layers" and what that means.]
 
-Add domain methods:
+## Layered architecture
 
-```csharp
-/// <summary>
-/// Records that an AADE sync attempt failed. The reason is a short string 
-/// identifying the failure category (e.g., "InvalidCredentials", "AfmMismatch", 
-/// "NetworkError") for UI messaging purposes.
-/// </summary>
-public void RecordAadeSyncFailure(string reason)
-{
-    ArgumentException.ThrowIfNullOrWhiteSpace(reason);
-    
-    // Only update timestamp if this is a new failure (not a repeat).
-    // We want AadeLastFailureAt to reflect when the failure STARTED, 
-    // not the most recent failure attempt — so the 24-hour clock 
-    // measures elapsed broken time.
-    if (!HasAadeFailure)
-    {
-        AadeLastFailureAt = DateTime.UtcNow;
+For each project, document:
+- What it contains (use real types from the codebase)
+- What it CAN'T contain (forbidden dependencies)
+- A representative file with brief explanation
+
+### Roivo.Core (`src/Roivo.Core/`)
+**Purpose:** Pure domain. No frameworks, no I/O, no DI.
+**Contains:** Entities, value objects, enums, domain events.
+**Forbidden:** EF Core, HttpClient, ILogger, MudBlazor, anything outside 
+the domain.
+**Example files:** [list 2-3 real files from this project with a sentence 
+about each]
+
+### Roivo.Application (`src/Roivo.Application/`)
+[same structure — verify what's actually in there]
+
+### Roivo.Infrastructure (`src/Roivo.Infrastructure/`)
+[same structure]
+
+### Roivo.Aade (`src/Roivo.Aade/`)
+[same structure]
+
+### Roivo.Web (`src/Roivo.Web/`)
+[same structure]
+
+### Roivo.Resources (`src/Roivo.Resources/`)
+[same structure]
+
+## Key concepts
+
+For each concept, give a one-paragraph explanation followed by a 
+"where to look" pointer to real code.
+
+### Tenancy
+The whole system is multi-tenant. Every business-level entity carries 
+TenantId. ITenantContext gives the current tenant. Query filters apply 
+tenant scope automatically. Raw SQL must apply it manually.
+
+**Where to look:** 
+- `src/Roivo.Application/Abstractions/ITenantContext.cs`
+- `src/Roivo.Infrastructure/Persistence/ApplicationDbContext.cs` 
+  (HasQueryFilter setup)
+- `src/Roivo.Infrastructure/Persistence/Repositories/InvoiceQueryRepository.cs` 
+  (raw SQL tenant filter example)
+
+### Tenant types and permissions
+Two tenant types: Accountant and Business. Permissions live in 
+BusinessPermissions (static class). Handlers check permissions before 
+loading entities.
+
+**Where to look:**
+- `src/Roivo.Core/Domain/[wherever]/TenantType.cs` (verify path)
+- `src/Roivo.Application/Permissions/BusinessPermissions.cs` (verify path)
+- Any handler — e.g. UpdateBusinessHandler.cs — shows the pattern
+
+### Command/Query handlers
+We use CQRS without MediatR. Each handler is a sealed class registered 
+in DI. Blazor pages and Razor Pages inject handlers directly and call 
+Handle(...). No reflection-based dispatch.
+
+**Where to look:**
+- `src/Roivo.Application/Configuration/ApplicationServiceCollectionExtensions.cs` 
+  (DI registration)
+- Any handler — e.g. CreateBusinessHandler.cs — shows the pattern
+
+### Result types (discriminated unions)
+Handlers return result types like CreateBusinessResult with variants 
+Success, Forbidden, NotFound, DuplicateAfm. Callers pattern-match on 
+result variant rather than catching exceptions.
+
+**Where to look:**
+- Any result file — e.g. CreateBusinessResult.cs — shows the pattern
+
+### Validation order in handlers
+Standard order: null-guard → permission → load → existence → 
+business-rules → mutate → save → audit → return.
+
+**Where to look:**
+- `docs/CODING_STANDARDS.md` (section: Handler structure)
+- Any handler — e.g. DeactivateBusinessHandler.cs
+
+### Encrypted credential storage
+AADE credentials stored encrypted via DataProtection API. Tenant-scoped 
+keys. IAadeCredentialStore abstracts retrieval; EncryptedAadeCredentialStore 
+implements it.
+
+**Where to look:**
+- `src/Roivo.Application/Abstractions/Aade/IAadeCredentialStore.cs`
+- `src/Roivo.Infrastructure/Aade/EncryptedAadeCredentialStore.cs` 
+  (verify path)
+
+### Audit logging
+AuditAction enum (numeric ranges per domain: auth 0-99, businesses 100-199, 
+AADE 200-299). Written AFTER successful actions only.
+
+**Where to look:**
+- `src/Roivo.Core/Domain/Auditing/AuditAction.cs`
+- `src/Roivo.Application/Abstractions/IAuditWriter.cs`
+
+### Hangfire jobs
+Recurring background jobs registered in Program.cs. Currently: 
+NightlyAadeSyncJob (3 AM Athens) and AadeFailureNotificationJob (9 AM Athens). 
+Hangfire dashboard at /hangfire shows their status.
+
+**Where to look:**
+- `src/Roivo.Web/Program.cs` (Hangfire setup section)
+- `src/Roivo.Infrastructure/Jobs/AadeFailureNotificationJob.cs`
+- Wherever NightlyAadeSyncJob lives
+
+### Resilience
+Polly retries on transient failures in HTTP clients. Result types 
+express different failure categories. Business entity tracks 
+HasAadeFailure / AadeLastFailureAt for credential failures.
+
+**Where to look:**
+- `docs/RESILIENCE_PATTERNS.md`
+- `src/Roivo.Aade/AadeHttpClient.cs` (FetchAndParseAsync — sees 429, 
+  401/403, etc.)
+
+## Component diagram
+
+```mermaid
+graph LR
+    Browser[Browser] -->|HTTPS/SignalR| Blazor[Blazor Server]
+    Browser -->|HTTPS POST| Razor[Razor Pages /Account]
+    Blazor -->|injection| Handlers[Application Handlers]
+    Razor -->|injection| Identity[ASP.NET Identity]
+    Handlers -->|via abstractions| Repos[Repositories]
+    Handlers -->|via abstractions| AadeClient[IAadeClient]
+    Repos -->|EF Core| Postgres[(PostgreSQL)]
+    AadeClient -->|HTTP| AadeAPI[AADE myDATA API]
+    Hangfire[Hangfire Jobs] -->|injection| Handlers
+    EmailSender[IEmailSender] -->|SMTP| Mailtrap[Mailtrap]
+    Handlers --> EmailSender
+```
+
+## Entity model
+
+```mermaid
+classDiagram
+    class Tenant {
+        Guid Id
+        string Name
+        TenantType Type
+        DateTime CreatedAt
+    }
+    class User {
+        Guid Id
+        string Email
+        Guid TenantId
+        bool EmailConfirmed
+    }
+    class Business {
+        Guid Id
+        Guid TenantId
+        string Name
+        string Afm
+        bool IsActive
+        DateTime? LastAadeSyncAt
+        long? LastAadeIncomingMark
+        long? LastAadeOutgoingMark
+        bool HasAadeFailure
+        DateTime? AadeLastFailureAt
+        string? AadeLastFailureReason
+        DateTime? AadeFailureEmailSentAt
+        string? AadeUserIdEncrypted
+        string? AadeSubscriptionKeyEncrypted
+    }
+    class Invoice {
+        Guid Id
+        Guid BusinessId
+        Guid TenantId
+        long AadeMark
+        InvoiceDirection Direction
+        string CounterpartyAfm
+        string CounterpartyName
+        DateTime IssueDate
+        string InvoiceType
+        decimal NetAmount
+        decimal VatAmount
+        decimal GrossAmount
+        string? CancelledByMark
+        string Currency
+    }
+    class IncomeBookEntry {
+        Guid Id
+        Guid BusinessId
+        Guid TenantId
+        string CounterpartyAfm
+        DateTime IssueDate
+        string DocumentTypeCode
+        decimal NetValue
+        decimal VatAmount
+        decimal GrossValue
+        int InvoiceCount
+        long MinMark
+        long MaxMark
+        string Currency
+        DateTime SyncedAt
     }
     
-    HasAadeFailure = true;
-    AadeLastFailureReason = reason;
-}
+    Tenant "1" --> "*" User
+    Tenant "1" --> "*" Business
+    Business "1" --> "*" Invoice
+    Business "1" --> "*" IncomeBookEntry
+```
 
-/// <summary>
-/// Clears the AADE failure state. Called when sync succeeds OR when 
-/// the user disconnects/reconnects credentials.
-/// </summary>
-public void ClearAadeSyncFailure()
-{
-    HasAadeFailure = false;
-    AadeLastFailureAt = null;
-    AadeLastFailureReason = null;
-    AadeFailureEmailSentAt = null;  // Reset so a future failure can re-trigger email
-}
+Verify each entity by viewing its real .cs file. Add or remove properties 
+to match what's actually in the codebase.
 
-/// <summary>
-/// Marks that we've sent the 24-hour failure notification email. 
-/// Prevents duplicate emails for the same continuous failure period.
-/// </summary>
-public void RecordAadeFailureEmailSent()
-{
-    if (!HasAadeFailure)
-        throw new InvalidOperationException("Cannot record email sent — no active failure.");
+## Where to add new things
+
+When adding a new feature, where does code go? Quick reference:
+- New entity → Roivo.Core/Domain/Entities/
+- New handler → Roivo.Application/Features/<Aggregate>/Commands or Queries/
+- New abstraction (interface) → Roivo.Application/Abstractions/
+- New repository implementation → Roivo.Infrastructure/Persistence/Repositories/
+- New page → Roivo.Web/Components/Pages/
+- New Greek string → Roivo.Resources/
+- New migration → automatic via `dotnet ef migrations add`
+- New test → tests/Roivo.<Project>.Tests/
+````
+
+### Task 2: Create docs/FLOWS.md
+
+Three flows, walked through end-to-end. Each flow has:
+- Trigger description
+- Ordered list of files involved
+- Description of what each file does in this flow
+- Mermaid sequence diagram
+- List of suggested breakpoints for debugging
+
+````markdown
+# End-to-End Flows
+
+This document walks through real user actions step-by-step. Use this 
+alongside ARCHITECTURE.md when debugging or modifying behavior. 
+Suggested breakpoints at the end of each flow help you trace data 
+movement in Visual Studio.
+
+## Flow 1: User logs in
+
+### Trigger
+User opens /Account/Login, enters email + password, clicks submit.
+
+### Files involved (in order)
+[Find the actual login flow — likely:
+- src/Roivo.Web/Areas/Identity/Pages/Account/Login.cshtml (the form)
+- src/Roivo.Web/Areas/Identity/Pages/Account/Login.cshtml.cs (the handler)
+- ASP.NET Core Identity (UserManager, SignInManager)
+- OpenIddict (for token issuance if applicable)
+- ITenantContext (resolves tenant from authenticated user)
+- Cookie middleware (sets auth cookie)
+- Final redirect
+
+List actual files with paths and line ranges if possible. Describe what 
+each does.]
+
+### Data flow
+[Explain: email enters as form field → UserManager.FindByEmailAsync → 
+password check via SignInManager.CheckPasswordSignInAsync → if successful, 
+SignInManager.SignInAsync creates auth cookie → redirect to home or 
+return URL.]
+
+### Sequence diagram
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Browser
+    participant Login as Login.cshtml.cs
+    participant Identity as ASP.NET Identity
+    participant DB as PostgreSQL
     
-    AadeFailureEmailSentAt = DateTime.UtcNow;
-}
+    User->>Browser: Submit email + password
+    Browser->>Login: POST /Account/Login
+    Login->>Identity: SignInManager.PasswordSignInAsync
+    Identity->>DB: Find user, verify password hash
+    DB-->>Identity: User row + hash
+    Identity-->>Login: SignInResult.Success
+    Login-->>Browser: 302 redirect + auth cookie
+    Browser->>User: Authenticated, sees home
 ```
 
-### Task 2: EF Core mapping
+### Breakpoints to set in Visual Studio
+1. **Login.cshtml.cs OnPostAsync** — first line. Inspect: `Input.Email`, `Input.Password`.
+2. **SignInManager.PasswordSignInAsync** — step into to see how Identity 
+   verifies password.
+3. **ITenantContext implementation** — after login, see how tenant is 
+   resolved for the authenticated user.
 
-In src/Roivo.Infrastructure/Persistence/Configurations/BusinessConfiguration.cs:
+## Flow 2: User syncs AADE invoices
 
-Add column mappings for the four new properties:
-- `HasAadeFailure` (bool, default false)
-- `AadeLastFailureAt` (timestamptz, nullable)
-- `AadeLastFailureReason` (varchar(50), nullable)
-- `AadeFailureEmailSentAt` (timestamptz, nullable)
+### Trigger
+User on /businesses/{id}/aade clicks "Συγχρονισμός τώρα" button.
 
-### Task 3: Generate migration
+### Files involved (in order)
+1. **src/Roivo.Web/Components/Pages/BusinessAade.razor** — `HandleSyncNow` 
+   method. Calls SyncBusinessInvoicesHandler via injected dependency.
+2. **src/Roivo.Application/Features/Aade/Commands/SyncBusinessInvoices/SyncBusinessInvoicesCommand.cs** 
+   — the command record (just BusinessId).
+3. **src/Roivo.Application/Features/Aade/Commands/SyncBusinessInvoices/SyncBusinessInvoicesHandler.cs** 
+   — the orchestrator. Validates permission, loads business, fetches 
+   credentials, calls AADE client, persists results.
+4. **src/Roivo.Application/Permissions/BusinessPermissions.cs** — 
+   `CanSyncAadeFor(tenantType)` returns true if the tenant can sync.
+5. **src/Roivo.Infrastructure/Persistence/Repositories/BusinessRepository.cs** 
+   — `GetByIdActiveOnlyAsync` loads the business if active.
+6. **src/Roivo.Infrastructure/Aade/EncryptedAadeCredentialStore.cs** 
+   (verify path) — decrypts userId + subscription key.
+7. **src/Roivo.Aade/AadeHttpClient.cs** — `FetchInvoicesAsync` issues 
+   two parallel HTTP GETs to AADE.
+8. **AADE myDATA API** — returns XML responses.
+9. **src/Roivo.Aade/AadeHttpClient.cs** — `ParseIncomingInvoices` and 
+   `ParseOutgoingBookEntries` extract data from XML into DTOs.
+10. **SyncBusinessInvoicesHandler** continues — upserts via 
+    IInvoiceRepository and IIncomeBookEntryRepository, advances marks 
+    on Business, optionally records failure state.
+11. **src/Roivo.Infrastructure/Persistence/ApplicationDbContext.cs** 
+    — SaveChangesAsync persists everything.
+12. **src/Roivo.Application/Abstractions/IAuditWriter.cs** implementation 
+    — writes AuditAction.AadeSyncCompleted entry.
+13. Handler returns SyncBusinessInvoicesResult.Success — back to Blazor 
+    page, which refreshes UI state.
 
-Generate migration `AddAadeFailureTracking`. Apply it.
+### Data flow
+[Detailed walk-through: BusinessId from page → load business from DB → 
+get encrypted creds → decrypt → AADE HTTP GET with creds in headers → 
+XML response → parse to DTOs → loop DTOs to upsert Invoice rows → 
+similar for IncomeBookEntry → update Business.LastAadeIncomingMark and 
+LastAadeOutgoingMark → if all successful, clear HasAadeFailure → 
+SaveChanges (one transaction) → audit log entry.]
 
-### Task 4: Wire failure detection in SyncBusinessInvoicesHandler
+### Sequence diagram
 
-In src/Roivo.Application/Features/Aade/Commands/SyncBusinessInvoices/SyncBusinessInvoicesHandler.cs:
-
-The handler currently routes on AadeFetchResult variants. Add failure tracking:
-
-- On `AadeFetchResult.InvalidCredentials`: call `business.RecordAadeSyncFailure("InvalidCredentials")`, save, return existing result variant
-- On `AadeFetchResult.AfmMismatch`: call `business.RecordAadeSyncFailure("AfmMismatch")`, save, return existing variant
-- On `AadeFetchResult.NetworkError` or similar transient: do NOT mark as failure (transient errors aren't credential problems). Just log and return existing variant.
-- On `AadeFetchResult.AadeServerError`: do NOT mark (also transient — AADE's problem, not ours).
-- On `AadeFetchResult.RateLimited`: do NOT mark.
-- On `AadeFetchResult.Success`: call `business.ClearAadeSyncFailure()` BEFORE the existing save (mark advancement etc.). If the business was previously broken and is now working, we want to clear that state.
-
-The principle: only persistent auth-equivalent failures should mark the connection as broken. Transient network/server errors should not.
-
-### Task 5: Update ConnectAade handler to clear failure state
-
-In src/Roivo.Application/Features/Aade/Commands/ConnectAade/ConnectAadeHandler.cs:
-
-When credentials connect successfully, call `business.ClearAadeSyncFailure()` before saving. A successful reconnect heals the broken state.
-
-In DisconnectAadeHandler similarly: when disconnecting, call `ClearAadeSyncFailure()` (no point tracking failure on a disconnected business).
-
-### Task 6: Banner on BusinessAade.razor
-
-In src/Roivo.Web/Components/Pages/BusinessAade.razor:
-
-At the top of the connected-state section (when business has credentials), check if `business.HasAadeFailure == true` and render a MudAlert banner:
-
-```razor
-@if (business.HasAadeFailure)
-{
-    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
-        <MudText Typo="Typo.subtitle2">
-            @Aade.ConnectionFailureBannerTitle
-        </MudText>
-        <MudText Typo="Typo.body2">
-            @GetFailureMessage(business.AadeLastFailureReason)
-            @if (business.AadeLastFailureAt.HasValue)
-            {
-                <br/>
-                <span>@string.Format(Aade.ConnectionFailureBannerSince, business.AadeLastFailureAt.Value.ToLocalTime())</span>
-            }
-        </MudText>
-    </MudAlert>
-}
-```
-
-With a helper method in @code:
-
-```csharp
-private string GetFailureMessage(string? reason) => reason switch
-{
-    "InvalidCredentials" => Aade.FailureReasonInvalidCredentials,
-    "AfmMismatch" => Aade.FailureReasonAfmMismatch,
-    _ => Aade.FailureReasonGeneric
-};
-```
-
-The banner is also shown on the BusinessInvoices.razor page (the cashflow UI) — same MudAlert, same conditional — so users see it wherever they land.
-
-### Task 7: Add resource strings
-
-In src/Roivo.Resources/Aade.cs, add:
-
-```csharp
-public const string ConnectionFailureBannerTitle = "Πρόβλημα σύνδεσης AADE";
-public const string ConnectionFailureBannerSince = "Πρόβλημα από: {0:dd MMM yyyy HH:mm}";
-public const string FailureReasonInvalidCredentials = "Τα διαπιστευτήρια AADE δεν είναι πλέον έγκυρα. Πρέπει να συνδεθείτε ξανά.";
-public const string FailureReasonAfmMismatch = "Τα διαπιστευτήρια AADE ανήκουν σε διαφορετικό ΑΦΜ. Πρέπει να ελέγξετε τη σύνδεση.";
-public const string FailureReasonGeneric = "Ο συγχρονισμός AADE απέτυχε. Επικοινωνήστε με την υποστήριξη αν το πρόβλημα παραμένει.";
-public const string FailureEmailSubject = "Πρόβλημα σύνδεσης AADE - Roivo";
-public const string FailureEmailGreeting = "Γεια σας {0},";
-public const string FailureEmailBody = "Η σύνδεση AADE για την επιχείρηση \"{0}\" (ΑΦΜ {1}) δεν λειτουργεί από τις {2:dd/MM/yyyy HH:mm}.\n\nΛόγος: {3}\n\nΕίσοδος στο Roivo για να επανασυνδέσετε:\n{4}";
-public const string FailureEmailSignature = "Η ομάδα του Roivo";
-```
-
-### Task 8: Hangfire job for 24-hour email notification
-
-Create src/Roivo.Web/Infrastructure/Jobs/AadeFailureNotificationJob.cs (or follow the existing job folder pattern in the project):
-
-```csharp
-public sealed class AadeFailureNotificationJob
-{
-    private readonly IBusinessRepository _businesses;
-    private readonly IEmailSender _emailSender;
-    private readonly ILogger<AadeFailureNotificationJob> _logger;
+```mermaid
+sequenceDiagram
+    actor User
+    participant Page as BusinessAade.razor
+    participant Handler as SyncBusinessInvoicesHandler
+    participant Perms as BusinessPermissions
+    participant Repo as BusinessRepository
+    participant CredStore as IAadeCredentialStore
+    participant Client as AadeHttpClient
+    participant AADE
+    participant InvRepo as IInvoiceRepository
+    participant BookRepo as IIncomeBookEntryRepository
+    participant DB as PostgreSQL
+    participant Audit as IAuditWriter
     
-    public AadeFailureNotificationJob(
-        IBusinessRepository businesses,
-        IEmailSender emailSender,
-        ILogger<AadeFailureNotificationJob> logger)
-    {
-        ArgumentNullException.ThrowIfNull(businesses);
-        ArgumentNullException.ThrowIfNull(emailSender);
-        ArgumentNullException.ThrowIfNull(logger);
-        _businesses = businesses;
-        _emailSender = emailSender;
-        _logger = logger;
-    }
-    
-    public async Task ExecuteAsync(CancellationToken cancellationToken = default)
-    {
-        var threshold = DateTime.UtcNow.AddHours(-24);
-        
-        // Find businesses that:
-        // 1. Have an active AADE failure
-        // 2. Failure started >24 hours ago
-        // 3. Haven't been emailed yet (AadeFailureEmailSentAt is null)
-        var businessesToNotify = await _businesses
-            .ListWithExpiredAadeFailureAsync(threshold, cancellationToken)
-            .ConfigureAwait(false);
-        
-        foreach (var business in businessesToNotify)
-        {
-            // Need owner's email — query through tenant or user relationship
-            // (depends on existing pattern; check IBusinessRepository or 
-            // ITenantContext for how to get this)
-            
-            var ownerEmail = await GetOwnerEmailAsync(business, cancellationToken);
-            if (string.IsNullOrEmpty(ownerEmail)) continue;
-            
-            var subject = Aade.FailureEmailSubject;
-            var body = string.Format(
-                Aade.FailureEmailBody,
-                business.Name,
-                business.Afm,
-                business.AadeLastFailureAt!.Value.ToLocalTime(),
-                MapFailureReasonToGreek(business.AadeLastFailureReason),
-                "https://roivo.gr/businesses/" + business.Id + "/aade");  // Or env-aware URL
-            
-            await _emailSender.SendAsync(ownerEmail, subject, body, cancellationToken);
-            
-            business.RecordAadeFailureEmailSent();
-            await _businesses.UpdateAsync(business, cancellationToken);
-            
-            _logger.LogInformation(
-                "Sent AADE failure notification to {Email} for business {BusinessId}",
-                ownerEmail, business.Id);
-        }
-    }
-    
-    // Implementation of MapFailureReasonToGreek and GetOwnerEmailAsync 
-    // follows existing patterns in the codebase.
-}
+    User->>Page: Click Συγχρονισμός τώρα
+    Page->>Handler: Handle(SyncBusinessInvoicesCommand)
+    Handler->>Perms: CanSyncAadeFor(tenantType)
+    Perms-->>Handler: true
+    Handler->>Repo: GetByIdActiveOnlyAsync(businessId)
+    Repo->>DB: SELECT business WHERE Id = ? AND IsActive
+    DB-->>Repo: Business
+    Repo-->>Handler: Business
+    Handler->>CredStore: GetAsync(businessId)
+    CredStore->>DB: SELECT encrypted creds
+    DB-->>CredStore: ciphertext
+    CredStore-->>Handler: decrypted userId + key
+    Handler->>Client: FetchInvoicesAsync(creds, since marks)
+    par Incoming fetch
+        Client->>AADE: GET RequestDocs?mark=N
+        AADE-->>Client: XML response
+    and Outgoing fetch
+        Client->>AADE: GET RequestMyIncome?mark=N&dateFrom=...
+        AADE-->>Client: XML response
+    end
+    Client->>Client: ParseIncomingInvoices(xml)
+    Client->>Client: ParseOutgoingBookEntries(xml)
+    Client-->>Handler: AadeFetchResult.Success(incoming, outgoing, marks)
+    loop For each invoice DTO
+        Handler->>InvRepo: UpsertAsync(invoice)
+    end
+    loop For each book entry DTO
+        Handler->>BookRepo: UpsertAsync(entry)
+    end
+    Handler->>Handler: business.RecordAadeSyncProgress(marks)
+    Handler->>Handler: business.ClearAadeSyncFailure() (if was failed)
+    Handler->>Repo: UpdateAsync(business)
+    Repo->>DB: SaveChangesAsync (all changes in one transaction)
+    DB-->>Repo: OK
+    Handler->>Audit: WriteAsync(AadeSyncCompleted, ...)
+    Audit->>DB: INSERT AuditLog
+    Handler-->>Page: SyncBusinessInvoicesResult.Success
+    Page-->>User: UI updated, banner cleared
 ```
 
-The repository method `ListWithExpiredAadeFailureAsync` is a new addition to IBusinessRepository:
+### Breakpoints to set
+1. **BusinessAade.razor HandleSyncNow** — first line. Inspect: business 
+   ID, current state.
+2. **SyncBusinessInvoicesHandler.Handle** — first line. Inspect: 
+   command, current tenant.
+3. **After permission check** — verify permission result.
+4. **After repository load** — inspect business properties, especially 
+   sync marks.
+5. **After credential decryption** — verify decrypted credentials are 
+   plausible (note: AVOID logging or copying these — they're real secrets).
+6. **AadeHttpClient.FetchInvoicesAsync** — first line. Inspect: 
+   incoming and outgoing mark parameters.
+7. **AadeHttpClient.FetchAndParseAsync** — after SendAsync. Inspect: 
+   response status, body length.
+8. **ParseIncomingInvoices** — return value. Inspect: count of parsed 
+   invoices.
+9. **Back in handler, before save** — inspect: business marks before/
+   after RecordAadeSyncProgress, HasAadeFailure state.
+10. **DbContext.SaveChangesAsync** — inspect: ChangeTracker.Entries() 
+    to see what's being saved.
 
-```csharp
-Task<IReadOnlyList<Business>> ListWithExpiredAadeFailureAsync(
-    DateTime threshold, 
-    CancellationToken cancellationToken = default);
-```
+## Flow 3: User views cashflow page
 
-Implementation queries: businesses where `HasAadeFailure && AadeLastFailureAt < threshold && AadeFailureEmailSentAt IS NULL`.
+### Trigger
+User navigates to /businesses/{id}/invoices.
 
-### Task 9: Register the Hangfire job
+[Same structure as Flow 2: files, data flow, sequence diagram, breakpoints. 
+Walk through the raw SQL union query, server-side pagination via 
+MudTable.ServerData, etc.]
+````
 
-In the Hangfire configuration (follow the pattern from NightlyAadeSyncJob), register `AadeFailureNotificationJob` to run daily at a sensible time (e.g., 09:00 Athens time — when business users are starting their day).
+### Task 3: Create docs/TEST_WALKTHROUGH.md
 
-Recurring job ID: "aade-failure-notification"
+A practical debugging checklist. The user wants to debug through each 
+user action with breakpoints to understand the code by watching it run.
 
-### Task 10: Tests
+````markdown
+# Debugging Walkthrough
 
-Add tests in tests/Roivo.Application.Tests/:
+A checklist of actions to perform in Visual Studio with the debugger 
+attached. Each action lists what to do, what to set breakpoints on, 
+and what to observe. The goal: by completing this list, you'll have 
+seen every major code path execute and built mental models for each.
 
-For Business entity (Core tests):
-- RecordAadeSyncFailure_OnFirstFailure_SetsTimestamp
-- RecordAadeSyncFailure_OnRepeatFailure_PreservesOriginalTimestamp
-- ClearAadeSyncFailure_ResetsAllFields
-- RecordAadeFailureEmailSent_ThrowsWhenNoActiveFailure
+Estimated total time: 90-120 minutes. Take breaks. Skip flows you 
+already understand.
 
-For SyncBusinessInvoicesHandler:
-- OnInvalidCredentials_MarksBusinessAsFailed
-- OnAfmMismatch_MarksBusinessAsFailed
-- OnNetworkError_DoesNotMarkAsFailed (transient — should not flag)
-- OnSuccess_ClearsFailureState
+## Setup
+1. Open Roivo.sln in Visual Studio
+2. Set Roivo.Web as startup project
+3. Confirm PostgreSQL is running and dev DB has data 
+   (or run a sync to populate)
+4. Open Mailtrap (if you want to verify email flows)
+5. Press F5 to start with debugger
 
-For AadeFailureNotificationJob (new test file):
-- SendsEmailForBusinessesBrokenOver24Hours
-- DoesNotSendForBusinessesBrokenLessThan24Hours
-- DoesNotSendDuplicateEmails (when AadeFailureEmailSentAt is set)
-- RecordsEmailSentAfterSending
+## Test 1: Register a new user
+**Goal:** see how user registration creates Identity rows and a tenant.
 
-### Task 11: Update later.md
+**Steps:**
+1. Navigate to /Account/Register
+2. Set breakpoints:
+   - Register.cshtml.cs OnPostAsync first line
+   - Wherever Tenant entity is created (search "new Tenant(" in solution)
+   - IEmailSender.SendEmailAsync (the email confirmation)
+3. Fill out form with new email like test+1@example.com
+4. Submit
 
-Append:
+**Watch for:**
+- Form data binding
+- ASP.NET Identity user creation
+- Tenant entity creation (tenant Name, Type)
+- Email confirmation token generation
+- Audit log entry written
 
-```markdown
-- AADE Retry-After header handling: not yet implemented. Currently we 
-  detect 429 generically and Polly handles backoff. Reading the 
-  Retry-After header for precise reschedule timing is a future improvement.
-- AADE failure recovery flow: currently users see a banner + email after 
-  24h, but the "reconnect" UX (entering new credentials) just uses the 
-  existing ConnectAade flow. No special handling for "your previous 
-  credentials broke, here's a guided path." Add when first customer reports 
-  confusion.
-```
+**Verify in pgAdmin:**
+- New row in AspNetUsers
+- New row in Tenants
+- AuditLogs has UserRegistered entry
 
-### Constraints
+## Test 2: Confirm email
+[Same structure. Walk through clicking the confirmation link.]
 
-- One migration: AddAadeFailureTracking
-- No new packages
-- Build clean, all tests pass
-- Apply CODING_STANDARDS.md (validation order, audit-after-success, etc.)
-- The banner shows on BOTH BusinessAade.razor AND BusinessInvoices.razor
+## Test 3: Log in
+[Same structure.]
 
-### Verification
+## Test 4: Create a business
+[Same structure.]
 
-1. dotnet build clean
-2. dotnet test passing — new tests should be ~6-8 more
-3. Apply migration
-4. Manual test:
-   - Disconnect AADE for a business
-   - Manually update the row in pgAdmin to set HasAadeFailure=true, 
-     AadeLastFailureAt=now, AadeLastFailureReason='InvalidCredentials'
-   - Reload the business page → banner should appear
-   - Set AadeLastFailureAt to 25 hours ago
-   - Trigger the Hangfire job manually via dashboard → email should send
-   - Check Mailtrap for the email
+## Test 5: Connect AADE
+[Same structure.]
 
-### Report shape
+## Test 6: Sync AADE invoices
+[Same structure — this is the meaty one with most files involved.]
 
-- Files created: count + list
-- Files modified: count + list
-- Tests added: count
-- Migration name
-- Any architectural notes or judgment calls worth flagging
+## Test 7: View cashflow page
+[Same structure.]
+
+## Test 8: Disconnect AADE
+[Same structure.]
+
+## Test 9: Re-connect AADE
+[Same structure.]
+
+## Test 10: Simulate AADE failure and verify banner
+[Manual pgAdmin update to set HasAadeFailure=true, then navigate and verify 
+banner shows.]
+
+## Test 11: Trigger Hangfire failure-notification job
+[Walk through Hangfire dashboard, manual trigger, breakpoint in job code, 
+verify email in Mailtrap.]
+````
+
+### Generation rules
+
+1. **Verify everything against real code.** For each file path, method 
+   name, or claim, grep/view the actual file. If the claim doesn't 
+   match reality, document reality, not the spec.
+
+2. **Cross-reference paths.** When you mention a file, use the actual 
+   path including extension. When you mention a method, name the real 
+   method.
+
+3. **Don't fabricate.** If something doesn't exist (e.g., a flow you 
+   thought we had but actually don't), say so explicitly: "Note: there 
+   is no specific X — search results show no implementation. Either 
+   verify with the team or document that this is a gap."
+
+4. **Diagrams render in GitHub.** Test by visually inspecting the 
+   Mermaid syntax. Common gotchas: arrow types, no special characters 
+   in node IDs, balanced quotes.
+
+5. **Practical, not theoretical.** Every section should answer 
+   "what's actually here" or "what do I actually do." Avoid abstract 
+   explanations.
+
+### Output
+
+Three files:
+- docs/ARCHITECTURE.md
+- docs/FLOWS.md
+- docs/TEST_WALKTHROUGH.md
+
+Plus update later.md to reference them:
+````markdown
+## Code understanding documentation
+
+- docs/ARCHITECTURE.md — system map, projects, dependencies, concepts
+- docs/FLOWS.md — end-to-end user action walkthroughs
+- docs/TEST_WALKTHROUGH.md — debugging checklist to step through real code
+````
+
+No code changes, no migrations.

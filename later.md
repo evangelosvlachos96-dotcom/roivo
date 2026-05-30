@@ -244,6 +244,12 @@ responses from Noda and Salt Edge).
 
 Production launch security blockers tracked in SECURITY_CHECKLIST.md.
 
+## Code understanding documentation
+
+- docs/ARCHITECTURE.md — system map, projects, dependencies, concepts
+- docs/FLOWS.md — end-to-end user action walkthroughs
+- docs/TEST_WALKTHROUGH.md — debugging checklist to step through real code
+
 ## Rules for using this file
 
 1. When a new idea appears during build phase, capture it here with one sentence.

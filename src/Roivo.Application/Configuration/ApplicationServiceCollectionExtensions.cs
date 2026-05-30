@@ -20,7 +20,7 @@ namespace Roivo.Application.Configuration;
 public static class ApplicationServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers Application-layer services (command/query handlers).
+    /// Registers Application-layer services.
     /// Infrastructure-side bindings (repositories, audit writer, tenant context)
     /// are registered separately by Infrastructure's DI extensions.
     /// </summary>
