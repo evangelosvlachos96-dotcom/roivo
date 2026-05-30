@@ -4,6 +4,25 @@ A running log of what's been built, when, and any notes worth keeping. Newest en
 
 ---
 
+## Cashflow UI v1 — synced AADE data viewer ✅ Completed 2026-05-21
+
+First UI surfacing the data M4 syncs from AADE (incoming `Invoices` + outgoing aggregated `IncomeBookEntries`). Per-business page at `/businesses/{id}/invoices` with two tabs.
+
+**What was built:**
+- **Summary tab:** incoming/outgoing gross totals, net flow (outgoing − incoming), last-sync timestamp, and the 10 most recent rows across both tables. Totals are computed server-side in SQL (`GroupBy` aggregation, no client-side summing). A standing "non-reconciled" disclaimer makes clear this is raw AADE data, not bank-matched.
+- **Detailed tab:** server-paginated `MudTable` (`ServerData`) over a UNION of both tables, with filters (direction, date range, counterparty-AFM search, cancelled status) and sortable columns (issue date, net, gross). Scales to thousands of rows — paging/filtering/sorting all run in the database.
+- **Navigation:** a Receipt icon on the businesses list and a "Τιμολόγια" button on the business-edit AADE section, both shown only when the business has AADE credentials connected.
+
+**Layering:** queries + `IInvoiceQueryRepository` abstraction in Application; `InvoiceQueryRepository` (factory-per-call) in Infrastructure; page in Web. All Greek strings in new `Roivo.Resources/Invoices.cs`. Both handlers follow the canonical order and return `Success | BusinessNotFound`. The UI gets a small `BusinessHeaderInfo` record, not the `Business` entity, across the boundary.
+
+**Test counts:** Roivo.Application.Tests 55 → **65** (+10: 2 summary, 8 paged). `FakeInvoiceQueryRepository` mirrors the real filter/sort/paginate logic. Core/Infrastructure/Aade unchanged. Build clean.
+
+**No migration, no new packages.**
+
+**Architectural note worth flagging:** the detailed-tab UNION combines `Invoices.IssueDate` (`date`) and `IncomeBookEntries.IssueDate` (`timestamptz`). Both are projected to a `date`-derived `timestamp` in the LINQ projection so the EF `Concat` produces matching column types. This is the one path that needs live-DB verification — the handler tests use an in-memory fake and don't exercise the Npgsql translation.
+
+---
+
 ## Milestone 2 — Authentication flows ✅ Completed 2026-05-15
 
 **Started:** 2026-05-15

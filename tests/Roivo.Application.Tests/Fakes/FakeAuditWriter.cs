@@ -1,15 +1,16 @@
 using Roivo.Application.Abstractions;
+using Roivo.Core.Domain.Auditing;
 
 namespace Roivo.Application.Tests.Fakes;
 
-public record AuditCall(string Action, Guid? TenantId, string? EntityType, string? EntityId, object? Details);
+public record AuditCall(AuditAction Action, Guid? TenantId, string? EntityType, string? EntityId, object? Details);
 
 public sealed class FakeAuditWriter : IAuditWriter
 {
     public List<AuditCall> Calls { get; } = new();
 
     public Task WriteAsync(
-        string action,
+        AuditAction action,
         Guid? userId = null,
         Guid? tenantId = null,
         string? entityType = null,

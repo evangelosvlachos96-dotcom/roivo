@@ -25,11 +25,33 @@ Week 12: Launch — landing page, beta deploy, 3 design partners onboarded
 
 ## M4 follow-ups (revisit after first AADE sync runs in dev)
 
-- **AFM-update flow on mismatch**: today, if AADE returns a different AFM than the Business holds, the connect page links the user back to the business edit form. There's no direct "update the business AFM and retry" inline path. Wire one once we see real users hit this.
-- **AADE production environment switch**: M4 hits the dev host only (`mydata-dev.azure-api.net`). Production switch is config-driven — add a second `AadeSettings` profile + a guard against accidentally pointing dev at prod.
-- **Distributed rate limiter**: `InMemoryAadeRateLimiter` is per-process. When we scale beyond one instance, swap to Redis-backed counters (linked from the "adaptive sync scheduling" entry below).
+- **AFM-update flow on mismatch**: today, if AADE returns a different AFM than the Business holds, the connect page surfaces an error message naming the business AFM. There's no direct "update the business AFM and retry" inline path. Wire one once we see real users hit this.
+- **AADE production environment switch**: M4 hits the dev host only. Production switch is config-driven — add a second `AadeSettings` profile + a guard against accidentally pointing dev at prod.
 - **Smart adaptive sync scheduling**: see existing "Cost optimization (post-scale)" entry — relevant once AADE rate-of-change data starts informing per-business cron timing.
 - **Hangfire dashboard authorization**: mounted at `/hangfire` in dev only. For prod, gate behind an admin-only authorization filter rather than removing it.
+- **AADE rate-limit handling**: when AADE responds with 429 we surface a generic "try again later" Greek message. Could be improved with exponential backoff UI + a retry timer that re-enables the connect button automatically.
+- **Periodic credential health check**: AADE credentials can be revoked by the user at any time. Consider a daily background check that validates each connected business's credentials still work, and auto-marks them disconnected if they don't. M5+.
+- Mark sequence safety: the current implementation trusts the max mark returned by AADE. If AADE ever returns an older mark by mistake (shouldn't happen but external systems are external), RecordAadeSyncProgress's "only advance forward" check prevents regression. If a true reset is ever needed (e.g., corruption recovery), it must be done explicitly via a domain method, not by re-running sync.
+- We currently always pass entityVatNumber=null to RequestDocs/RequestMyIncome (relies on the calling user's implicit entity). For accountants who manage many clients, AADE may require the explicit entityVatNumber filter on each call. Verify when smoke-testing with real accountant credentials.
+- AADE endpoint asymmetry: RequestDocs uses pure mark-based pagination; RequestMyIncome requires dateFrom + dateTo in addition to mark. We use a 2015-01-01 epoch for dateFrom and "now" for dateTo so first sync gets all history. Future maintenance: if AADE retires this endpoint or changes the contract, both BuildDocsUrl and BuildIncomeUrl must be reviewed.
+- Outgoing invoice data: IncomeBookEntry is aggregate-only by AADE's design. Granular outgoing invoice details would require either becoming an AADE-certified service provider (unlocks RequestTransmittedDocs) or ingesting from the customer's own ERP. Sufficient for cashflow analytics; insufficient for line-level outgoing analysis.
+- Cashflow unification: M6+ will combine Invoices (incoming, transactional) and IncomeBookEntries (outgoing, daily-aggregated) at query time. Direction-aware UNION query in a single read handler.
+- Cancelled invoices: Invoice.CancelledByMark is populated when AADE reports a cancellation. M6 reconciliation needs to either exclude cancelled invoices from cashflow totals or show them with a status indicator. Decision deferred until reconciliation design.
+- AADE data freshness: we no longer store RawXml. If a new field is needed in the future, re-sync from AADE (mark=0 returns everything). Operational cost: one full sync per business. Acceptable; AADE is the source of truth.
+- AADE Retry-After header handling: not yet implemented. Currently we detect 429 generically and Polly handles backoff. Reading the Retry-After header for precise reschedule timing is a future improvement.
+- AADE failure recovery flow: currently users see a banner + email after 24h, but the "reconnect" UX (entering new credentials) just uses the existing ConnectAade flow. No special handling for "your previous credentials broke, here's a guided path." Add when first customer reports confusion.
+
+## i18n coverage gap (after M4 Roivo.Resources introduction)
+
+The initial centralization pass covered buttons, labels, headings, and ConnectAadeResult error messages. Still containing inline Greek that should migrate to Roivo.Resources during the UI polish round:
+
+- Body prose in BusinessAade.razor (paragraph explaining what AADE connection enables)
+- Snackbar success/info messages across pages (e.g., "Επιτυχής σύνδεση με AADE", sync result messages, deactivate/reactivate confirmations)
+- Confirm-dialog message bodies in Businesses.razor and BusinessAade.razor
+- All Razor Pages under Areas/Account/Pages/ (Login, Register, ForgotPassword, ResetPassword, ConfirmEmail, Logout)
+- Inflight verb strings: "Συγχρονισμός..." and "Επανενεργοποίηση..." (should be added as Common.SyncingInProgress and Common.ReactivatingInProgress)
+- "Νέα επιχείρηση" vs "Δημιουργία επιχείρησης" inconsistency — pick one and standardize, or define both as distinct constants if both are intentional
+- Forbidden.Reason strings from Application handlers are currently raw strings returned to UI. Consider either (a) translate them in the Web layer when rendering, or (b) make Forbidden a stronger result variant that doesn't carry a Reason string at all and let the UI decide the message.
 
 ## M4 enhancements
 
@@ -188,6 +210,39 @@ Probably start with Option B when we cross the threshold, evolve to Option A onl
 - Does the accountant's pattern matter, or the client business's pattern? They could be different.
 - How to handle customers who use Roivo across multiple time zones (rare in Greece, but for future EU expansion)?
 - Cron precision — do we need minute-level scheduling, or is 15-minute buckets fine?
+
+## Cashflow UI follow-ups
+
+- Per-invoice detail page: clicking a row in the detailed table currently does nothing. Future: open a drawer or side panel showing the full invoice (RawXml-equivalent data fetched from AADE on-demand, or a richer entity model).
+- Export to CSV/Excel: accountants will want this. Defer to M9 (accountant dashboard).
+- Charts/visualizations: line chart of cashflow over time, bar chart by counterparty, etc. Belongs in M7 (forecasting) where we have bank data to combine with.
+- Per-counterparty drill-down: filter the detailed table to one counterparty by clicking their AFM. Easy add later.
+- The "non-reconciled" disclaimer is shown unconditionally on summary. When M6 reconciliation arrives, the disclaimer becomes conditional on reconciliation state.
+- Raw SQL test coverage: InvoiceQueryRepository's raw SQL union queries (ListPagedAsync, LoadRecentAsync) are exercised through manual testing only — the handler unit tests use an in-memory fake that does not execute SQL. Add an integration test harness (test Postgres DB via Testcontainers or similar) when we have ~3+ raw SQL queries. M5+.
+- Consider a Postgres materialized view if cashflow queries become a bottleneck. A view that pre-unions Invoices and IncomeBookEntries with derived columns could simplify the query layer and improve performance.
+
+## Counterparty VAT / AADE field handling
+
+- Counterparty VAT format: the column is currently named CounterpartyAfm but stores VAT numbers from any EU country. Consider renaming to CounterpartyVatNumber in a future refactor for clarity. Domain entity, EF mapping, DTOs, and UI would all need updating. M11 polish.
+- AADE field sanitization: we trim whitespace on extracted XML values defensively. If we discover other AADE quirks (encoding issues, leading zeros, country prefixes like "EL"), expand sanitization in ParseIncomingInvoices / ParseOutgoingBookEntries.
+
+## Audit + storage considerations
+
+- Audit completeness: current pattern writes audit AFTER the action succeeds. In rare cases where the action succeeds but the audit write fails (e.g., DB down between two operations), we miss an audit entry. Acceptable for current scale. If audit completeness becomes critical (e.g., for SOC2 compliance), wrap action + audit in an explicit DB transaction or move to an outbox pattern. M11+.
+- RawXml storage: we dropped RawXml from Invoice and IncomeBookEntry to keep storage lean. Re-sync from AADE is the recovery mechanism when new fields are needed. If forensic access to RawXml becomes operationally painful (frequent customer questions, deep debugging), consider blob storage (S3/Azure Blob/R2 — cheaper per GB than Postgres, separate dependency). Trigger to revisit: ~100+ customers OR more than 1-2 RawXml-forensic incidents per month. Decision deferred until evidence demands it.
+
+## M5 banking aggregator
+
+Investigation and decision tracking lives in docs/BANKING_AGGREGATOR_RESEARCH.md. 
+M5 banking implementation is blocked on aggregator selection (awaiting 
+responses from Noda and Salt Edge).
+
+## Resilience and security planning
+
+- Resilience patterns: see docs/RESILIENCE_PATTERNS.md
+- Security checklist: see docs/SECURITY_CHECKLIST.md
+
+Production launch security blockers tracked in SECURITY_CHECKLIST.md.
 
 ## Rules for using this file
 

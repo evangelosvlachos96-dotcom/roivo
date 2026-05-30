@@ -413,3 +413,79 @@ the same shape as internal persistence:
   warning and return without throwing — no point retrying.
 
 ---
+
+## Audit logging
+
+All audit-loggable actions are defined in the `AuditAction` enum in `Roivo.Core/Domain/Auditing/`. To add a new audit action:
+
+1. Add a value to the enum with an appropriate number in the correct range (auth 0–99, businesses 100–199, AADE 200–299, future categories at 300+).
+2. Use the enum value directly when calling `IAuditWriter.WriteAsync(AuditAction.NewAction, ...)`.
+3. Never reorder or rename existing enum values — historical audit data references the string form via `Enum.ToString()`.
+
+The `Action` column in `AuditLogs` is stored as a string for human readability in pgAdmin and other query tools. The enum constraint is enforced at the API boundary (`IAuditWriter`), not at the DB level.
+
+---
+
+## User-facing strings
+
+All user-facing strings live in `Roivo.Resources`, organized by domain:
+
+- `Aade.cs` — AADE integration UI
+- `Auth.cs` — login, register, password reset, confirm email
+- `Businesses.cs` — business CRUD UI
+- `Common.cs` — shared (buttons, statuses, generic errors, navigation)
+
+When adding a new user-facing string:
+
+1. Choose the appropriate domain file.
+2. Add a `public const string` with a descriptive name: `SaveButton`, `Error_InvalidCredentials`, `Confirm_Deactivate`.
+3. Use `{0}`, `{1}`, … for placeholders interpolated at the call site via the `.Format(...)` extension in `Roivo.Resources.FormatExtensions`.
+4. Call from code: `Aade.MyKey` or `Aade.MyKey.Format(arg1, arg2)`. Inside `Businesses.razor` (where the page class name collides with `Roivo.Resources.Businesses`), qualify fully: `Roivo.Resources.Businesses.AddButton`.
+
+Never hardcode user-facing strings (Greek or any language) in Razor markup, code-behind, or validation attributes. Since the resource strings are compile-time `const`, they're valid in attribute arguments: `[Required(ErrorMessage = Common.Required)]`.
+
+**Layer rules:** `Roivo.Application`, `Roivo.Core`, `Roivo.Aade`, `Roivo.Banking` do **not** reference `Roivo.Resources`. They return result types; the UI layer (`Roivo.Web`) translates result types into user-facing strings via the resource lookup.
+
+**Future localization:** when adding English (or another language), migrate the const string classes to `.resx` files. Each constant becomes a resource key; call sites are unchanged.
+
+---
+
+## Raw SQL in repositories
+
+Most repositories use EF Core LINQ. Some queries — specifically UNION-style queries combining multiple tables — can't be expressed in LINQ that EF Core can translate. For those, we use raw parameterized SQL.
+
+Rules:
+1. ALL user inputs go through NpgsqlParameter — never string concatenation
+2. Sort column names go through an allowlist (SanitizeSortColumn) — they're not user-controllable strings, they're enum-like values
+3. Tenant filtering must be explicit in raw SQL — EF Core's global query filter does NOT apply
+4. Raw SQL lives ONLY in the repository implementation, never bleeding into Application or Domain
+5. Document the SQL with comments explaining the query shape
+
+Current users of raw SQL:
+- InvoiceQueryRepository.ListPagedAsync — UNION of Invoices and IncomeBookEntries
+- InvoiceQueryRepository.LoadRecentAsync — UNION of recent rows from both tables
+
+---
+
+## Handler structure
+
+All Application-layer command/query handlers follow a consistent validation and execution order:
+
+1. `ArgumentNullException.ThrowIfNull(command)` — programmer-error guard
+2. Permission check via `BusinessPermissions` or similar — return `Forbidden` result
+3. Load entity via repository
+4. Existence check — return `NotFound` result
+5. Business-rule validation — return specific result variant (e.g., AfmMismatch)
+6. Mutation (call domain methods on the entity)
+7. Save via repository
+8. Audit via `IAuditWriter.WriteAsync(AuditAction.X, ...)` — after save succeeds
+9. Return `Success` result
+
+Audit goes AFTER save because audit logs should record reality, not intent. Failed operations produce no audit entry. If stronger audit guarantees are needed in the future, wrap save + audit in an explicit transaction or move to an outbox pattern — do not invert the order.
+
+Permission checks go BEFORE entity load because:
+- Saves a DB query for unauthorized users
+- Permission decisions should not depend on entity state
+- Keeps `Forbidden` and `NotFound` cleanly separated
+
+---

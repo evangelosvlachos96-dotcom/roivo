@@ -7,6 +7,7 @@
 @using Roivo.Application.Features.Aade.Commands.SyncBusinessInvoices
 @using Roivo.Application.Features.Aade.Queries.GetAadeConnectionStatus
 @using Roivo.Application.Features.Businesses.Queries.GetBusinessById
+@using Roivo.Core.Domain.Entities
 @inject GetBusinessByIdHandler GetBusinessHandler
 @inject GetAadeConnectionStatusHandler GetStatusHandler
 @inject ConnectAadeHandler ConnectHandler
@@ -15,6 +16,7 @@
 @inject NavigationManager Nav
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject ITenantContext TenantContext
 
 <PageTitle>AADE myDATA</PageTitle>
 
@@ -22,7 +24,7 @@
 
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
         <MudIconButton Icon="@Icons.Material.Outlined.ArrowBack"
-                       OnClick='() => Nav.NavigateTo($"/businesses/{Id}/edit")' />
+                       OnClick='() => Nav.NavigateTo("/businesses")' />
         <MudText Typo="Typo.h4">AADE myDATA</MudText>
     </MudStack>
 
@@ -32,20 +34,35 @@
             <MudProgressCircular Indeterminate="true" />
         </MudPaper>
     }
-    else if (businessNotFound)
+    else if (business is null)
     {
         <MudAlert Severity="Severity.Warning">Η επιχείρηση δεν βρέθηκε.</MudAlert>
     }
-    else if (state == ScreenState.Connected && status is not null)
+    else if (status is not null && status.IsConnected)
     {
         <MudPaper Class="pa-6">
+            @if (business.HasAadeFailure)
+            {
+                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
+                    <MudText Typo="Typo.subtitle2">@Aade.ConnectionFailureBannerTitle</MudText>
+                    <MudText Typo="Typo.body2">
+                        @GetFailureMessage(business.AadeLastFailureReason)
+                        @if (business.AadeLastFailureAt.HasValue)
+                        {
+                            <br/>
+                            <span>@string.Format(Aade.ConnectionFailureBannerSince, business.AadeLastFailureAt.Value.ToLocalTime())</span>
+                        }
+                    </MudText>
+                </MudAlert>
+            }
+
             <MudAlert Severity="Severity.Success" Class="mb-4">
                 Συνδεδεμένη επιχείρηση με myDATA.
             </MudAlert>
 
             <MudGrid Class="mb-4">
                 <MudItem xs="6">
-                    <MudText Typo="Typo.caption" Class="mud-text-secondary">AADE User ID</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@Aade.UserIdLabel</MudText>
                     <MudText Typo="Typo.body1">@status.MaskedUserId</MudText>
                 </MudItem>
                 <MudItem xs="6">
@@ -59,12 +76,12 @@
                            StartIcon="@Icons.Material.Outlined.Sync"
                            OnClick="HandleSyncNow"
                            Disabled="@syncing">
-                    @(syncing ? "Συγχρονισμός..." : "Συγχρονισμός τώρα")
+                    @(syncing ? "Συγχρονισμός..." : Aade.SyncNowButton)
                 </MudButton>
                 <MudButton Variant="Variant.Outlined" Color="Color.Error"
                            StartIcon="@Icons.Material.Outlined.LinkOff"
                            OnClick="HandleDisconnect">
-                    Αποσύνδεση
+                    @Aade.DisconnectButton
                 </MudButton>
             </MudStack>
         </MudPaper>
@@ -79,7 +96,7 @@
 
             <MudForm @ref="form" Model="input" @bind-IsValid="isFormValid">
                 <MudTextField @bind-Value="input.UserId"
-                              Label="AADE User ID"
+                              Label="@Aade.UserIdLabel"
                               Required="true"
                               RequiredError="Υποχρεωτικό"
                               MaxLength="100"
@@ -87,7 +104,7 @@
                               Class="mb-4" />
 
                 <MudTextField @bind-Value="input.SubscriptionKey"
-                              Label="Subscription Key"
+                              Label="@Aade.SubscriptionKeyLabel"
                               Required="true"
                               RequiredError="Υποχρεωτικό"
                               MaxLength="200"
@@ -97,26 +114,18 @@
 
                 @if (!string.IsNullOrEmpty(errorMessage))
                 {
-                    <MudAlert Severity="Severity.Error" Class="mb-4">
-                        @errorMessage
-                        @if (afmMismatchBusinessAfm is not null)
-                        {
-                            <br />
-                            <MudLink OnClick='() => Nav.NavigateTo($"/businesses/{Id}/edit")'>
-                                Επεξεργασία ΑΦΜ επιχείρησης
-                            </MudLink>
-                        }
-                    </MudAlert>
+                    <MudAlert Severity="Severity.Error" Class="mb-4">@errorMessage</MudAlert>
                 }
 
                 <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
-                    <MudButton Variant="Variant.Text" OnClick="BackToStatus">
-                        Άκυρο
+                    <MudButton Variant="Variant.Text"
+                               OnClick='() => Nav.NavigateTo("/businesses")'>
+                        @Common.CancelButton
                     </MudButton>
                     <MudButton Variant="Variant.Filled" Color="Color.Primary"
                                OnClick="HandleConnect"
                                Disabled="@(!isFormValid || connecting)">
-                        @(connecting ? "Σύνδεση..." : "Σύνδεση με AADE")
+                        @(connecting ? "Σύνδεση..." : Aade.ConnectButton)
                     </MudButton>
                 </MudStack>
             </MudForm>
@@ -125,7 +134,7 @@
     else
     {
         <MudPaper Class="pa-6">
-            <MudText Typo="Typo.h6" GutterBottom="true">Δεν έχει συνδεθεί ακόμα</MudText>
+            <MudText Typo="Typo.h6" GutterBottom="true">@Aade.Status_NotConnected</MudText>
             <MudText Typo="Typo.body2" Class="mb-4">
                 Συνδέστε αυτή την επιχείρηση με την AADE myDATA για να λαμβάνουμε αυτόματα τα παραστατικά της.
                 Θα χρειαστείτε το AADE User ID και το Subscription Key που σας έχει χορηγηθεί από την AADE.
@@ -133,7 +142,7 @@
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
                        StartIcon="@Icons.Material.Outlined.Link"
                        OnClick='() => state = ScreenState.Connecting'>
-                Σύνδεση με AADE
+                @Aade.ConnectButton
             </MudButton>
         </MudPaper>
     }
@@ -142,26 +151,24 @@
 @code {
     [Parameter] public Guid Id { get; set; }
 
-    private enum ScreenState { NotConnected, Connecting, Connected }
+    private enum ScreenState { NotConnected, Connecting }
 
     private ScreenState state = ScreenState.NotConnected;
     private bool loading = true;
-    private bool businessNotFound;
     private bool connecting;
     private bool syncing;
     private bool isFormValid;
     private MudForm form = null!;
     private string? errorMessage;
-    private string? afmMismatchBusinessAfm;
-    private AadeConnectionStatus? status;
+    private Business? business;
+    private AadeConnectionInfo? status;
     private readonly ConnectInput input = new();
 
     protected override async Task OnInitializedAsync()
     {
-        var business = await GetBusinessHandler.Handle(new GetBusinessByIdQuery(Id, ActiveOnly: true), CancellationToken.None);
+        business = await GetBusinessHandler.Handle(new GetBusinessByIdQuery(Id, ActiveOnly: true), CancellationToken.None);
         if (business is null)
         {
-            businessNotFound = true;
             loading = false;
             return;
         }
@@ -173,7 +180,8 @@
     private async Task RefreshStatusAsync()
     {
         status = await GetStatusHandler.Handle(new GetAadeConnectionStatusQuery(Id), CancellationToken.None);
-        state = status.IsConnected ? ScreenState.Connected : ScreenState.NotConnected;
+        if (!status.IsConnected)
+            state = ScreenState.NotConnected;
     }
 
     private async Task HandleConnect()
@@ -183,7 +191,6 @@
 
         connecting = true;
         errorMessage = null;
-        afmMismatchBusinessAfm = null;
         StateHasChanged();
 
         try
@@ -206,20 +213,34 @@
                 case ConnectAadeResult.Forbidden f:
                     errorMessage = f.Reason;
                     return;
-                case ConnectAadeResult.RateLimited:
-                    errorMessage = "Υπερβολικές προσπάθειες σύνδεσης. Δοκιμάστε ξανά σε μία ώρα.";
-                    return;
                 case ConnectAadeResult.InvalidCredentials:
-                    errorMessage = "Λάθος AADE User ID ή Subscription Key.";
+                    errorMessage = Aade.Error_InvalidCredentials;
                     return;
-                case ConnectAadeResult.AfmMismatch mm:
-                    afmMismatchBusinessAfm = mm.BusinessAfm;
-                    errorMessage = $"Τα στοιχεία σύνδεσης ανήκουν σε επιχείρηση με ΑΦΜ {mm.CredentialsAfm}, "
-                                 + $"αλλά η επιχείρηση στο Roivo έχει ΑΦΜ {mm.BusinessAfm}. "
-                                 + "Δεν είναι δυνατή η σύνδεση. Διορθώστε το ΑΦΜ της επιχείρησης ή χρησιμοποιήστε τα σωστά credentials.";
+                case ConnectAadeResult.AfmMismatch mismatch:
+                {
+                    // Accountants can edit the business AFM (two recovery paths);
+                    // business-owner tenants cannot (AFM is locked at registration),
+                    // so we only suggest re-entering credentials.
+                    var canEditAfm = BusinessPermissions.CanEditAfm(TenantContext.CurrentTenantType);
+                    if (mismatch.CredentialsAfm is not null)
+                    {
+                        errorMessage = canEditAfm
+                            ? Aade.Error_AfmMismatch_WithAfm_CanEditAfm.Format(mismatch.CredentialsAfm, mismatch.BusinessAfm)
+                            : Aade.Error_AfmMismatch_WithAfm_CannotEditAfm.Format(mismatch.CredentialsAfm, mismatch.BusinessAfm);
+                    }
+                    else
+                    {
+                        errorMessage = canEditAfm
+                            ? Aade.Error_AfmMismatch_Generic_CanEditAfm
+                            : Aade.Error_AfmMismatch_Generic_CannotEditAfm.Format(mismatch.BusinessAfm);
+                    }
                     return;
-                case ConnectAadeResult.AadeUnavailable u:
-                    errorMessage = $"Η υπηρεσία AADE δεν είναι διαθέσιμη αυτή τη στιγμή. ({u.Message})";
+                }
+                case ConnectAadeResult.RateLimited:
+                    errorMessage = Aade.Error_RateLimited;
+                    return;
+                case ConnectAadeResult.AadeUnavailable:
+                    errorMessage = Aade.Error_AadeUnavailable;
                     return;
             }
         }
@@ -248,6 +269,7 @@
         {
             case DisconnectAadeResult.Success:
                 Snackbar.Add("Η σύνδεση αποσυνδέθηκε.", Severity.Info);
+                state = ScreenState.NotConnected;
                 await RefreshStatusAsync();
                 break;
             case DisconnectAadeResult.BusinessNotFound:
@@ -298,12 +320,12 @@
         }
     }
 
-    private void BackToStatus()
+    private static string GetFailureMessage(string? reason) => reason switch
     {
-        errorMessage = null;
-        afmMismatchBusinessAfm = null;
-        state = status?.IsConnected == true ? ScreenState.Connected : ScreenState.NotConnected;
-    }
+        "InvalidCredentials" => Aade.FailureReasonInvalidCredentials,
+        "AfmMismatch" => Aade.FailureReasonAfmMismatch,
+        _ => Aade.FailureReasonGeneric
+    };
 
     private sealed class ConnectInput
     {

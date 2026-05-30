@@ -9,22 +9,31 @@ namespace Roivo.Application.Tests.Fakes;
 /// </summary>
 public sealed class FakeAadeClient : IAadeClient
 {
-    public AadeValidationResult NextValidation { get; set; } = new AadeValidationResult.Success("000000000");
+    public AadeValidationResult NextValidation { get; set; } = new AadeValidationResult.Success();
     public AadeFetchResult NextFetch { get; set; } = new AadeFetchResult.Success(
-        Array.Empty<AadeInvoiceDto>(), Array.Empty<AadeInvoiceDto>());
+        Array.Empty<AadeInvoiceDto>(), Array.Empty<AadeBookEntryDto>(), MaxIncomingMark: 0, MaxOutgoingMark: 0);
 
-    public List<(string UserId, string SubscriptionKey)> ValidationCalls { get; } = new();
-    public List<(string UserId, string SubscriptionKey, DateTime? SinceUtc)> FetchCalls { get; } = new();
+    public List<(string UserId, string SubscriptionKey, string BusinessAfm)> ValidationCalls { get; } = new();
+    public List<(string UserId, string SubscriptionKey, long SinceIncomingMark, long SinceOutgoingMark)> FetchCalls { get; } = new();
 
-    public Task<AadeValidationResult> ValidateCredentialsAsync(string userId, string subscriptionKey, CancellationToken cancellationToken = default)
+    public Task<AadeValidationResult> ValidateCredentialsAsync(
+        string userId,
+        string subscriptionKey,
+        string businessAfm,
+        CancellationToken cancellationToken = default)
     {
-        ValidationCalls.Add((userId, subscriptionKey));
+        ValidationCalls.Add((userId, subscriptionKey, businessAfm));
         return Task.FromResult(NextValidation);
     }
 
-    public Task<AadeFetchResult> FetchInvoicesAsync(string userId, string subscriptionKey, DateTime? sinceUtc, CancellationToken cancellationToken = default)
+    public Task<AadeFetchResult> FetchInvoicesAsync(
+        string userId,
+        string subscriptionKey,
+        long sinceIncomingMark,
+        long sinceOutgoingMark,
+        CancellationToken cancellationToken = default)
     {
-        FetchCalls.Add((userId, subscriptionKey, sinceUtc));
+        FetchCalls.Add((userId, subscriptionKey, sinceIncomingMark, sinceOutgoingMark));
         return Task.FromResult(NextFetch);
     }
 }

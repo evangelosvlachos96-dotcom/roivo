@@ -12,14 +12,14 @@
 @inject NavigationManager Nav
 @inject ITenantContext TenantContext
 
-<PageTitle>Επεξεργασία επιχείρησης</PageTitle>
+<PageTitle>@Roivo.Resources.Businesses.PageTitle_Edit</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Small" Class="mt-6">
 
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
         <MudIconButton Icon="@Icons.Material.Outlined.ArrowBack"
                        OnClick='() => Nav.NavigateTo("/businesses")' />
-        <MudText Typo="Typo.h4">Επεξεργασία επιχείρησης</MudText>
+        <MudText Typo="Typo.h4">@Roivo.Resources.Businesses.PageTitle_Edit</MudText>
     </MudStack>
 
     @if (loading)
@@ -75,13 +75,13 @@
                 <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
                     <MudButton Variant="Variant.Text"
                                OnClick='() => Nav.NavigateTo("/businesses")'>
-                        Άκυρο
+                        @Common.CancelButton
                     </MudButton>
                     <MudButton Variant="Variant.Filled"
                                Color="Color.Primary"
                                OnClick="HandleSave"
                                Disabled="@(!isFormValid || !IsDirty || saving)">
-                        @(saving ? "Αποθήκευση..." : "Αποθήκευση")
+                        @(saving ? Common.Saving : Common.SaveButton)
                     </MudButton>
                 </MudStack>
 
@@ -95,11 +95,21 @@
                     ? $"Συνδεδεμένη. Τελευταίος συγχρονισμός: {(aadeStatus.LastSyncAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")}"
                     : "Δεν έχει συνδεθεί ακόμα.")
             </MudText>
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
-                       StartIcon="@Icons.Material.Outlined.SyncAlt"
-                       OnClick='() => Nav.NavigateTo($"/businesses/{Id}/aade")'>
-                Διαχείριση σύνδεσης AADE
-            </MudButton>
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Outlined.SyncAlt"
+                           OnClick='() => Nav.NavigateTo($"/businesses/{Id}/aade")'>
+                    @Roivo.Resources.Businesses.ManageAadeConnection
+                </MudButton>
+                @if (aadeStatus?.IsConnected == true)
+                {
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Outlined.Receipt"
+                               OnClick='() => Nav.NavigateTo($"/businesses/{Id}/invoices")'>
+                        @Roivo.Resources.Invoices.ViewInvoicesLink
+                    </MudButton>
+                }
+            </MudStack>
         </MudPaper>
     }
 
@@ -115,7 +125,7 @@
     private string? errorMessage;
     private BusinessFormModel model = new();
     private Business? existingBusiness;
-    private AadeConnectionStatus? aadeStatus;
+    private AadeConnectionInfo? aadeStatus;
     private bool IsDirty =>
         (model.Name?.Trim() ?? "") != (originalSnapshot.Name?.Trim() ?? "") ||
         (model.Afm?.Trim() ?? "") != (originalSnapshot.Afm?.Trim() ?? "") ||

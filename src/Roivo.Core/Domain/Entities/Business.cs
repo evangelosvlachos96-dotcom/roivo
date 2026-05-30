@@ -31,6 +31,33 @@ public class Business : ITenantScoped
     /// </summary>
     public DateTime? LastAadeSyncAt { get; private set; }
 
+    /// <summary>Last-seen AADE mark for incoming (RequestDocs) invoices. Null = never synced.</summary>
+    public long? LastAadeIncomingMark { get; private set; }
+
+    /// <summary>Last-seen AADE mark for outgoing (RequestMyIncome) invoices. Null = never synced.</summary>
+    public long? LastAadeOutgoingMark { get; private set; }
+
+    /// <summary>
+    /// True while a persistent AADE auth failure (e.g., credentials revoked) is
+    /// unresolved. Cleared on successful sync, reconnect, or disconnect. Transient
+    /// network/server errors do NOT set this — only failures that need user action.
+    /// </summary>
+    public bool HasAadeFailure { get; private set; }
+
+    /// <summary>UTC instant the current failure period STARTED — preserved across
+    /// repeat failures so the 24-hour notification window measures elapsed broken
+    /// time, not the most recent attempt.</summary>
+    public DateTime? AadeLastFailureAt { get; private set; }
+
+    /// <summary>Short failure-category tag (e.g., "InvalidCredentials") used to
+    /// pick a user-facing message. Not localised — UI translates.</summary>
+    public string? AadeLastFailureReason { get; private set; }
+
+    /// <summary>UTC instant the 24-hour failure notification email was sent for the
+    /// current failure period. Prevents duplicate notifications until the failure
+    /// is cleared.</summary>
+    public DateTime? AadeFailureEmailSentAt { get; private set; }
+
     // Required for EF Core materialization. Not callable externally — use Business.Create(...) instead.
     private Business() { }
 
@@ -99,6 +126,68 @@ public class Business : ITenantScoped
 
     /// <summary>Records that an AADE sync completed at the given UTC instant.</summary>
     public void RecordAadeSync(DateTime syncedAtUtc) => LastAadeSyncAt = syncedAtUtc;
+
+    /// <summary>
+    /// Updates the recorded last-seen marks after a successful sync. Both are
+    /// updated together to maintain a consistent view of where we are in
+    /// AADE's invoice sequence. Pass null to leave a side unchanged. Marks only
+    /// ever advance forward — a lower incoming value is ignored, preventing
+    /// regression if AADE returns an unexpected older mark.
+    /// </summary>
+    public void RecordAadeSyncProgress(long? newIncomingMark, long? newOutgoingMark)
+    {
+        if (newIncomingMark.HasValue && (LastAadeIncomingMark is null || newIncomingMark > LastAadeIncomingMark))
+            LastAadeIncomingMark = newIncomingMark;
+
+        if (newOutgoingMark.HasValue && (LastAadeOutgoingMark is null || newOutgoingMark > LastAadeOutgoingMark))
+            LastAadeOutgoingMark = newOutgoingMark;
+
+        LastAadeSyncAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Records that an AADE sync attempt failed in a way that needs user
+    /// intervention. <paramref name="reason"/> is a short category tag the UI
+    /// translates ("InvalidCredentials", "AfmMismatch", etc.). The failure
+    /// start timestamp is fixed on the first failure of a streak so the
+    /// 24-hour notification window measures elapsed broken time.
+    /// </summary>
+    public void RecordAadeSyncFailure(string reason)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+
+        if (!HasAadeFailure)
+            AadeLastFailureAt = DateTime.UtcNow;
+
+        HasAadeFailure = true;
+        AadeLastFailureReason = reason;
+    }
+
+    /// <summary>
+    /// Clears the AADE failure state. Called on successful sync OR when the
+    /// user disconnects/reconnects credentials. Resets the email-sent stamp so
+    /// a future failure period can re-trigger the 24-hour notification.
+    /// </summary>
+    public void ClearAadeSyncFailure()
+    {
+        HasAadeFailure = false;
+        AadeLastFailureAt = null;
+        AadeLastFailureReason = null;
+        AadeFailureEmailSentAt = null;
+    }
+
+    /// <summary>
+    /// Marks that the 24-hour failure notification email has been sent for the
+    /// current failure period. Guards against double-send by requiring an
+    /// active failure.
+    /// </summary>
+    public void RecordAadeFailureEmailSent()
+    {
+        if (!HasAadeFailure)
+            throw new InvalidOperationException("Cannot record email sent — no active AADE failure.");
+
+        AadeFailureEmailSentAt = DateTime.UtcNow;
+    }
 
     private static string? NormalizeOptional(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

@@ -1,4 +1,5 @@
 using Roivo.Application.Abstractions;
+using Roivo.Core.Domain.Auditing;
 using Roivo.Core.Domain.Businesses;
 using Roivo.Core.Domain.Entities;
 using Roivo.Core.Domain.Exceptions;
@@ -29,6 +30,9 @@ public sealed class DeactivateBusinessHandler
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        // Permission is checked before the DB load: it saves a query for unauthorized
+        // callers and keeps the permission decision independent of entity state. See the
+        // canonical handler order documented in docs/CODING_STANDARDS.md.
         if (!BusinessPermissions.CanDeactivate(_tenant.CurrentTenantType))
             return new DeactivateBusinessResult.Forbidden("Δεν επιτρέπεται η απενεργοποίηση επιχείρησης από αυτόν τον τύπο λογαριασμού.");
 
@@ -48,7 +52,7 @@ public sealed class DeactivateBusinessHandler
         await _repository.UpdateAsync(entity, cancellationToken);
 
         await _audit.WriteAsync(
-            action: "BusinessDeactivated",
+            action: AuditAction.BusinessDeactivated,
             tenantId: _tenant.CurrentTenantId,
             entityType: nameof(Business),
             entityId: entity.Id.ToString(),

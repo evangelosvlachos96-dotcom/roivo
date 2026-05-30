@@ -5,23 +5,39 @@ public abstract record AadeFetchResult
 {
     public sealed record Success(
         IReadOnlyList<AadeInvoiceDto> Incoming,
-        IReadOnlyList<AadeInvoiceDto> Outgoing) : AadeFetchResult;
+        IReadOnlyList<AadeBookEntryDto> Outgoing,
+        long MaxIncomingMark,
+        long MaxOutgoingMark) : AadeFetchResult;
     public sealed record InvalidCredentials : AadeFetchResult;
     public sealed record NetworkError(string Message) : AadeFetchResult;
     public sealed record AadeServerError(int StatusCode, string Message) : AadeFetchResult;
 }
 
-/// <summary>
-/// DTO for a single invoice as returned by AADE. The full raw XML is preserved
-/// in <see cref="RawXml"/> for forensics — if a downstream parse goes wrong we
-/// always have the original payload to compare against.
-/// </summary>
+/// <summary>A single incoming document from AADE's RequestDocs endpoint.</summary>
 public sealed record AadeInvoiceDto(
     string Mark,
+    string IssuerAfm,
     string CounterpartyAfm,
     string CounterpartyName,
     DateTime IssueDate,
     string DocumentTypeCode,
+    decimal NetAmount,
+    decimal VatAmount,
     decimal GrossAmount,
     string Currency,
-    string RawXml);
+    string? CancelledByMark);
+
+/// <summary>
+/// An aggregated outgoing book summary from AADE's RequestMyIncome endpoint —
+/// one per (counterparty, date, document type) tuple.
+/// </summary>
+public sealed record AadeBookEntryDto(
+    string CounterpartyAfm,
+    DateTime IssueDate,
+    string DocumentTypeCode,
+    decimal NetValue,
+    decimal VatAmount,
+    decimal GrossValue,
+    int InvoiceCount,
+    long MinMark,
+    long MaxMark);

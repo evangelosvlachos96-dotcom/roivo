@@ -67,4 +67,26 @@ public sealed class FakeBusinessRepository : IBusinessRepository
         Store[business.Id] = business;
         return Task.FromResult(business);
     }
+
+    // Tenant → primary email lookup used by the AADE-failure notification job.
+    // Tests programmatically populate this map with whatever Tenant→email pair
+    // they need; production wires through to ApplicationUser via EF.
+    public Dictionary<Guid, string?> TenantPrimaryEmails { get; } = new();
+
+    public Task<IReadOnlyList<Business>> ListWithExpiredAadeFailureAsync(
+        DateTime threshold,
+        CancellationToken cancellationToken = default)
+    {
+        IReadOnlyList<Business> list = Store.Values
+            .Where(b => b.IsActive
+                     && b.HasAadeFailure
+                     && b.AadeLastFailureAt.HasValue
+                     && b.AadeLastFailureAt < threshold
+                     && b.AadeFailureEmailSentAt is null)
+            .ToList();
+        return Task.FromResult(list);
+    }
+
+    public Task<string?> GetTenantPrimaryEmailAsync(Guid tenantId, CancellationToken cancellationToken = default)
+        => Task.FromResult(TenantPrimaryEmails.TryGetValue(tenantId, out var email) ? email : null);
 }

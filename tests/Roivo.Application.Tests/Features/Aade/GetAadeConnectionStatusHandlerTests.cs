@@ -21,11 +21,11 @@ public class GetAadeConnectionStatusHandlerTests
         store.Store[b.Id] = new AadeCredentials("aade-user-1234567", "subkey");
         var handler = new GetAadeConnectionStatusHandler(businesses, store);
 
-        var status = await handler.Handle(new GetAadeConnectionStatusQuery(b.Id));
+        var info = await handler.Handle(new GetAadeConnectionStatusQuery(b.Id));
 
-        status.IsConnected.Should().BeTrue();
-        status.LastSyncAt.Should().Be(new DateTime(2026, 5, 1, 3, 0, 0, DateTimeKind.Utc));
-        status.MaskedUserId.Should().Be("aade***");
+        info.IsConnected.Should().BeTrue();
+        info.LastSyncAt.Should().Be(new DateTime(2026, 5, 1, 3, 0, 0, DateTimeKind.Utc));
+        info.MaskedUserId.Should().Be("aade***");
     }
 
     [Fact]
@@ -37,10 +37,10 @@ public class GetAadeConnectionStatusHandlerTests
         businesses.Store[b.Id] = b;
         var handler = new GetAadeConnectionStatusHandler(businesses, store);
 
-        var status = await handler.Handle(new GetAadeConnectionStatusQuery(b.Id));
+        var info = await handler.Handle(new GetAadeConnectionStatusQuery(b.Id));
 
-        status.IsConnected.Should().BeFalse();
-        status.MaskedUserId.Should().BeNull();
+        info.IsConnected.Should().BeFalse();
+        info.MaskedUserId.Should().BeNull();
     }
 
     [Fact]
@@ -50,9 +50,9 @@ public class GetAadeConnectionStatusHandlerTests
         var store = new FakeAadeCredentialStore();
         var handler = new GetAadeConnectionStatusHandler(businesses, store);
 
-        var status = await handler.Handle(new GetAadeConnectionStatusQuery(Guid.NewGuid()));
+        var info = await handler.Handle(new GetAadeConnectionStatusQuery(Guid.NewGuid()));
 
-        status.IsConnected.Should().BeFalse();
-        status.LastSyncAt.Should().BeNull();
+        info.IsConnected.Should().BeFalse();
+        info.LastSyncAt.Should().BeNull();
     }
 }

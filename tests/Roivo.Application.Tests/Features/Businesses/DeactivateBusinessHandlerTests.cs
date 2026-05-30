@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Roivo.Application.Features.Businesses.Commands.DeactivateBusiness;
 using Roivo.Application.Tests.Fakes;
+using Roivo.Core.Domain.Auditing;
 using Roivo.Core.Domain.Entities;
 using Roivo.Core.Domain.Enums;
 
@@ -29,7 +30,7 @@ public class DeactivateBusinessHandlerTests
 
         result.Should().BeOfType<DeactivateBusinessResult.Success>();
         repo.Store[b.Id].IsActive.Should().BeFalse();
-        audit.Calls.Should().ContainSingle().Which.Action.Should().Be("BusinessDeactivated");
+        audit.Calls.Should().ContainSingle().Which.Action.Should().Be(AuditAction.BusinessDeactivated);
     }
 
     [Fact]

@@ -14,10 +14,10 @@
 @page "/businesses"
 @attribute [Authorize]
 
-<PageTitle>Επιχειρήσεις</PageTitle>
+<PageTitle>@Roivo.Resources.Businesses.PageTitle_List</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-6">
-    <MudText Typo="Typo.h4" GutterBottom="true">Επιχειρήσεις</MudText>
+    <MudText Typo="Typo.h4" GutterBottom="true">@Roivo.Resources.Businesses.PageTitle_List</MudText>
     <MudText Typo="Typo.body1" Class="mb-4">
         Διαχείριση των επιχειρήσεων που εκπροσωπείτε.
     </MudText>
@@ -28,7 +28,7 @@
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
                        StartIcon="@Icons.Material.Outlined.Add"
                        OnClick='() => Nav.NavigateTo("/businesses/new")'>
-                Προσθήκη επιχείρησης
+                @Roivo.Resources.Businesses.AddButton
             </MudButton>
         }
     </MudStack>
@@ -49,7 +49,7 @@
                 <MudButton Variant="Variant.Filled" Color="Color.Primary"
                            StartIcon="@Icons.Material.Outlined.Add"
                            OnClick='() => Nav.NavigateTo("/businesses/new")'>
-                    Προσθήκη επιχείρησης
+                    @Roivo.Resources.Businesses.AddButton
                 </MudButton>
             }
         </MudPaper>
@@ -58,17 +58,17 @@
     {
         <MudTable Items="businesses" Hover="true" Striped="true">
             <HeaderContent>
-                <MudTh>Όνομα</MudTh>
-                <MudTh>ΑΦΜ</MudTh>
-                <MudTh>ΚΑΔ</MudTh>
+                <MudTh>@Roivo.Resources.Businesses.NameLabel</MudTh>
+                <MudTh>@Roivo.Resources.Businesses.AfmLabel</MudTh>
+                <MudTh>@Roivo.Resources.Businesses.KadLabel</MudTh>
                 <MudTh>AADE</MudTh>
                 <MudTh>Κατάσταση</MudTh>
                 <MudTh></MudTh>
             </HeaderContent>
             <RowTemplate>
-                <MudTd DataLabel="Όνομα">@context.Name</MudTd>
-                <MudTd DataLabel="ΑΦΜ">@context.Afm</MudTd>
-                <MudTd DataLabel="ΚΑΔ">@(context.Kad ?? "—")</MudTd>
+                <MudTd DataLabel="@Roivo.Resources.Businesses.NameLabel">@context.Name</MudTd>
+                <MudTd DataLabel="@Roivo.Resources.Businesses.AfmLabel">@context.Afm</MudTd>
+                <MudTd DataLabel="@Roivo.Resources.Businesses.KadLabel">@(context.Kad ?? "—")</MudTd>
                 <MudTd DataLabel="AADE">
                     @if (aadeConnected.Contains(context.Id))
                     {
@@ -80,13 +80,20 @@
                     }
                 </MudTd>
                 <MudTd DataLabel="Κατάσταση">
-                    <MudChip T="string" Size="Size.Small" Color="Color.Success">Ενεργή</MudChip>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success">@Roivo.Resources.Businesses.Status_Active</MudChip>
                 </MudTd>
                 <MudTd>
                     <MudStack Row="true" Spacing="0">
                         <MudIconButton Icon="@Icons.Material.Outlined.Edit"
                                        Size="Size.Small"
                                        OnClick="@(() => Nav.NavigateTo($"/businesses/{context.Id}/edit"))" />
+                        @if (aadeConnected.Contains(context.Id))
+                        {
+                            <MudIconButton Icon="@Icons.Material.Outlined.Receipt"
+                                           Size="Size.Small"
+                                           aria-label="@Roivo.Resources.Invoices.ViewInvoicesLink"
+                                           OnClick="@(() => Nav.NavigateTo($"/businesses/{context.Id}/invoices"))" />
+                        }
                         @if (BusinessPermissions.CanDeactivate(TenantContext.CurrentTenantType))
                         {
                             <MudIconButton Icon="@Icons.Material.Outlined.Block"
@@ -117,9 +124,6 @@
         loading = true;
         businesses = await ListHandler.Handle(new ListActiveBusinessesQuery(), CancellationToken.None);
 
-        // Per-row AADE connectivity flag. N queries against a hot in-memory
-        // dataset for our scale (~tens of businesses per tenant); the list
-        // becomes a join when invoice volume justifies it.
         var connectedSet = new HashSet<Guid>();
         foreach (var b in businesses)
         {
@@ -135,10 +139,10 @@
     {
         var parameters = new DialogParameters<MudMessageBox>
         {
-            { x => x.Title, "Απενεργοποίηση επιχείρησης" },
+            { x => x.Title, Roivo.Resources.Businesses.DeactivateButton },
             { x => x.Message, $"Σίγουρα θέλετε να απενεργοποιήσετε την επιχείρηση «{business.Name}»; Δεν θα διαγραφούν δεδομένα — απλώς θα αποκρυφτεί από τη λίστα." },
             { x => x.YesText, "Απενεργοποίηση" },
-            { x => x.CancelText, "Άκυρο" }
+            { x => x.CancelText, Common.CancelButton }
         };
 
         var dialog = await DialogService.ShowAsync<MudMessageBox>("", parameters);

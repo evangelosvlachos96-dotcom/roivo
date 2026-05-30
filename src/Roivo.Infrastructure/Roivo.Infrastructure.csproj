@@ -3,6 +3,11 @@
   <ItemGroup>
     <ProjectReference Include="..\Roivo.Core\Roivo.Core.csproj" />
     <ProjectReference Include="..\Roivo.Application\Roivo.Application.csproj" />
+    <!-- Background notification jobs in this project render user-facing email
+         bodies, so they need the resource strings. CODING_STANDARDS § layered
+         architecture forbids Application/Core/Aade/Banking → Resources, but
+         leaves Infrastructure free to consume them. -->
+    <ProjectReference Include="..\Roivo.Resources\Roivo.Resources.csproj" />
   </ItemGroup>
 
   <ItemGroup>

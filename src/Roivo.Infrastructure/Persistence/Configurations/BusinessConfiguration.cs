@@ -14,5 +14,12 @@ public class BusinessConfiguration : IEntityTypeConfiguration<Business>
 
         builder.Property(b => b.LastAadeIncomingMark);
         builder.Property(b => b.LastAadeOutgoingMark);
+
+        builder.Property(b => b.HasAadeFailure)
+            .HasDefaultValue(false);
+        builder.Property(b => b.AadeLastFailureAt);
+        builder.Property(b => b.AadeLastFailureReason)
+            .HasMaxLength(50);
+        builder.Property(b => b.AadeFailureEmailSentAt);
     }
 }

@@ -94,4 +94,34 @@ public sealed class BusinessRepository : IBusinessRepository
         await db.SaveChangesAsync(cancellationToken);
         return business;
     }
+
+    public async Task<IReadOnlyList<Business>> ListWithExpiredAadeFailureAsync(
+        DateTime threshold,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(cancellationToken);
+        // IgnoreQueryFilters because the notification cron runs without a tenant scope.
+        return await db.Businesses
+            .AsNoTracking()
+            .IgnoreQueryFilters()
+            .Where(b => b.IsActive
+                     && b.HasAadeFailure
+                     && b.AadeLastFailureAt != null
+                     && b.AadeLastFailureAt < threshold
+                     && b.AadeFailureEmailSentAt == null)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<string?> GetTenantPrimaryEmailAsync(Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(cancellationToken);
+        // Earliest-created user is treated as the tenant owner. EmailConfirmed
+        // is required so we never email an address the user hasn't proven.
+        return await db.Users
+            .AsNoTracking()
+            .Where(u => u.TenantId == tenantId && u.EmailConfirmed && u.Email != null)
+            .OrderBy(u => u.CreatedAt)
+            .Select(u => u.Email)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
 }

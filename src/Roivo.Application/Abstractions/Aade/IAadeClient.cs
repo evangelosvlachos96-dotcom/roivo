@@ -8,14 +8,27 @@ namespace Roivo.Application.Abstractions.Aade;
 /// </summary>
 public interface IAadeClient
 {
+    /// <summary>
+    /// Validates credentials AND authorization for the given AFM. AADE's
+    /// RequestDocs endpoint distinguishes invalid keys, unauthorized AFM,
+    /// rate-limiting and server errors via specific HTTP codes / response
+    /// fragments, so this is a single round-trip.
+    /// </summary>
     Task<AadeValidationResult> ValidateCredentialsAsync(
         string userId,
         string subscriptionKey,
+        string businessAfm,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Fetches invoices newer than the supplied marks. AADE paginates by mark
+    /// (a sequential per-invoice id): the endpoints return invoices with
+    /// mark &gt; the supplied value; pass 0 to fetch from the start.
+    /// </summary>
     Task<AadeFetchResult> FetchInvoicesAsync(
         string userId,
         string subscriptionKey,
-        DateTime? sinceUtc,
+        long sinceIncomingMark,
+        long sinceOutgoingMark,
         CancellationToken cancellationToken = default);
 }

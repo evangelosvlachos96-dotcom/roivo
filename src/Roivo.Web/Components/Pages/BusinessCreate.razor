@@ -9,14 +9,14 @@
 @inject NavigationManager Nav
 @inject ITenantContext TenantContext
 
-<PageTitle>Νέα επιχείρηση</PageTitle>
+<PageTitle>@Roivo.Resources.Businesses.PageTitle_Create</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Small" Class="mt-6">
 
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
         <MudIconButton Icon="@Icons.Material.Outlined.ArrowBack"
                        OnClick='() => Nav.NavigateTo("/businesses")' />
-        <MudText Typo="Typo.h4">Νέα επιχείρηση</MudText>
+        <MudText Typo="Typo.h4">@Roivo.Resources.Businesses.PageTitle_Create</MudText>
     </MudStack>
 
     <MudPaper Class="pa-6">
@@ -54,14 +54,14 @@
                            OnClick="ReactivateExisting"
                            Disabled="@(state == FormState.Saving)"
                            FullWidth="true">
-                    @(state == FormState.Saving ? "Επανενεργοποίηση..." : "Επανενεργοποίηση")
+                    @(state == FormState.Saving ? "Επανενεργοποίηση..." : Roivo.Resources.Businesses.ReactivateButton)
                 </MudButton>
             </MudPaper>
 
             <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4">
                 <MudButton Variant="Variant.Text"
                            OnClick="BackToForm">
-                    Πίσω στο φόρμα
+                    @Roivo.Resources.Businesses.InactiveDuplicateDetected_BackToForm
                 </MudButton>
             </MudStack>
         }
@@ -108,13 +108,13 @@
                 <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
                     <MudButton Variant="Variant.Text"
                                OnClick='() => Nav.NavigateTo("/businesses")'>
-                        Άκυρο
+                        @Common.CancelButton
                     </MudButton>
                     <MudButton Variant="Variant.Filled"
                                Color="Color.Primary"
                                OnClick="HandleSave"
                                Disabled="@(!isFormValid || state == FormState.Saving)">
-                        @(state == FormState.Saving ? "Αποθήκευση..." : "Αποθήκευση")
+                        @(state == FormState.Saving ? Common.Saving : Common.SaveButton)
                     </MudButton>
                 </MudStack>
 

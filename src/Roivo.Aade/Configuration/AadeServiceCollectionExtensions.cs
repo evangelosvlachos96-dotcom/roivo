@@ -1,3 +1,4 @@
+using System.Net.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Polly;
@@ -27,10 +28,15 @@ public static class AadeServiceCollectionExtensions
             client.BaseAddress = new Uri(settings.BaseUrl.TrimEnd('/') + "/");
             client.Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds);
         })
+        .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+        {
+            // Separate connect-timeout so DNS / TCP failures surface in
+            // ~5s instead of waiting out the full request timeout.
+            ConnectTimeout = TimeSpan.FromSeconds(settings.ConnectTimeoutSeconds),
+            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+        })
         .AddPolicyHandler(GetRetryPolicy(settings.MaxRetries));
 
-        services.AddMemoryCache();
-        services.AddScoped<IAadeRateLimiter, InMemoryAadeRateLimiter>();
         services.AddScoped<IAadeCredentialStore, EncryptedCredentialStore>();
 
         services.AddScoped<NightlyAadeSyncJob>();

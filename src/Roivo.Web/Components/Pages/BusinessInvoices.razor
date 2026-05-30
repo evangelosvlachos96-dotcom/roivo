@@ -1,0 +1,288 @@
+@page "/businesses/{Id:guid}/invoices"
+@attribute [Authorize]
+
+@using MudBlazor
+@using Roivo.Resources
+@using Roivo.Application.Features.Invoices.Queries.GetBusinessInvoiceSummary
+@using Roivo.Application.Features.Invoices.Queries.ListBusinessInvoicesPaged
+@inject ListBusinessInvoicesPagedHandler ListHandler
+@inject GetBusinessInvoiceSummaryHandler SummaryHandler
+@inject NavigationManager Nav
+@inject IDialogService DialogService
+
+<PageTitle>@Roivo.Resources.Invoices.ViewInvoicesLink</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-6">
+
+    <MudPaper Class="pa-4 mb-4">
+        <MudButton StartIcon="@Icons.Material.Outlined.ArrowBack"
+                   OnClick='() => Nav.NavigateTo("/businesses")'>
+            @Common.BackButton
+        </MudButton>
+        <MudText Typo="Typo.h5">@(business?.Name ?? "")</MudText>
+        <MudText Typo="Typo.body2">@(business?.Afm ?? "")</MudText>
+    </MudPaper>
+
+    @if (business is not null && business.HasAadeFailure)
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
+            <MudText Typo="Typo.subtitle2">@Aade.ConnectionFailureBannerTitle</MudText>
+            <MudText Typo="Typo.body2">
+                @GetFailureMessage(business.AadeLastFailureReason)
+                @if (business.AadeLastFailureAt.HasValue)
+                {
+                    <br/>
+                    <span>@string.Format(Aade.ConnectionFailureBannerSince, business.AadeLastFailureAt.Value.ToLocalTime())</span>
+                }
+            </MudText>
+        </MudAlert>
+    }
+
+    <MudTabs Elevation="1" Rounded="true" ApplyEffectsToContainer="true">
+        <MudTabPanel Text="@Roivo.Resources.Invoices.SummaryTab">
+            @if (summary is null)
+            {
+                <MudProgressCircular Indeterminate="true" />
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+                    @Roivo.Resources.Invoices.NonReconciledDisclaimer
+                </MudAlert>
+
+                <MudGrid>
+                    <MudItem xs="12" md="6">
+                        <MudPaper Class="pa-4">
+                            <MudText Typo="Typo.subtitle2">@Roivo.Resources.Invoices.IncomingTotalsHeading</MudText>
+                            <MudText Typo="Typo.h4">@FormatCurrency(summary.IncomingGrossTotal)</MudText>
+                            <MudText Typo="Typo.body2">@string.Format(Roivo.Resources.Invoices.InvoiceCountLine, summary.IncomingCount)</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudPaper Class="pa-4">
+                            <MudText Typo="Typo.subtitle2">@Roivo.Resources.Invoices.OutgoingTotalsHeading</MudText>
+                            <MudText Typo="Typo.h4">@FormatCurrency(summary.OutgoingGrossTotal)</MudText>
+                            <MudText Typo="Typo.body2">@string.Format(Roivo.Resources.Invoices.AggregateCountLine, summary.OutgoingAggregateCount, summary.OutgoingInvoiceCount)</MudText>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                <MudPaper Class="pa-4 mt-4">
+                    <MudText Typo="Typo.subtitle2">@Roivo.Resources.Invoices.NetFlowHeading</MudText>
+                    <MudText Typo="Typo.h4" Color="@(NetFlow >= 0 ? Color.Success : Color.Error)">
+                        @FormatCurrency(NetFlow)
+                    </MudText>
+                    <MudText Typo="Typo.caption">@Roivo.Resources.Invoices.NetFlowFormula</MudText>
+                </MudPaper>
+
+                @if (summary.LastSyncedAt is not null)
+                {
+                    <MudText Typo="Typo.body2" Class="mt-2">
+                        @string.Format(Roivo.Resources.Invoices.LastSyncedLabel, summary.LastSyncedAt.Value.ToLocalTime())
+                    </MudText>
+                }
+
+                <MudPaper Class="pa-4 mt-4">
+                    <MudText Typo="Typo.subtitle2">@Roivo.Resources.Invoices.RecentActivityHeading</MudText>
+                    @if (summary.Recent.Count > 0)
+                    {
+                        <MudList T="RecentInvoiceRow">
+                            @foreach (var row in summary.Recent)
+                            {
+                                <MudListItem T="RecentInvoiceRow">
+                                    @row.IssueDate.ToString("dd MMM yyyy") -
+                                    @(row.Direction == "Incoming" ? Roivo.Resources.Invoices.DirectionIncoming : Roivo.Resources.Invoices.DirectionOutgoing) -
+                                    @row.CounterpartyDisplay
+                                    @(row.AggregateCount is int n && n > 1 ? $"({n})" : "")
+                                    - @FormatCurrency(row.GrossAmount)
+                                    @if (row.IsCancelled)
+                                    {
+                                        <MudChip T="string" Color="Color.Error" Size="Size.Small">@Roivo.Resources.Invoices.StatusCancelled</MudChip>
+                                    }
+                                </MudListItem>
+                            }
+                        </MudList>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2">@Common.NoData</MudText>
+                    }
+                </MudPaper>
+            }
+        </MudTabPanel>
+
+        <MudTabPanel Text="@Roivo.Resources.Invoices.DetailedTab">
+            <MudGrid Class="mb-4">
+                <MudItem xs="12" sm="6" md="3">
+                    <MudSelect T="InvoiceDirectionFilter" Label="@Roivo.Resources.Invoices.DirectionFilter"
+                               @bind-Value="directionFilter" @bind-Value:after="ReloadTable">
+                        <MudSelectItem Value="InvoiceDirectionFilter.All">@Roivo.Resources.Invoices.DirectionAll</MudSelectItem>
+                        <MudSelectItem Value="InvoiceDirectionFilter.Incoming">@Roivo.Resources.Invoices.DirectionIncoming</MudSelectItem>
+                        <MudSelectItem Value="InvoiceDirectionFilter.Outgoing">@Roivo.Resources.Invoices.DirectionOutgoing</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudDatePicker Label="@Roivo.Resources.Invoices.FromDateLabel" @bind-Date="fromDate"
+                                   @bind-Date:after="ReloadTable" />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudDatePicker Label="@Roivo.Resources.Invoices.ToDateLabel" @bind-Date="toDate"
+                                   @bind-Date:after="ReloadTable" />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudTextField T="string" Label="@Roivo.Resources.Invoices.CounterpartySearchLabel"
+                                  @bind-Value="counterpartySearch"
+                                  @bind-Value:after="ReloadTable"
+                                  DebounceInterval="500" />
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudSelect T="CancelledFilter" Label="@Roivo.Resources.Invoices.CancelledFilterLabel"
+                               @bind-Value="cancelledFilter" @bind-Value:after="ReloadTable">
+                        <MudSelectItem Value="CancelledFilter.All">@Roivo.Resources.Invoices.CancelledAll</MudSelectItem>
+                        <MudSelectItem Value="CancelledFilter.HideCancelled">@Roivo.Resources.Invoices.CancelledHide</MudSelectItem>
+                        <MudSelectItem Value="CancelledFilter.OnlyCancelled">@Roivo.Resources.Invoices.CancelledOnly</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+
+            <MudTable T="InvoiceRow" ServerData="LoadServerData"
+                      @ref="table"
+                      Dense="true"
+                      Hover="true"
+                      RowsPerPage="25"
+                      Loading="@isLoading">
+                <HeaderContent>
+                    <MudTh><MudTableSortLabel SortLabel="IssueDate" T="InvoiceRow">@Roivo.Resources.Invoices.IssueDateColumn</MudTableSortLabel></MudTh>
+                    <MudTh>@Roivo.Resources.Invoices.DirectionColumn</MudTh>
+                    <MudTh>@Roivo.Resources.Invoices.CounterpartyColumn</MudTh>
+                    <MudTh>@Roivo.Resources.Invoices.TypeColumn</MudTh>
+                    <MudTh><MudTableSortLabel SortLabel="NetAmount" T="InvoiceRow">@Roivo.Resources.Invoices.NetColumn</MudTableSortLabel></MudTh>
+                    <MudTh>@Roivo.Resources.Invoices.VatColumn</MudTh>
+                    <MudTh><MudTableSortLabel SortLabel="GrossAmount" T="InvoiceRow">@Roivo.Resources.Invoices.GrossColumn</MudTableSortLabel></MudTh>
+                    <MudTh>@Roivo.Resources.Invoices.StatusColumn</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.IssueDate.ToString("dd/MM/yyyy")</MudTd>
+                    <MudTd>
+                        <MudChip T="string" Color="@(context.Direction == "Incoming" ? Color.Info : Color.Secondary)" Size="Size.Small">
+                            @(context.Direction == "Incoming" ? Roivo.Resources.Invoices.DirectionIncoming : Roivo.Resources.Invoices.DirectionOutgoing)
+                        </MudChip>
+                    </MudTd>
+                    <MudTd>
+                        @context.CounterpartyAfm
+                        @if (!string.IsNullOrEmpty(context.CounterpartyName))
+                        {
+                            <br /><MudText Typo="Typo.caption">@context.CounterpartyName</MudText>
+                        }
+                        @if (context.AggregateCount is int n && n > 1)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Default">@n</MudChip>
+                        }
+                    </MudTd>
+                    <MudTd>@context.DocumentTypeCode</MudTd>
+                    <MudTd>@FormatCurrency(context.NetAmount)</MudTd>
+                    <MudTd>@FormatCurrency(context.VatAmount)</MudTd>
+                    <MudTd>@FormatCurrency(context.GrossAmount)</MudTd>
+                    <MudTd>
+                        @if (context.IsCancelled)
+                        {
+                            <MudChip T="string" Color="Color.Error" Size="Size.Small">@Roivo.Resources.Invoices.StatusCancelled</MudChip>
+                        }
+                    </MudTd>
+                </RowTemplate>
+                <PagerContent>
+                    <MudTablePager />
+                </PagerContent>
+                <NoRecordsContent>
+                    <MudText>@Common.NoData</MudText>
+                </NoRecordsContent>
+            </MudTable>
+        </MudTabPanel>
+    </MudTabs>
+
+</MudContainer>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private BusinessHeaderInfo? business;
+    private GetBusinessInvoiceSummaryData? summary;
+    private MudTable<InvoiceRow>? table;
+    private bool isLoading;
+
+    private InvoiceDirectionFilter directionFilter = InvoiceDirectionFilter.All;
+    private DateTime? fromDate;
+    private DateTime? toDate;
+    private string counterpartySearch = "";
+    private CancelledFilter cancelledFilter = CancelledFilter.All;
+
+    private decimal NetFlow => (summary?.OutgoingGrossTotal ?? 0) - (summary?.IncomingGrossTotal ?? 0);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await SummaryHandler.Handle(new GetBusinessInvoiceSummaryQuery(Id), CancellationToken.None);
+        if (result is GetBusinessInvoiceSummaryResult.Success success)
+        {
+            summary = success.Data;
+            business = success.Business;
+        }
+        else
+        {
+            Nav.NavigateTo("/businesses");
+        }
+    }
+
+    private async Task<TableData<InvoiceRow>> LoadServerData(TableState state, CancellationToken token)
+    {
+        isLoading = true;
+        try
+        {
+            var sortColumn = state.SortLabel ?? "IssueDate";
+            var sortDescending = state.SortDirection != SortDirection.Ascending;
+
+            var query = new ListBusinessInvoicesPagedQuery(
+                BusinessId: Id,
+                Page: state.Page + 1, // MudTable is 0-based; our handler is 1-based.
+                PageSize: state.PageSize,
+                Direction: directionFilter,
+                FromDate: fromDate,
+                ToDate: toDate,
+                CounterpartyAfmSearch: string.IsNullOrWhiteSpace(counterpartySearch) ? null : counterpartySearch.Trim(),
+                CancelledStatus: cancelledFilter,
+                SortColumn: sortColumn,
+                SortDescending: sortDescending);
+
+            var result = await ListHandler.Handle(query, token);
+
+            if (result is ListBusinessInvoicesPagedResult.Success success)
+            {
+                return new TableData<InvoiceRow>
+                {
+                    Items = success.Rows,
+                    TotalItems = success.TotalCount,
+                };
+            }
+
+            return new TableData<InvoiceRow> { Items = Array.Empty<InvoiceRow>(), TotalItems = 0 };
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ReloadTable()
+    {
+        if (table is not null) await table.ReloadServerData();
+    }
+
+    private static string FormatCurrency(decimal value)
+        => string.Format(System.Globalization.CultureInfo.GetCultureInfo("el-GR"), "{0:C}", value);
+
+    private static string GetFailureMessage(string? reason) => reason switch
+    {
+        "InvalidCredentials" => Aade.FailureReasonInvalidCredentials,
+        "AfmMismatch" => Aade.FailureReasonAfmMismatch,
+        _ => Aade.FailureReasonGeneric
+    };
+}

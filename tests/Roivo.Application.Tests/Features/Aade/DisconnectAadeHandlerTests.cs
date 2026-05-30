@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Roivo.Application.Features.Aade.Commands.DisconnectAade;
 using Roivo.Application.Tests.Fakes;
+using Roivo.Core.Domain.Auditing;
 using Roivo.Core.Domain.Entities;
 
 namespace Roivo.Application.Tests.Features.Aade;
@@ -30,7 +31,7 @@ public class DisconnectAadeHandlerTests
 
         result.Should().BeOfType<DisconnectAadeResult.Success>();
         store.Store.Should().NotContainKey(b.Id);
-        audit.Calls.Should().ContainSingle().Which.Action.Should().Be("AadeDisconnected");
+        audit.Calls.Should().ContainSingle().Which.Action.Should().Be(AuditAction.AadeDisconnected);
     }
 
     [Fact]

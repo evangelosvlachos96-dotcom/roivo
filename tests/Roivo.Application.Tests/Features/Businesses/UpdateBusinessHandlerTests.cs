@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Roivo.Application.Features.Businesses.Commands.UpdateBusiness;
 using Roivo.Application.Tests.Fakes;
+using Roivo.Core.Domain.Auditing;
 using Roivo.Core.Domain.Entities;
 using Roivo.Core.Domain.Enums;
 
@@ -41,7 +42,7 @@ public class UpdateBusinessHandlerTests
         stored.Address.Should().Be("New Addr");
 
         var call = audit.Calls.Should().ContainSingle().Subject;
-        call.Action.Should().Be("BusinessUpdated");
+        call.Action.Should().Be(AuditAction.BusinessUpdated);
         var details = call.Details.Should().BeAssignableTo<IDictionary<string, object?>>().Subject;
         details.Should().ContainKeys("Name", "Kad", "Address");
         details.Should().NotContainKey("Afm");

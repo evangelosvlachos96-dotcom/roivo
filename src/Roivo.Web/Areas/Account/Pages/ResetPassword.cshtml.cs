@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Roivo.Application.Abstractions;
+using Roivo.Core.Domain.Auditing;
 using Roivo.Core.Domain.Entities;
 
 namespace Roivo.Web.Areas.Account.Pages;
@@ -85,7 +86,7 @@ public class ResetPasswordModel : PageModel
         await _userManager.UpdateSecurityStampAsync(user);
 
         await _audit.WriteAsync(
-            action: "PasswordResetCompleted",
+            action: AuditAction.PasswordResetCompleted,
             userId: user.Id,
             tenantId: user.TenantId,
             entityType: nameof(ApplicationUser),

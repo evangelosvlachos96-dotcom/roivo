@@ -25,4 +25,20 @@ public interface IBusinessRepository
     Task<bool> AfmExistsAsync(string afm, bool activeOnly, Guid? excludeId = null, CancellationToken cancellationToken = default);
     Task<Business> AddAsync(Business business, CancellationToken cancellationToken = default);
     Task<Business> UpdateAsync(Business business, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns businesses whose AADE failure started before <paramref name="threshold"/>
+    /// and that have not yet been notified by email. Bypasses tenant filters —
+    /// the notification cron is system-wide.
+    /// </summary>
+    Task<IReadOnlyList<Business>> ListWithExpiredAadeFailureAsync(
+        DateTime threshold,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the earliest-created user's email address for a tenant, or null
+    /// if the tenant has no users. Used by background notification jobs that
+    /// must reach a tenant without a request-scoped user.
+    /// </summary>
+    Task<string?> GetTenantPrimaryEmailAsync(Guid tenantId, CancellationToken cancellationToken = default);
 }

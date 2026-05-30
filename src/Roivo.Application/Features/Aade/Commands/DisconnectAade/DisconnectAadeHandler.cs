@@ -1,5 +1,6 @@
 using Roivo.Application.Abstractions;
 using Roivo.Application.Abstractions.Aade;
+using Roivo.Core.Domain.Auditing;
 using Roivo.Core.Domain.Businesses;
 using Roivo.Core.Domain.Entities;
 
@@ -42,8 +43,12 @@ public sealed class DisconnectAadeHandler
 
         await _credentials.ClearAsync(business.Id, cancellationToken).ConfigureAwait(false);
 
+        // No point tracking failure on a disconnected business.
+        business.ClearAadeSyncFailure();
+        await _businesses.UpdateAsync(business, cancellationToken).ConfigureAwait(false);
+
         await _audit.WriteAsync(
-            action: "AadeDisconnected",
+            action: AuditAction.AadeDisconnected,
             tenantId: _tenant.CurrentTenantId,
             entityType: nameof(Business),
             entityId: business.Id.ToString(),

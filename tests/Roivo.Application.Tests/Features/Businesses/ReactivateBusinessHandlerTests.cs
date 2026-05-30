@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Roivo.Application.Features.Businesses.Commands.ReactivateBusiness;
 using Roivo.Application.Tests.Fakes;
+using Roivo.Core.Domain.Auditing;
 using Roivo.Core.Domain.Entities;
 using Roivo.Core.Domain.Enums;
 
@@ -40,7 +41,7 @@ public class ReactivateBusinessHandlerTests
         stored.Name.Should().Be("Old Name");
         stored.Kad.Should().Be("10.10");
         stored.Address.Should().Be("Old Addr");
-        audit.Calls.Should().ContainSingle().Which.Action.Should().Be("BusinessReactivated");
+        audit.Calls.Should().ContainSingle().Which.Action.Should().Be(AuditAction.BusinessReactivated);
     }
 
     [Fact]

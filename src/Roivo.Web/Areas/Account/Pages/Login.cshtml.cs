@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Roivo.Application.Abstractions;
+using Roivo.Core.Domain.Auditing;
 using Roivo.Core.Domain.Entities;
 
 namespace Roivo.Web.Areas.Account.Pages;
@@ -72,7 +73,7 @@ public class LoginModel : PageModel
                 await _userManager.UpdateAsync(user);
 
                 await _audit.WriteAsync(
-                    action: "LoginSucceeded",
+                    action: AuditAction.LoginSucceeded,
                     userId: user.Id,
                     tenantId: user.TenantId,
                     entityType: nameof(ApplicationUser),
@@ -97,7 +98,7 @@ public class LoginModel : PageModel
         {
             var lockedUser = await _userManager.FindByEmailAsync(Input.Email);
             await _audit.WriteAsync(
-                action: "AccountLockedOut",
+                action: AuditAction.AccountLockedOut,
                 userId: lockedUser?.Id,
                 tenantId: lockedUser?.TenantId,
                 entityType: nameof(ApplicationUser),
@@ -112,7 +113,7 @@ public class LoginModel : PageModel
         {
             var blockedUser = await _userManager.FindByEmailAsync(Input.Email);
             await _audit.WriteAsync(
-                action: "LoginBlockedNotAllowed",
+                action: AuditAction.LoginBlockedNotAllowed,
                 userId: blockedUser?.Id,
                 tenantId: blockedUser?.TenantId,
                 entityType: nameof(ApplicationUser),
@@ -124,7 +125,7 @@ public class LoginModel : PageModel
         }
 
         await _audit.WriteAsync(
-            action: "LoginFailed",
+            action: AuditAction.LoginFailed,
             details: $"email={Input.Email}",
             cancellationToken: cancellationToken);
         ModelState.AddModelError(string.Empty, "Λάθος email ή κωδικός");

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Roivo.Application.Abstractions;
+using Roivo.Core.Domain.Auditing;
 using Roivo.Core.Domain.Entities;
 
 namespace Roivo.Web.Areas.Account.Pages;
@@ -43,7 +44,7 @@ public class ConfirmEmailModel : PageModel
         if (Succeeded)
         {
             await _audit.WriteAsync(
-                action: "EmailConfirmed",
+                action: AuditAction.EmailConfirmed,
                 userId: user.Id,
                 tenantId: user.TenantId,
                 entityType: nameof(ApplicationUser),

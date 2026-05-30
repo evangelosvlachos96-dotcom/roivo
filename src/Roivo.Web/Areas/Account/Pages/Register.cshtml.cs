@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Roivo.Application.Abstractions;
+using Roivo.Core.Domain.Auditing;
 using Roivo.Core.Domain.Entities;
 using Roivo.Core.Domain.Enums;
 using Roivo.Core.Domain.Validation;
@@ -109,7 +110,7 @@ public class RegisterModel : PageModel
         if (existingTenant is not null && !Input.ConfirmDuplicate)
         {
             await _audit.WriteAsync(
-                action: "RegistrationAfmDuplicateWarningShown",
+                action: AuditAction.RegistrationAfmDuplicateWarningShown,
                 tenantId: existingTenant.Id,
                 entityType: nameof(Tenant),
                 entityId: existingTenant.Id.ToString(),
@@ -216,7 +217,7 @@ public class RegisterModel : PageModel
         _backgroundJobs.Enqueue<EmailJob>(job => job.SendAsync(Input.Email, "Επιβεβαίωση email - Roivo", html));
 
         await _audit.WriteAsync(
-            action: "UserRegistered",
+            action: AuditAction.UserRegistered,
             userId: user.Id,
             tenantId: tenant.Id,
             entityType: nameof(ApplicationUser),

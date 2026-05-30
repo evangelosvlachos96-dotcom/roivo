@@ -98,4 +98,59 @@ public class BusinessTests
         act.Should().Throw<DomainException>();
         b.Name.Should().Be("Acme");
     }
+
+    [Fact]
+    public void RecordAadeSyncFailure_OnFirstFailure_SetsTimestamp()
+    {
+        var b = Business.Create("Acme", ValidAfm, null, null);
+
+        var before = DateTime.UtcNow;
+        b.RecordAadeSyncFailure("InvalidCredentials");
+        var after = DateTime.UtcNow;
+
+        b.HasAadeFailure.Should().BeTrue();
+        b.AadeLastFailureReason.Should().Be("InvalidCredentials");
+        b.AadeLastFailureAt.Should().NotBeNull();
+        b.AadeLastFailureAt!.Value.Should().BeOnOrAfter(before).And.BeOnOrBefore(after);
+        b.AadeFailureEmailSentAt.Should().BeNull();
+    }
+
+    [Fact]
+    public void RecordAadeSyncFailure_OnRepeatFailure_PreservesOriginalTimestamp()
+    {
+        var b = Business.Create("Acme", ValidAfm, null, null);
+        b.RecordAadeSyncFailure("InvalidCredentials");
+        var firstTimestamp = b.AadeLastFailureAt;
+
+        // Force a measurable wall-clock gap.
+        Thread.Sleep(10);
+        b.RecordAadeSyncFailure("InvalidCredentials");
+
+        b.AadeLastFailureAt.Should().Be(firstTimestamp);
+    }
+
+    [Fact]
+    public void ClearAadeSyncFailure_ResetsAllFields()
+    {
+        var b = Business.Create("Acme", ValidAfm, null, null);
+        b.RecordAadeSyncFailure("InvalidCredentials");
+        b.RecordAadeFailureEmailSent();
+
+        b.ClearAadeSyncFailure();
+
+        b.HasAadeFailure.Should().BeFalse();
+        b.AadeLastFailureAt.Should().BeNull();
+        b.AadeLastFailureReason.Should().BeNull();
+        b.AadeFailureEmailSentAt.Should().BeNull();
+    }
+
+    [Fact]
+    public void RecordAadeFailureEmailSent_ThrowsWhenNoActiveFailure()
+    {
+        var b = Business.Create("Acme", ValidAfm, null, null);
+
+        var act = () => b.RecordAadeFailureEmailSent();
+
+        act.Should().Throw<InvalidOperationException>();
+    }
 }

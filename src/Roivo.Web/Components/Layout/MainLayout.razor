@@ -24,12 +24,12 @@
                 <MudButton Variant="Variant.Text"
                            StartIcon="@Icons.Material.Outlined.Dashboard"
                            OnClick='() => Nav.NavigateTo("/dashboard")'>
-                    Πίνακας ελέγχου
+                    @Common.Nav_Dashboard
                 </MudButton>
                 <MudButton Variant="Variant.Text"
                            StartIcon="@Icons.Material.Outlined.Business"
                            OnClick='() => Nav.NavigateTo("/businesses")'>
-                    Επιχειρήσεις
+                    @Common.Nav_Businesses
                 </MudButton>
 
                 <MudMenu Icon="@Icons.Material.Outlined.AccountCircle"
@@ -46,18 +46,18 @@
                        envelope of a forced logout is zero. The form-based POST logout on Home.razor stays
                        as-is for backward compatibility with users navigating via the main page. *@
                     <MudMenuItem OnClick='() => Nav.NavigateTo("/Account/SignOutAndRedirect", forceLoad: true)'>
-                        Έξοδος
+                        @Auth.LogoutMenuItem
                     </MudMenuItem>
                 </MudMenu>
             </Authorized>
             <NotAuthorized>
                 <MudButton Variant="Variant.Text"
                            OnClick='() => Nav.NavigateTo("/Account/Login", forceLoad: true)'>
-                    Σύνδεση
+                    @Common.Nav_Login
                 </MudButton>
                 <MudButton Variant="Variant.Filled" Color="Color.Primary"
                            OnClick='() => Nav.NavigateTo("/Account/Register", forceLoad: true)'>
-                    Εγγραφή
+                    @Common.Nav_Register
                 </MudButton>
             </NotAuthorized>
         </AuthorizeView>

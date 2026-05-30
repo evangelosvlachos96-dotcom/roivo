@@ -1,6 +1,7 @@
 using Roivo.Application.Abstractions;
 using Roivo.Application.Abstractions.Aade;
 using Roivo.Application.Abstractions.Aade.Results;
+using Roivo.Core.Domain.Auditing;
 using Roivo.Core.Domain.Entities;
 using Roivo.Core.Domain.Enums;
 
@@ -10,6 +11,7 @@ public sealed class SyncBusinessInvoicesHandler
 {
     private readonly IBusinessRepository _businesses;
     private readonly IInvoiceRepository _invoices;
+    private readonly IIncomeBookEntryRepository _bookEntries;
     private readonly IAadeClient _aade;
     private readonly IAadeCredentialStore _credentials;
     private readonly IAuditWriter _audit;
@@ -18,6 +20,7 @@ public sealed class SyncBusinessInvoicesHandler
     public SyncBusinessInvoicesHandler(
         IBusinessRepository businesses,
         IInvoiceRepository invoices,
+        IIncomeBookEntryRepository bookEntries,
         IAadeClient aade,
         IAadeCredentialStore credentials,
         IAuditWriter audit,
@@ -25,6 +28,7 @@ public sealed class SyncBusinessInvoicesHandler
     {
         ArgumentNullException.ThrowIfNull(businesses);
         ArgumentNullException.ThrowIfNull(invoices);
+        ArgumentNullException.ThrowIfNull(bookEntries);
         ArgumentNullException.ThrowIfNull(aade);
         ArgumentNullException.ThrowIfNull(credentials);
         ArgumentNullException.ThrowIfNull(audit);
@@ -32,6 +36,7 @@ public sealed class SyncBusinessInvoicesHandler
 
         _businesses = businesses;
         _invoices = invoices;
+        _bookEntries = bookEntries;
         _aade = aade;
         _credentials = credentials;
         _audit = audit;
@@ -50,10 +55,18 @@ public sealed class SyncBusinessInvoicesHandler
         if (creds is null)
             return new SyncBusinessInvoicesResult.NotConnected();
 
-        var fetch = await _aade.FetchInvoicesAsync(creds.UserId, creds.SubscriptionKey, business.LastAadeSyncAt, cancellationToken).ConfigureAwait(false);
+        var sinceIncoming = business.LastAadeIncomingMark ?? 0;
+        var sinceOutgoing = business.LastAadeOutgoingMark ?? 0;
+
+        var fetch = await _aade.FetchInvoicesAsync(creds.UserId, creds.SubscriptionKey, sinceIncoming, sinceOutgoing, cancellationToken).ConfigureAwait(false);
         switch (fetch)
         {
             case AadeFetchResult.InvalidCredentials:
+                // Persistent auth failure — mark so the banner shows and the
+                // 24-hour notification cron picks it up. Network/server errors
+                // below are transient and intentionally do NOT mark.
+                business.RecordAadeSyncFailure("InvalidCredentials");
+                await _businesses.UpdateAsync(business, cancellationToken).ConfigureAwait(false);
                 return new SyncBusinessInvoicesResult.InvalidCredentials();
             case AadeFetchResult.NetworkError ne:
                 return new SyncBusinessInvoicesResult.NetworkError(ne.Message);
@@ -62,60 +75,83 @@ public sealed class SyncBusinessInvoicesHandler
         }
 
         var success = (AadeFetchResult.Success)fetch;
+        var tenantId = _tenant.CurrentTenantId;
 
-        var newCount = 0;
-        var updatedCount = 0;
+        // Heal failure state before applying sync progress — if the connection
+        // was previously broken and is now working, clear the banner.
+        business.ClearAadeSyncFailure();
 
-        await UpsertBatchAsync(success.Outgoing, business.Id, InvoiceDirection.Issued, isNew => { if (isNew) newCount++; else updatedCount++; }, cancellationToken).ConfigureAwait(false);
-        await UpsertBatchAsync(success.Incoming, business.Id, InvoiceDirection.Received, isNew => { if (isNew) newCount++; else updatedCount++; }, cancellationToken).ConfigureAwait(false);
+        // Incoming documents (RequestDocs) — individual invoices.
+        foreach (var dto in success.Incoming)
+        {
+            var invoice = Invoice.Create(
+                businessId: business.Id,
+                aadeMark: dto.Mark,
+                direction: InvoiceDirection.Received,
+                invoiceType: dto.DocumentTypeCode,
+                issueDate: DateOnly.FromDateTime(dto.IssueDate),
+                counterpartyAfm: dto.CounterpartyAfm,
+                counterpartyName: dto.CounterpartyName,
+                netAmount: dto.NetAmount,
+                vatAmount: dto.VatAmount,
+                grossAmount: dto.GrossAmount,
+                currency: ParseCurrency(dto.Currency),
+                cancelledByMark: dto.CancelledByMark);
 
-        business.RecordAadeSync(DateTime.UtcNow);
+            await _invoices.UpsertAsync(invoice, cancellationToken).ConfigureAwait(false);
+        }
+
+        // Outgoing summaries (RequestMyIncome) — aggregated book entries.
+        foreach (var dto in success.Outgoing)
+        {
+            var existing = await _bookEntries.GetByIdentityAsync(
+                business.Id, dto.CounterpartyAfm, dto.IssueDate, dto.DocumentTypeCode, cancellationToken).ConfigureAwait(false);
+
+            if (existing is not null)
+            {
+                existing.UpdateTotals(dto.NetValue, dto.VatAmount, dto.GrossValue, dto.InvoiceCount, dto.MinMark, dto.MaxMark);
+            }
+            else
+            {
+                existing = IncomeBookEntry.Create(
+                    businessId: business.Id,
+                    tenantId: tenantId,
+                    counterpartyAfm: dto.CounterpartyAfm,
+                    issueDate: dto.IssueDate,
+                    documentTypeCode: dto.DocumentTypeCode,
+                    netValue: dto.NetValue,
+                    vatAmount: dto.VatAmount,
+                    grossValue: dto.GrossValue,
+                    invoiceCount: dto.InvoiceCount,
+                    minMark: dto.MinMark,
+                    maxMark: dto.MaxMark);
+            }
+
+            await _bookEntries.UpsertAsync(existing, cancellationToken).ConfigureAwait(false);
+        }
+
+        business.RecordAadeSyncProgress(
+            newIncomingMark: success.MaxIncomingMark,
+            newOutgoingMark: success.MaxOutgoingMark);
         await _businesses.UpdateAsync(business, cancellationToken).ConfigureAwait(false);
 
         await _audit.WriteAsync(
-            action: "AadeSyncCompleted",
-            tenantId: _tenant.CurrentTenantId,
+            action: AuditAction.AadeSyncCompleted,
+            tenantId: tenantId,
             entityType: nameof(Business),
             entityId: business.Id.ToString(),
-            details: new { business.Name, business.Afm, NewInvoices = newCount, UpdatedInvoices = updatedCount },
+            details: new
+            {
+                business.Name,
+                business.Afm,
+                IncomingInvoices = success.Incoming.Count,
+                OutgoingBookEntries = success.Outgoing.Count,
+            },
             cancellationToken: cancellationToken).ConfigureAwait(false);
 
-        return new SyncBusinessInvoicesResult.Success(newCount, updatedCount);
-    }
-
-    private async Task UpsertBatchAsync(
-        IReadOnlyList<AadeInvoiceDto> dtos,
-        Guid businessId,
-        InvoiceDirection direction,
-        Action<bool> recordOutcome,
-        CancellationToken cancellationToken)
-    {
-        foreach (var dto in dtos)
-        {
-            var existing = await _invoices.GetByAadeMarkAsync(dto.Mark, cancellationToken).ConfigureAwait(false);
-            var isNew = existing is null;
-
-            var entity = existing ?? new Invoice
-            {
-                BusinessId = businessId,
-                AadeMark = dto.Mark,
-                CounterpartyAfm = dto.CounterpartyAfm,
-                InvoiceType = dto.DocumentTypeCode,
-            };
-
-            entity.BusinessId = businessId;
-            entity.CounterpartyAfm = dto.CounterpartyAfm;
-            entity.CounterpartyName = dto.CounterpartyName;
-            entity.IssueDate = DateOnly.FromDateTime(dto.IssueDate);
-            entity.InvoiceType = dto.DocumentTypeCode;
-            entity.GrossAmount = dto.GrossAmount;
-            entity.Currency = ParseCurrency(dto.Currency);
-            entity.Direction = direction;
-            entity.RawPayload = dto.RawXml;
-
-            await _invoices.UpsertAsync(entity, cancellationToken).ConfigureAwait(false);
-            recordOutcome(isNew);
-        }
+        return new SyncBusinessInvoicesResult.Success(
+            NewCount: success.Incoming.Count,
+            UpdatedCount: 0);
     }
 
     private static Currency ParseCurrency(string code)

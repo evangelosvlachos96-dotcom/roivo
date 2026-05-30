@@ -5,6 +5,7 @@ using Roivo.Aade.Jobs;
 using Roivo.Application.Configuration;
 using Roivo.Web.Components;
 using Roivo.Web.Configuration;
+using Roivo.Infrastructure.Jobs;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -23,6 +24,10 @@ builder.Services
 builder.Services.AddMudServices();
 builder.Services.AddRazorPages();
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+
+// Hangfire activates background jobs from the DI container; register here so
+// the recurring registration below can resolve the type.
+builder.Services.AddScoped<AadeFailureNotificationJob>();
 
 var app = builder.Build();
 
@@ -49,6 +54,14 @@ RecurringJob.AddOrUpdate<NightlyAadeSyncJob>(
     "nightly-aade-sync",
     job => job.Execute(),
     Cron.Daily(3),
+    new RecurringJobOptions { TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Athens") });
+
+// 09:00 Athens: notify owners whose AADE connection has been broken for >24h.
+// Daytime delivery so the email lands when users are starting their day.
+RecurringJob.AddOrUpdate<AadeFailureNotificationJob>(
+    "aade-failure-notification",
+    job => job.Execute(CancellationToken.None),
+    Cron.Daily(9),
     new RecurringJobOptions { TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Athens") });
 
 app.MapRazorPages();

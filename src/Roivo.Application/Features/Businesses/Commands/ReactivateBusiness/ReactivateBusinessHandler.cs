@@ -1,4 +1,5 @@
 using Roivo.Application.Abstractions;
+using Roivo.Core.Domain.Auditing;
 using Roivo.Core.Domain.Businesses;
 using Roivo.Core.Domain.Entities;
 using Roivo.Core.Domain.Exceptions;
@@ -53,7 +54,7 @@ public sealed class ReactivateBusinessHandler
         await _repository.UpdateAsync(entity, cancellationToken);
 
         await _audit.WriteAsync(
-            action: "BusinessReactivated",
+            action: AuditAction.BusinessReactivated,
             tenantId: _tenant.CurrentTenantId,
             entityType: nameof(Business),
             entityId: entity.Id.ToString(),

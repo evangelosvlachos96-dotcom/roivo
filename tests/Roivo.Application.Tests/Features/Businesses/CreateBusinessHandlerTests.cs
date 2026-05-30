@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Roivo.Application.Features.Businesses.Commands.CreateBusiness;
 using Roivo.Application.Tests.Fakes;
+using Roivo.Core.Domain.Auditing;
 using Roivo.Core.Domain.Entities;
 using Roivo.Core.Domain.Enums;
 
@@ -38,7 +39,7 @@ public class CreateBusinessHandlerTests
         stored.IsActive.Should().BeTrue();
 
         var auditCall = audit.Calls.Should().ContainSingle().Subject;
-        auditCall.Action.Should().Be("BusinessCreated");
+        auditCall.Action.Should().Be(AuditAction.BusinessCreated);
         auditCall.TenantId.Should().Be(tenant.CurrentTenantId);
     }
 

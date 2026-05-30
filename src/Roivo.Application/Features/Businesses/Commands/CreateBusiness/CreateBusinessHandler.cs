@@ -1,4 +1,5 @@
 using Roivo.Application.Abstractions;
+using Roivo.Core.Domain.Auditing;
 using Roivo.Core.Domain.Businesses;
 using Roivo.Core.Domain.Entities;
 using Roivo.Core.Domain.Exceptions;
@@ -29,6 +30,9 @@ public sealed class CreateBusinessHandler
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        // Handler order: null-guard, permission, load, existence, business rules, mutate,
+        // save, audit, return. Audit goes last because it records what actually happened —
+        // failed operations don't produce audit entries.
         if (!BusinessPermissions.CanCreate(_tenant.CurrentTenantType))
             return new CreateBusinessResult.Forbidden("Δεν επιτρέπεται η δημιουργία νέας επιχείρησης από αυτόν τον τύπο λογαριασμού.");
 
@@ -56,7 +60,7 @@ public sealed class CreateBusinessHandler
         business = await _repository.AddAsync(business, cancellationToken);
 
         await _audit.WriteAsync(
-            action: "BusinessCreated",
+            action: AuditAction.BusinessCreated,
             tenantId: _tenant.CurrentTenantId,
             entityType: nameof(Business),
             entityId: business.Id.ToString(),

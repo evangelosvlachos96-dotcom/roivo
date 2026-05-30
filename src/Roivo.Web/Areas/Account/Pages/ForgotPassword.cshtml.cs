@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
 using Roivo.Application.Abstractions;
+using Roivo.Core.Domain.Auditing;
 using Roivo.Core.Domain.Entities;
 using Roivo.Infrastructure.Email;
 
@@ -86,7 +87,7 @@ public class ForgotPasswordModel : PageModel
             _backgroundJobs.Enqueue<EmailJob>(job => job.SendAsync(Input.Email, "Επαναφορά κωδικού - Roivo", html));
 
             await _audit.WriteAsync(
-                action: "PasswordResetRequested",
+                action: AuditAction.PasswordResetRequested,
                 userId: user.Id,
                 tenantId: user.TenantId,
                 entityType: nameof(ApplicationUser),

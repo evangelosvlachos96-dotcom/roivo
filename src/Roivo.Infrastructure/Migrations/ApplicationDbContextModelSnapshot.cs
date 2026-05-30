@@ -609,6 +609,16 @@ namespace Roivo.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("AadeFailureEmailSentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("AadeLastFailureAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("AadeLastFailureReason")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<string>("AadeSubscriptionKeyEncrypted")
                         .HasColumnType("text");
 
@@ -624,6 +634,11 @@ namespace Roivo.Infrastructure.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("HasAadeFailure")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()

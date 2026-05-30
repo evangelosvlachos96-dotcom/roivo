@@ -1,3 +1,5 @@
+using Roivo.Core.Domain.Auditing;
+
 namespace Roivo.Application.Abstractions;
 
 /// <summary>
@@ -8,7 +10,7 @@ namespace Roivo.Application.Abstractions;
 public interface IAuditWriter
 {
     Task WriteAsync(
-        string action,
+        AuditAction action,
         Guid? userId = null,
         Guid? tenantId = null,
         string? entityType = null,
