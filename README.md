@@ -2,6 +2,8 @@
 
 Cashflow intelligence for Greek SMBs and accountants. Combines PSD2 open banking with myDATA tax data to automate reconciliation, forecast cashflow 90 days ahead, and warn about upcoming tax obligations.
 
+> **Public snapshot.** This repository is published for portfolio purposes only. Active development happens in a private repository, so the code here may lag behind the current state of the product. It is not intended for use, contribution, or deployment.
+
 ## Status
 
 🚧 Pre-launch development. MVP target: August 2026.
@@ -20,6 +22,7 @@ Cashflow intelligence for Greek SMBs and accountants. Combines PSD2 open banking
 ## Local development
 
 ### Prerequisites
+
 - .NET 10 SDK
 - Visual Studio 2022 17.12+ or JetBrains Rider 2025.1+
 - PostgreSQL — see "Database setup" below
@@ -27,6 +30,7 @@ Cashflow intelligence for Greek SMBs and accountants. Combines PSD2 open banking
 ### Database setup — choose one
 
 #### Option A: Native PostgreSQL on Windows (current)
+
 1. Download PostgreSQL 16 from postgresql.org/download/windows
 2. Install with defaults; set a memorable password for the `postgres` superuser
 3. Open pgAdmin (installed alongside Postgres):
@@ -34,19 +38,21 @@ Cashflow intelligence for Greek SMBs and accountants. Combines PSD2 open banking
    - Create database: `roivo`, owner `roivo`
 
 #### Option B: Docker (recommended for teams)
+
 1. Install Docker Desktop with WSL2 backend
 2. `docker compose up -d` from the repo root
-3. pgAdmin available at http://localhost:5050 (admin@roivo.local / admin)
+3. pgAdmin available at <http://localhost:5050> (<admin@roivo.local> / admin)
 
 Both options expose Postgres on `localhost:5432` — the connection string is identical.
 
 ### First-time setup
+
 1. Clone the repo
 2. Set up Postgres (Option A or B above)
-3. Open `Roivo.sln` in Visual Studio
+3. Open `Roivo.slnx` in Visual Studio
 4. Set `Roivo.Web` as startup project
 5. Apply migrations: in Package Manager Console (with `Roivo.Infrastructure` as Default project): `Update-Database -StartupProject Roivo.Web`
-6. Press F5. App runs at https://localhost:7027 (or the port shown in console).
+6. Press F5. App runs at <https://localhost:7027> (or the port shown in console).
 
 ## Project structure
 
@@ -73,4 +79,5 @@ Both options expose Postgres on `localhost:5432` — the connection string is id
 
 ## License
 
-Proprietary. © 2026 Roivo. All rights reserved.
+Proprietary. © 2026 Evangelos Vlachos. All rights reserved.
+See [LICENSE](LICENSE).
