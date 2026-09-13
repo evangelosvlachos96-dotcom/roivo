@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roivo — cashflow intelligence for Greek SMBs and accountants</title>
+<meta name="description" content="Roivo combines PSD2 open banking with myDATA tax data to automate reconciliation, forecast cashflow 90 days ahead and warn about upcoming tax obligations. .NET 10 · Blazor Server · PostgreSQL.">
+<meta property="og:title" content="Roivo — cashflow intelligence for Greek SMBs">
+<meta property="og:description" content="PSD2 open banking + myDATA tax data: automated reconciliation and a 90-day cashflow forecast. .NET 10, Blazor Server, PostgreSQL.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --board:#e9edf1; --paper:#fff; --ink:#1b2733; --muted:#5d6c7b; --rule:#cfd6dd;
+    --accent:#6b4fbb;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; font-family:"Public Sans","Segoe UI",system-ui,sans-serif; color:var(--ink); background:var(--board); line-height:1.5 }
+  a { color:var(--accent) }
+  .wrap { max-width:1040px; margin:0 auto; padding:0 1.5rem }
+  header { background:var(--paper); border-bottom:1px solid var(--rule); border-top:4px solid var(--accent) }
+  header .wrap { display:flex; justify-content:space-between; align-items:center; padding:1rem 1.5rem }
+  header b { font-size:1.05rem }
+  nav a { margin-left:1.25rem; color:var(--muted); text-decoration:none; font-size:.95rem }
+  nav a:hover { color:var(--ink) }
+  .hero { padding:3.5rem 0 2.5rem }
+  .hero h1 { font-size:clamp(2rem,4.5vw,3rem); line-height:1.1; margin:0 0 1rem; letter-spacing:-.01em; max-width:14ch }
+  .hero p { font-size:1.15rem; color:var(--muted); max-width:52ch; margin:0 0 1.75rem }
+  .cta { display:inline-flex; gap:.75rem; flex-wrap:wrap }
+  .btn { display:inline-block; padding:.7rem 1.25rem; border-radius:6px; text-decoration:none; font-weight:500; border:1px solid var(--rule); background:var(--paper); color:var(--ink) }
+  .btn--primary { background:var(--accent); color:#fff; border-color:var(--accent) }
+  .btn:hover { border-color:var(--accent) }
+  .shot { background:var(--paper); border:1px solid var(--rule); border-radius:10px; overflow:hidden; box-shadow:0 12px 40px rgba(27,39,51,.12) }
+  .shot img { display:block; width:100% }
+  section { padding:3rem 0 }
+  section h2 { font-size:1.6rem; margin:0 0 .5rem }
+  section > .wrap > p.lead { color:var(--muted); max-width:60ch; margin:0 0 2rem }
+  .steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:1.25rem }
+  .step { background:var(--paper); border:1px solid var(--rule); border-radius:8px; padding:1.25rem }
+  .step b { display:block; font-size:1.05rem; margin-bottom:.35rem }
+  .step p { margin:0; color:var(--muted) }
+  .step code, .rules code { background:var(--board); padding:.1em .35em; border-radius:3px; font-size:.9em }
+  .feature { display:grid; grid-template-columns:1fr 1.4fr; gap:2rem; align-items:center; margin-bottom:3rem }
+  .feature:nth-child(even) { grid-template-columns:1.4fr 1fr }
+  .feature:nth-child(even) .text { order:2 }
+  .feature h3 { margin:0 0 .5rem; font-size:1.25rem }
+  .feature p { margin:0; color:var(--muted) }
+  .legend { list-style:none; padding:0; margin:1rem 0 0; display:grid; gap:.4rem }
+  .legend li { padding-left:1rem; border-left:5px solid var(--accent) }
+  .rules { background:var(--paper); border:1px solid var(--rule); border-radius:8px; padding:1.5rem 1.75rem }
+  .rules ol, .rules ul { margin:.5rem 0 0; padding-left:1.25rem }
+  .rules li { margin:.35rem 0 }
+  .rules .note { margin-top:1rem; padding-top:1rem; border-top:1px solid var(--rule); color:var(--muted) }
+  pre { background:var(--ink); color:#dfe7ee; padding:1rem 1.25rem; border-radius:8px; overflow:auto; font-size:.9rem; margin:0 }
+  .hero pre { margin-top:2.5rem }
+  section pre { margin-top:1.5rem }
+  footer { border-top:1px solid var(--rule); padding:2rem 0; color:var(--muted); font-size:.9rem }
+  @media (max-width:760px) { .feature, .feature:nth-child(even) { grid-template-columns:1fr } .feature:nth-child(even) .text { order:0 } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <b>Roivo</b>
+    <nav>
+      <a href="#start">Start</a>
+      <a href="#how">What it does</a>
+      <a href="#design">Architecture</a>
+      <a href="https://github.com/evangelosvlachos96-dotcom/roivo">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="wrap">
+    <h1>Bank data and tax data on one screen, reconciled for you.</h1>
+    <p>Roivo is cashflow intelligence for Greek small businesses and their accountants. It connects PSD2 open banking with the myDATA tax platform to automate reconciliation, forecast cashflow 90 days ahead and warn about upcoming tax obligations. .NET 10, Blazor Server, PostgreSQL. Pre-launch; this repository is a public portfolio snapshot of a product developed privately.</p>
+    <div class="cta">
+      <a class="btn btn--primary" href="https://github.com/evangelosvlachos96-dotcom/roivo">View on GitHub</a>
+      <a class="btn" href="https://github.com/evangelosvlachos96-dotcom/roivo#readme">Read the README</a>
+    </div>
+  </div>
+  <div class="wrap">
+<pre>src/
+├── Roivo.Core/            Pure domain. Entities, enums, value objects, permission rules. No frameworks.
+├── Roivo.Application/     CQRS handlers, repository + service interfaces, result types.
+├── Roivo.Infrastructure/  EF Core persistence, Identity claims, SMTP email, notification jobs.
+├── Roivo.Aade/            AADE myDATA HTTP client, encrypted credential store, sync jobs.
+├── Roivo.Banking/         PSD2 banking-aggregator integration (M5).
+├── Roivo.Forecasting/     Cashflow forecasting (M7).
+├── Roivo.Resources/       Greek user-facing strings.
+└── Roivo.Web/             Blazor Server + Razor Pages. DI composition root.</pre>
+  </div>
+</div>
+
+<section id="start">
+  <div class="wrap">
+    <h2>Start in four steps</h2>
+    <p class="lead">Prerequisites: .NET 10 SDK, Visual Studio 2022 17.12+ or Rider 2025.1+, and PostgreSQL 16 — either installed natively or via Docker.</p>
+    <div class="steps">
+      <div class="step"><b>1 · Postgres</b><p><code>docker compose up -d</code> from the repo root. pgAdmin comes up at <code>localhost:5050</code>. Or install PostgreSQL 16 natively and create a <code>roivo</code> role and database.</p></div>
+      <div class="step"><b>2 · Open the solution</b><p>Open <code>Roivo.slnx</code> and set <code>Roivo.Web</code> as the startup project.</p></div>
+      <div class="step"><b>3 · Apply migrations</b><p>Package Manager Console, default project <code>Roivo.Infrastructure</code>: <code>Update-Database -StartupProject Roivo.Web</code>.</p></div>
+      <div class="step"><b>4 · Press F5</b><p>The app runs at <code>https://localhost:7027</code> or the port shown in the console.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <h2>What it does</h2>
+    <p class="lead">Every screen is scoped to a tenant. The user interface is in Greek.</p>
+    <div class="steps">
+      <div class="step"><b>Businesses</b><p>Create, rename and deactivate the businesses a tenant manages. Permission rules — who may create, deactivate or edit a tax number — are pure functions in the domain layer.</p></div>
+      <div class="step"><b>myDATA sync</b><p>Connect a business to the AADE myDATA platform with encrypted credentials. Sync invoices on demand or nightly; a daily job emails the tenant when a sync has been failing for 24 hours.</p></div>
+      <div class="step"><b>Invoices</b><p>A paged, per-business view over invoices and income-book entries, queried with a single raw-SQL union.</p></div>
+      <div class="step"><b>Cashflow</b><p>A cashflow page fed by the synced data. The 90-day forecast and PSD2 banking connection are the next milestones (M5 and M7) and are scaffolded, not built.</p></div>
+      <div class="step"><b>Accounts</b><p>ASP.NET Core Identity with confirmed-email login, lockout, password reset, and tenant claims baked into the auth cookie. OpenIddict is wired in for token issuance to API clients.</p></div>
+      <div class="step"><b>Audit</b><p>Every login, business change and AADE action writes an audit row. Action codes are grouped by domain and never renumbered.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="design">
+  <div class="wrap">
+    <h2>How it is put together</h2>
+    <p class="lead">Layered, with the domain at the bottom. Lower layers never reference higher ones.</p>
+    <div class="rules">
+      <ol>
+        <li><b>Multi-tenancy is a global query filter.</b> The DbContext walks every <code>ITenantScoped</code> entity and installs <code>TenantId == CurrentTenantId</code>; the tenant comes from claims on the auth cookie.</li>
+        <li><b>Handlers follow one shape.</b> Null-guard → permission → load → validate → mutate → save → audit → return. Results are discriminated-union records, not exceptions.</li>
+        <li><b>Entities enforce their own invariants.</b> Private setters, factory methods, and named mutations such as <code>Rename</code>, <code>ChangeAfm</code>, <code>RecordAadeSyncFailure</code>.</li>
+        <li><b>Background work runs in Hangfire.</b> Nightly AADE sync, single-business sync, and the 09:00 Athens failure notification.</li>
+      </ol>
+      <p class="note">Documented in <code>docs/architecture.md</code> (the code map), <code>docs/FLOWS.md</code> (three end-to-end walkthroughs with breakpoints), and <code>docs/CODING_STANDARDS.md</code>. Tests cover the domain, application handlers with fakes, and the infrastructure notification job.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    .NET 10 · ASP.NET Core 10 · Blazor Server · MudBlazor · EF Core 10 · PostgreSQL 16 · Identity + OpenIddict · Hangfire · Serilog &nbsp;·&nbsp;
+    <a href="https://github.com/evangelosvlachos96-dotcom/roivo">Source on GitHub</a>
+  </div>
+</footer>
+
+</body>
+</html>
