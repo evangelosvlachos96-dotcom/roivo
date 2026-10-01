@@ -17,6 +17,7 @@ public sealed class FakeBusinessRepository : IBusinessRepository
 
     public Task<Business?> GetByIdActiveOnlyAsync(Guid id, CancellationToken cancellationToken = default)
     {
+        if (SimulateNoTenantScope) return Task.FromResult<Business?>(null);
         if (!Store.TryGetValue(id, out var b)) return Task.FromResult<Business?>(null);
         return Task.FromResult<Business?>(b.IsActive ? b : null);
     }
@@ -42,6 +43,28 @@ public sealed class FakeBusinessRepository : IBusinessRepository
             .Where(b => b.IsActive
                      && !string.IsNullOrEmpty(b.AadeUserIdEncrypted)
                      && !string.IsNullOrEmpty(b.AadeSubscriptionKeyEncrypted))
+            .Select(b => b.Id)
+            .ToList();
+        return Task.FromResult(ids);
+    }
+
+    /// <summary>
+    /// Set to simulate a background job's scope: the tenant-filtered reads then
+    /// return null the way the real query filter makes them, while the
+    /// across-all-tenants read still finds the row.
+    /// </summary>
+    public bool SimulateNoTenantScope { get; set; }
+
+    public Task<Business?> GetByIdActiveOnlyAcrossAllTenantsAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        if (!Store.TryGetValue(id, out var b)) return Task.FromResult<Business?>(null);
+        return Task.FromResult<Business?>(b.IsActive ? b : null);
+    }
+
+    public Task<IReadOnlyList<Guid>> ListIdsWithBankingCredentialsAcrossAllTenantsAsync(CancellationToken cancellationToken = default)
+    {
+        IReadOnlyList<Guid> ids = Store.Values
+            .Where(b => b.IsActive && !string.IsNullOrEmpty(b.BankingAccessTokenEncrypted))
             .Select(b => b.Id)
             .ToList();
         return Task.FromResult(ids);
@@ -83,6 +106,21 @@ public sealed class FakeBusinessRepository : IBusinessRepository
                      && b.AadeLastFailureAt.HasValue
                      && b.AadeLastFailureAt < threshold
                      && b.AadeFailureEmailSentAt is null)
+            .ToList();
+        return Task.FromResult(list);
+    }
+
+    public Task<IReadOnlyList<Business>> ListWithExpiredBankingFailureAsync(
+        DateTime threshold,
+        CancellationToken cancellationToken = default)
+    {
+        IReadOnlyList<Business> list = Store.Values
+            .Where(b => b.IsActive
+                     && !string.IsNullOrEmpty(b.BankingAccessTokenEncrypted)
+                     && b.BankingSyncErrorCount > 0
+                     && b.BankingFirstFailureAt.HasValue
+                     && b.BankingFirstFailureAt < threshold
+                     && b.BankingFailureEmailSentAt is null)
             .ToList();
         return Task.FromResult(list);
     }

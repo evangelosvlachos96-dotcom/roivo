@@ -1,0 +1,377 @@
+@page "/businesses/{Id:guid}/banking"
+@attribute [Authorize]
+
+@using Roivo.Application.Abstractions
+@using Roivo.Application.Features.Banking.Commands.ConnectBanking
+@using Roivo.Application.Features.Banking.Commands.DisconnectBanking
+@using Roivo.Application.Features.Banking.Commands.SyncBusinessBankTransactions
+@using Roivo.Application.Features.Banking.Queries.GetBankingConnectionStatus
+@using Roivo.Application.Features.Banking.Queries.ListBankingProviders
+@using Roivo.Application.Features.Businesses.Queries.GetBusinessById
+@using Roivo.Core.Domain.Entities
+@inject GetBusinessByIdHandler GetBusinessHandler
+@inject GetBankingConnectionStatusHandler GetStatusHandler
+@inject ListBankingProvidersHandler ListProvidersHandler
+@inject ConnectBankingHandler ConnectHandler
+@inject DisconnectBankingHandler DisconnectHandler
+@inject SyncBusinessBankTransactionsHandler SyncHandler
+@inject NavigationManager Nav
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>@Roivo.Resources.Banking.PageTitle</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-6">
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+        <MudIconButton Icon="@Icons.Material.Outlined.ArrowBack"
+                       OnClick='() => Nav.NavigateTo("/businesses")' />
+        <MudText Typo="Typo.h4">@Roivo.Resources.Banking.PageTitle</MudText>
+    </MudStack>
+
+    @if (loading)
+    {
+        <MudPaper Class="pa-6 text-center">
+            <MudProgressCircular Indeterminate="true" />
+        </MudPaper>
+    }
+    else if (business is null)
+    {
+        <MudAlert Severity="Severity.Warning">@Roivo.Resources.Banking.Error_BusinessNotFound</MudAlert>
+    }
+    else if (status is not null && status.State != BankingConnectionState.Disconnected)
+    {
+        <MudPaper Class="pa-6">
+            @if (status.State == BankingConnectionState.Error)
+            {
+                <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-4">
+                    <MudText Typo="Typo.subtitle2">@Roivo.Resources.Banking.ConnectionFailureBannerTitle</MudText>
+                    <MudText Typo="Typo.body2">
+                        @Roivo.Resources.Banking.SyncFailedCount.Format(status.ErrorCount)
+                        <br />
+                        @GetFailureMessage(status.LastFailureReason)
+                    </MudText>
+                </MudAlert>
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Success" Class="mb-4">
+                    @Roivo.Resources.Banking.ConnectedMessage
+                </MudAlert>
+            }
+
+            <MudGrid Class="mb-4">
+                <MudItem xs="6">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Banking.ConnectedBankLabel</MudText>
+                    <MudText Typo="Typo.body1">@(status.BankName ?? "—")</MudText>
+                </MudItem>
+                <MudItem xs="6">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Banking.LastSyncLabel</MudText>
+                    <MudText Typo="Typo.body1">
+                        @(status.LastSyncAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? Roivo.Resources.Banking.LastSyncNever)
+                    </MudText>
+                </MudItem>
+                @if (status.ConsentExpiresAt.HasValue)
+                {
+                    <MudItem xs="6">
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Banking.ConsentExpiresLabel</MudText>
+                        <MudText Typo="Typo.body1">@status.ConsentExpiresAt.Value.ToLocalTime().ToString("dd/MM/yyyy")</MudText>
+                    </MudItem>
+                }
+            </MudGrid>
+
+            @if (status.Accounts.Count > 0)
+            {
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Banking.AccountsLabel</MudText>
+                <MudList T="string" Dense="true" Class="mb-4">
+                    @foreach (var account in status.Accounts)
+                    {
+                        <MudListItem T="string" Icon="@Icons.Material.Outlined.AccountBalance">
+                            @account.Iban (@account.Currency)
+                        </MudListItem>
+                    }
+                </MudList>
+            }
+
+            <MudStack Row="true" Spacing="2">
+                @if (status.State == BankingConnectionState.Error)
+                {
+                    <MudButton Variant="Variant.Filled" Color="Color.Warning"
+                               StartIcon="@Icons.Material.Outlined.Link"
+                               OnClick="HandleReconnect"
+                               Disabled="@busy">
+                        @Roivo.Resources.Banking.ReconnectButton
+                    </MudButton>
+                }
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Outlined.Sync"
+                           OnClick="HandleSyncNow"
+                           Disabled="@busy">
+                    @(syncing ? Roivo.Resources.Banking.SyncingMessage : Roivo.Resources.Banking.SyncNowButton)
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Error"
+                           StartIcon="@Icons.Material.Outlined.LinkOff"
+                           OnClick="HandleDisconnect"
+                           Disabled="@busy">
+                    @Roivo.Resources.Banking.DisconnectButton
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    }
+    else
+    {
+        <MudPaper Class="pa-6">
+            <MudText Typo="Typo.h6" GutterBottom="true">@Roivo.Resources.Banking.Status_NotConnected</MudText>
+            <MudText Typo="Typo.body2" Class="mb-4">@Roivo.Resources.Banking.ConnectIntro</MudText>
+
+            @if (providersError is not null)
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4">@providersError</MudAlert>
+            }
+            else if (providers.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Class="mb-4">@Roivo.Resources.Banking.Error_NoProviders</MudAlert>
+            }
+            else
+            {
+                <MudAutocomplete T="string"
+                                 Label="@Roivo.Resources.Banking.BankPickerLabel"
+                                 Placeholder="@Roivo.Resources.Banking.BankPickerPlaceholder"
+                                 @bind-Value="selectedBank"
+                                 SearchFunc="SearchBanks"
+                                 ResetValueOnEmptyText="true"
+                                 CoerceValue="false"
+                                 Class="mb-4" />
+            }
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4">@errorMessage</MudAlert>
+            }
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Outlined.AccountBalance"
+                       OnClick="HandleConnect"
+                       Disabled="@(busy || string.IsNullOrWhiteSpace(selectedBank))">
+                @(connecting ? Roivo.Resources.Banking.ConnectingMessage : Roivo.Resources.Banking.ConnectButton)
+            </MudButton>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool loading = true;
+    private bool connecting;
+    private bool syncing;
+    private bool disconnecting;
+    private bool busy => connecting || syncing || disconnecting;
+
+    private string? errorMessage;
+    private string? providersError;
+    private string? selectedBank;
+
+    private Business? business;
+    private BankingConnectionInfo? status;
+    private IReadOnlyList<BankingProviderSummary> providers = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        business = await GetBusinessHandler.Handle(new GetBusinessByIdQuery(Id, ActiveOnly: true), CancellationToken.None);
+        if (business is null)
+        {
+            loading = false;
+            return;
+        }
+
+        await RefreshStatusAsync();
+
+        // The bank list is only needed on the disconnected screen, and it costs a
+        // live API call — don't pay for it when the user is already connected.
+        if (status?.State == BankingConnectionState.Disconnected)
+            await LoadProvidersAsync();
+
+        loading = false;
+    }
+
+    private async Task RefreshStatusAsync()
+    {
+        status = await GetStatusHandler.Handle(new GetBankingConnectionStatusQuery(Id), CancellationToken.None);
+    }
+
+    private async Task LoadProvidersAsync()
+    {
+        providersError = null;
+        var result = await ListProvidersHandler.Handle(new ListBankingProvidersQuery(), CancellationToken.None);
+
+        switch (result)
+        {
+            case ListBankingProvidersResult.Success success:
+                providers = success.Providers;
+                break;
+            case ListBankingProvidersResult.BankingUnavailable:
+                providers = [];
+                providersError = Roivo.Resources.Banking.Error_BankingUnavailable;
+                break;
+        }
+    }
+
+    private Task<IEnumerable<string>> SearchBanks(string? value, CancellationToken cancellationToken)
+    {
+        var names = providers.Select(p => p.Name);
+        if (!string.IsNullOrWhiteSpace(value))
+            names = names.Where(n => n.Contains(value, StringComparison.OrdinalIgnoreCase));
+
+        return Task.FromResult(names);
+    }
+
+    private async Task HandleConnect()
+    {
+        if (string.IsNullOrWhiteSpace(selectedBank)) return;
+
+        connecting = true;
+        errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var result = await ConnectHandler.Handle(new ConnectBankingCommand(Id, selectedBank), CancellationToken.None);
+
+            switch (result)
+            {
+                case ConnectBankingResult.Success success:
+                    // forceLoad because the consent page is on the bank's own
+                    // origin — Blazor's router cannot handle it.
+                    Nav.NavigateTo(success.AuthorizationUrl, forceLoad: true);
+                    return;
+                case ConnectBankingResult.BusinessNotFound:
+                    errorMessage = Roivo.Resources.Banking.Error_BusinessNotFound;
+                    return;
+                case ConnectBankingResult.Forbidden f:
+                    errorMessage = f.Reason;
+                    return;
+                case ConnectBankingResult.AlreadyConnected:
+                    errorMessage = Roivo.Resources.Banking.Error_AlreadyConnected;
+                    await RefreshStatusAsync();
+                    return;
+                case ConnectBankingResult.UnknownProvider:
+                    errorMessage = Roivo.Resources.Banking.Error_UnknownProvider;
+                    return;
+                case ConnectBankingResult.BankingUnavailable:
+                    errorMessage = Roivo.Resources.Banking.Error_BankingUnavailable;
+                    return;
+            }
+        }
+        finally
+        {
+            connecting = false;
+        }
+    }
+
+    // Reconnecting is a disconnect followed by a fresh consent: the old session
+    // is dead, so there is nothing worth keeping.
+    private async Task HandleReconnect()
+    {
+        disconnecting = true;
+        StateHasChanged();
+
+        try
+        {
+            await DisconnectHandler.Handle(new DisconnectBankingCommand(Id), CancellationToken.None);
+            await RefreshStatusAsync();
+            await LoadProvidersAsync();
+        }
+        finally
+        {
+            disconnecting = false;
+        }
+    }
+
+    private async Task HandleDisconnect()
+    {
+        var parameters = new DialogParameters<MudMessageBox>
+        {
+            { x => x.Title, Roivo.Resources.Banking.Confirm_Disconnect_Title },
+            { x => x.Message, Roivo.Resources.Banking.Confirm_Disconnect },
+            { x => x.YesText, Roivo.Resources.Banking.DisconnectButton },
+            { x => x.CancelText, Common.CancelButton }
+        };
+
+        var dialog = await DialogService.ShowAsync<MudMessageBox>("", parameters);
+        var confirmation = await dialog.Result;
+        if (confirmation is null || confirmation.Canceled) return;
+
+        disconnecting = true;
+        StateHasChanged();
+
+        try
+        {
+            var outcome = await DisconnectHandler.Handle(new DisconnectBankingCommand(Id), CancellationToken.None);
+            switch (outcome)
+            {
+                case DisconnectBankingResult.Success:
+                    Snackbar.Add(Roivo.Resources.Banking.Disconnected, Severity.Info);
+                    await RefreshStatusAsync();
+                    await LoadProvidersAsync();
+                    break;
+                case DisconnectBankingResult.BusinessNotFound:
+                    Snackbar.Add(Roivo.Resources.Banking.Error_BusinessNotFound, Severity.Warning);
+                    break;
+                case DisconnectBankingResult.Forbidden f:
+                    Snackbar.Add(f.Reason, Severity.Warning);
+                    break;
+            }
+        }
+        finally
+        {
+            disconnecting = false;
+        }
+    }
+
+    private async Task HandleSyncNow()
+    {
+        syncing = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await SyncHandler.Handle(new SyncBusinessBankTransactionsCommand(Id), CancellationToken.None);
+            switch (result)
+            {
+                case SyncBusinessBankTransactionsResult.Success ok:
+                    Snackbar.Add(Roivo.Resources.Banking.SyncSucceeded.Format(ok.NewCount, ok.UpdatedCount), Severity.Success);
+                    break;
+                case SyncBusinessBankTransactionsResult.NotConnected:
+                    Snackbar.Add(Roivo.Resources.Banking.Error_NotConnected, Severity.Warning);
+                    break;
+                case SyncBusinessBankTransactionsResult.SessionExpired:
+                    Snackbar.Add(Roivo.Resources.Banking.Error_SessionExpired, Severity.Error);
+                    break;
+                case SyncBusinessBankTransactionsResult.NetworkError:
+                case SyncBusinessBankTransactionsResult.BankingServerError:
+                    Snackbar.Add(Roivo.Resources.Banking.Error_BankingUnavailable, Severity.Error);
+                    break;
+                case SyncBusinessBankTransactionsResult.BusinessNotFound:
+                    Snackbar.Add(Roivo.Resources.Banking.Error_BusinessNotFound, Severity.Warning);
+                    break;
+            }
+
+            // Every branch above can have moved the failure counter, so re-read
+            // rather than guessing which screen to show next.
+            await RefreshStatusAsync();
+        }
+        finally
+        {
+            syncing = false;
+        }
+    }
+
+    private static string GetFailureMessage(string? reason) => reason switch
+    {
+        "SessionExpired" => Roivo.Resources.Banking.FailureReasonSessionExpired,
+        "Unauthorized" => Roivo.Resources.Banking.FailureReasonUnauthorized,
+        "NetworkError" => Roivo.Resources.Banking.FailureReasonNetwork,
+        _ => Roivo.Resources.Banking.FailureReasonGeneric
+    };
+}

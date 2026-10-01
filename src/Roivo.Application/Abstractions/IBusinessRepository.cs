@@ -22,6 +22,21 @@ public interface IBusinessRepository
     /// </summary>
     Task<IReadOnlyList<Guid>> ListIdsWithAadeCredentialsAcrossAllTenantsAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Loads an active business by id without applying the tenant filter.
+    /// Background jobs have no signed-in user and therefore no ambient tenant,
+    /// so the filtered overloads return null for every row. Never call this from
+    /// a request-scoped path — it is a deliberate hole in tenant isolation.
+    /// </summary>
+    Task<Business?> GetByIdActiveOnlyAcrossAllTenantsAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns IDs of every active business across all tenants that has a bank
+    /// connection. Bypasses tenant filters — intended for the nightly banking
+    /// sync cron, which runs system-wide.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> ListIdsWithBankingCredentialsAcrossAllTenantsAsync(CancellationToken cancellationToken = default);
+
     Task<bool> AfmExistsAsync(string afm, bool activeOnly, Guid? excludeId = null, CancellationToken cancellationToken = default);
     Task<Business> AddAsync(Business business, CancellationToken cancellationToken = default);
     Task<Business> UpdateAsync(Business business, CancellationToken cancellationToken = default);
@@ -32,6 +47,15 @@ public interface IBusinessRepository
     /// the notification cron is system-wide.
     /// </summary>
     Task<IReadOnlyList<Business>> ListWithExpiredAadeFailureAsync(
+        DateTime threshold,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns businesses whose banking failure streak started before
+    /// <paramref name="threshold"/> and that have not yet been notified by
+    /// email. Bypasses tenant filters — the notification cron is system-wide.
+    /// </summary>
+    Task<IReadOnlyList<Business>> ListWithExpiredBankingFailureAsync(
         DateTime threshold,
         CancellationToken cancellationToken = default);
 

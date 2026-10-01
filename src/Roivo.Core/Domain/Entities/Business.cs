@@ -58,6 +58,40 @@ public class Business : ITenantScoped
     /// is cleared.</summary>
     public DateTime? AadeFailureEmailSentAt { get; private set; }
 
+    // The banking session is written exclusively through
+    // IBankingCredentialStore, which encrypts before storing. This column holds
+    // cipher-text — never plaintext. UI/handlers go through the store, never
+    // read it directly.
+    public string? BankingAccessTokenEncrypted { get; set; }
+
+    /// <summary>Name of the connected bank, as the aggregator spells it. Not a
+    /// secret — shown in the UI and used to restart a lapsed consent.</summary>
+    public string? BankingProviderName { get; private set; }
+
+    /// <summary>UTC instant the bank-side consent lapses. PSD2 caps unattended
+    /// access at 90 days, after which the user must re-consent.</summary>
+    public DateTime? BankingConsentExpiresAt { get; private set; }
+
+    /// <summary>Last successful banking sync (UTC). Null = never synced.</summary>
+    public DateTime? LastBankingSyncAt { get; private set; }
+
+    /// <summary>Consecutive failed banking syncs. Reset to zero by any success,
+    /// so a non-zero value always means "currently broken", not "broke once".</summary>
+    public int BankingSyncErrorCount { get; private set; }
+
+    /// <summary>UTC instant the current failure streak started — preserved
+    /// across repeat failures so the notification window measures elapsed broken
+    /// time, not the most recent attempt.</summary>
+    public DateTime? BankingFirstFailureAt { get; private set; }
+
+    /// <summary>Short failure-category tag ("SessionExpired", "NetworkError")
+    /// used to pick a user-facing message. Not localised — the UI translates.</summary>
+    public string? BankingLastFailureReason { get; private set; }
+
+    /// <summary>UTC instant the failure notification email was sent for the
+    /// current failure streak. Prevents duplicates until the failure clears.</summary>
+    public DateTime? BankingFailureEmailSentAt { get; private set; }
+
     // Required for EF Core materialization. Not callable externally — use Business.Create(...) instead.
     private Business() { }
 
@@ -187,6 +221,79 @@ public class Business : ITenantScoped
             throw new InvalidOperationException("Cannot record email sent — no active AADE failure.");
 
         AadeFailureEmailSentAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Records that a bank connection was established (or re-established).
+    /// Clears any prior failure state — a fresh consent heals the banner.
+    /// </summary>
+    public void RecordBankingConnection(string providerName, DateTime? consentExpiresAtUtc)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerName);
+
+        BankingProviderName = providerName.Trim();
+        BankingConsentExpiresAt = consentExpiresAtUtc;
+        ClearBankingSyncFailure();
+    }
+
+    /// <summary>Records a successful banking sync at the given UTC instant and
+    /// clears any failure streak.</summary>
+    public void RecordBankingSyncSuccess(DateTime syncedAtUtc)
+    {
+        LastBankingSyncAt = syncedAtUtc;
+        ClearBankingSyncFailure();
+    }
+
+    /// <summary>
+    /// Records a failed banking sync. <paramref name="reason"/> is a short
+    /// category tag the UI translates. The streak start is fixed on the first
+    /// failure so the notification window measures elapsed broken time.
+    /// </summary>
+    public void RecordBankingSyncFailure(string reason)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+
+        if (BankingSyncErrorCount == 0)
+            BankingFirstFailureAt = DateTime.UtcNow;
+
+        BankingSyncErrorCount++;
+        BankingLastFailureReason = reason;
+    }
+
+    /// <summary>
+    /// Clears banking failure state. Called on successful sync, reconnect or
+    /// disconnect. Resets the email stamp so a future streak can notify again.
+    /// </summary>
+    public void ClearBankingSyncFailure()
+    {
+        BankingSyncErrorCount = 0;
+        BankingFirstFailureAt = null;
+        BankingLastFailureReason = null;
+        BankingFailureEmailSentAt = null;
+    }
+
+    /// <summary>
+    /// Forgets the bank connection entirely. The encrypted session itself is
+    /// cleared by IBankingCredentialStore; this drops the metadata around it.
+    /// </summary>
+    public void ClearBankingConnection()
+    {
+        BankingProviderName = null;
+        BankingConsentExpiresAt = null;
+        LastBankingSyncAt = null;
+        ClearBankingSyncFailure();
+    }
+
+    /// <summary>
+    /// Marks that the failure notification email has been sent for the current
+    /// streak. Guards against double-send by requiring an active failure.
+    /// </summary>
+    public void RecordBankingFailureEmailSent()
+    {
+        if (BankingSyncErrorCount == 0)
+            throw new InvalidOperationException("Cannot record email sent — no active banking failure.");
+
+        BankingFailureEmailSentAt = DateTime.UtcNow;
     }
 
     private static string? NormalizeOptional(string? value)

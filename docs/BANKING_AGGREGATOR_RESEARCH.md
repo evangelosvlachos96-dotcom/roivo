@@ -1,9 +1,10 @@
 # Banking Aggregator Research — M5
 
-**Status:** Decision pending. Outreach sent to Noda and Salt Edge for 
-sandbox access. Awaiting responses.
+**Status:** DECIDED — Enable Banking. M5 is implemented against it (see
+"Decision: Enable Banking" at the end of this document). The Noda / Salt Edge
+evaluation below is kept as the record of how the decision was reached.
 
-**Last updated:** 2026-05-26
+**Last updated:** 2026-09-30
 
 ## Why we need a banking aggregator
 
@@ -193,3 +194,52 @@ Greek bank's PSD2 API. This requires:
 
 This is the path of last resort. Don't pursue until both aggregators 
 have been definitively excluded.
+
+
+## Decision: Enable Banking
+
+Enable Banking (enablebanking.com) was chosen and M5 is built against it. It was
+not in the original shortlist — it surfaced after the Noda and Salt Edge
+outreach and met the criteria the others could not:
+
+- Greek coverage, including sandbox ASPSPs for development
+- Self-serve application registration, no enterprise sales process
+- REST/JSON, straightforward from .NET
+- Authentication by RS256 JWT signed with our own key, so there is no shared
+  secret to rotate and no token store to maintain
+
+### How the integration is shaped
+
+`IBankingClient` (in `src/Roivo.Application/Abstractions/Banking/`) models the
+generic PSD2 AIS flow rather than Enable Banking's own vocabulary:
+
+1. `ListProvidersAsync` — which banks we can offer
+2. `StartAuthorizationAsync` — returns the URL to send the user to
+3. `CompleteAuthorizationAsync` — exchanges the redirect's code for a session
+   plus the accounts the user granted
+4. `FetchTransactionsAsync` — one account, one date range, pagination handled
+   inside
+5. `RevokeSessionAsync` — release the consent on disconnect
+
+`EnableBankingClient` in `src/Roivo.Banking/` is the only type that knows about
+`/aspsps`, `/auth`, `/sessions` or `continuation_key`. Swapping aggregators
+means writing one new class against these five methods — the handlers, entities,
+jobs and UI do not change. That was the whole point of the abstraction argued
+for above.
+
+### Operational notes
+
+- **One API host.** `https://api.enablebanking.com` serves both environments;
+  `sandbox.enablebanking.com` does not exist. Whether you are in sandbox is
+  decided by which application id you use — a sandbox application simply sees
+  sandbox banks. The control panel for sandbox applications lives at
+  `https://tilisy-sandbox.enablebanking.com/`.
+- **Credentials** live in `.env` (gitignored); see `.env.example`. The private
+  key is a PEM RSA key whose certificate is registered against the application.
+- **Consents expire.** PSD2 caps unattended access at 90 days, after which the
+  user must re-consent. `Business.BankingConsentExpiresAt` records the deadline.
+- **Open issue.** As of 2026-09-30 the API answers every call with
+  `403 "Application does not exist"` for the application id currently in `.env`.
+  A malformed token returns a different error (`401`, JWT decode failure), so
+  the signing is correct and the application id or its activation state is the
+  problem. Resolve in the control panel before smoke-testing.

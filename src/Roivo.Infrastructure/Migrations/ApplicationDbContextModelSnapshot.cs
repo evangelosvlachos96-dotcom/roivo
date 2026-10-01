@@ -510,7 +510,8 @@ namespace Roivo.Infrastructure.Migrations
 
                     b.Property<string>("BankName")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<Guid>("BusinessId")
                         .HasColumnType("uuid");
@@ -523,9 +524,14 @@ namespace Roivo.Infrastructure.Migrations
                     b.Property<decimal>("CurrentBalance")
                         .HasColumnType("numeric");
 
+                    b.Property<string>("ExternalAccountUid")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<string>("Iban")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(34)
+                        .HasColumnType("character varying(34)");
 
                     b.Property<DateTime?>("LastSyncedAt")
                         .HasColumnType("timestamp with time zone");
@@ -541,7 +547,8 @@ namespace Roivo.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BusinessId");
+                    b.HasIndex("BusinessId", "ExternalAccountUid")
+                        .IsUnique();
 
                     b.ToTable("BankAccounts");
                 });
@@ -562,10 +569,12 @@ namespace Roivo.Infrastructure.Migrations
                         .HasColumnType("date");
 
                     b.Property<string>("CounterpartyIban")
-                        .HasColumnType("text");
+                        .HasMaxLength(34)
+                        .HasColumnType("character varying(34)");
 
                     b.Property<string>("CounterpartyName")
-                        .HasColumnType("text");
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -577,7 +586,8 @@ namespace Roivo.Infrastructure.Migrations
 
                     b.Property<string>("ExternalId")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<Guid?>("MatchedInvoiceId")
                         .HasColumnType("uuid");
@@ -586,7 +596,8 @@ namespace Roivo.Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Reference")
-                        .HasColumnType("text");
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
@@ -596,7 +607,8 @@ namespace Roivo.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BankAccountId");
+                    b.HasIndex("BankAccountId", "ExternalId")
+                        .IsUnique();
 
                     b.HasIndex("TenantId", "BookingDate");
 
@@ -632,6 +644,31 @@ namespace Roivo.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("BankingAccessTokenEncrypted")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("BankingConsentExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("BankingFailureEmailSentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("BankingFirstFailureAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("BankingLastFailureReason")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("BankingProviderName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("BankingSyncErrorCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -657,6 +694,9 @@ namespace Roivo.Infrastructure.Migrations
                     b.Property<DateTime?>("LastAadeSyncAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("LastBankingSyncAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -665,6 +705,9 @@ namespace Roivo.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BankingAccessTokenEncrypted")
+                        .HasFilter("\"BankingAccessTokenEncrypted\" IS NOT NULL");
 
                     b.HasIndex("TenantId", "Afm")
                         .IsUnique();

@@ -64,6 +64,28 @@ public sealed class BusinessRepository : IBusinessRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<Business?> GetByIdActiveOnlyAcrossAllTenantsAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(cancellationToken);
+        // IgnoreQueryFilters because background jobs run without a tenant scope.
+        return await db.Businesses
+            .AsNoTracking()
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(b => b.Id == id && b.IsActive, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Guid>> ListIdsWithBankingCredentialsAcrossAllTenantsAsync(CancellationToken cancellationToken = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(cancellationToken);
+        // IgnoreQueryFilters because the cron runs without a tenant scope.
+        return await db.Businesses
+            .AsNoTracking()
+            .IgnoreQueryFilters()
+            .Where(b => b.IsActive && b.BankingAccessTokenEncrypted != null)
+            .Select(b => b.Id)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<bool> AfmExistsAsync(string afm, bool activeOnly, Guid? excludeId = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(afm);
@@ -109,6 +131,24 @@ public sealed class BusinessRepository : IBusinessRepository
                      && b.AadeLastFailureAt != null
                      && b.AadeLastFailureAt < threshold
                      && b.AadeFailureEmailSentAt == null)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Business>> ListWithExpiredBankingFailureAsync(
+        DateTime threshold,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(cancellationToken);
+        // IgnoreQueryFilters because the notification cron runs without a tenant scope.
+        return await db.Businesses
+            .AsNoTracking()
+            .IgnoreQueryFilters()
+            .Where(b => b.IsActive
+                     && b.BankingAccessTokenEncrypted != null
+                     && b.BankingSyncErrorCount > 0
+                     && b.BankingFirstFailureAt != null
+                     && b.BankingFirstFailureAt < threshold
+                     && b.BankingFailureEmailSentAt == null)
             .ToListAsync(cancellationToken);
     }
 

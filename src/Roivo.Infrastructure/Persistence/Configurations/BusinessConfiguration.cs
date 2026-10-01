@@ -21,5 +21,17 @@ public class BusinessConfiguration : IEntityTypeConfiguration<Business>
         builder.Property(b => b.AadeLastFailureReason)
             .HasMaxLength(50);
         builder.Property(b => b.AadeFailureEmailSentAt);
+
+        builder.Property(b => b.BankingProviderName)
+            .HasMaxLength(200);
+        builder.Property(b => b.BankingSyncErrorCount)
+            .HasDefaultValue(0);
+        builder.Property(b => b.BankingLastFailureReason)
+            .HasMaxLength(50);
+
+        // The nightly cron scans every tenant for connected businesses; without
+        // this it is a full table scan of Businesses on every run.
+        builder.HasIndex(b => b.BankingAccessTokenEncrypted)
+            .HasFilter("\"BankingAccessTokenEncrypted\" IS NOT NULL");
     }
 }

@@ -32,4 +32,11 @@ public enum AuditAction
     AadeSyncCompleted = 202,
     AadeSyncFailed = 203,
     AadeConnectionAfmMismatch = 204,
+
+    // Banking (300–399)
+    BankingConnectionInitiated = 300,
+    BankingConnectionConfirmed = 301,
+    BankingConnectionRevoked = 302,
+    BankingSyncCompleted = 303,
+    BankingSyncFailed = 304,
 }

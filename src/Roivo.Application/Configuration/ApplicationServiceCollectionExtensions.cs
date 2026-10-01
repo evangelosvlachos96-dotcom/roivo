@@ -10,6 +10,13 @@ using Roivo.Application.Features.Aade.Commands.DisconnectAade;
 using Roivo.Application.Features.Aade.Commands.SyncBusinessInvoices;
 using Roivo.Application.Features.Aade.Queries.GetAadeConnectionStatus;
 using Roivo.Application.Features.Aade.Queries.ListConnectedBusinesses;
+using Roivo.Application.Features.Banking.Commands.CompleteBankingConnection;
+using Roivo.Application.Features.Banking.Commands.ConnectBanking;
+using Roivo.Application.Features.Banking.Commands.DisconnectBanking;
+using Roivo.Application.Features.Banking.Commands.SyncBusinessBankTransactions;
+using Roivo.Application.Features.Banking.Queries.GetBankingConnectionStatus;
+using Roivo.Application.Features.Banking.Queries.ListBankingConnectedBusinesses;
+using Roivo.Application.Features.Banking.Queries.ListBankingProviders;
 using Roivo.Application.Features.Invoices.Queries.GetBusinessInvoiceSummary;
 using Roivo.Application.Features.Invoices.Queries.ListBusinessInvoicesPaged;
 using Roivo.Application.Features.Tenants.Queries.CountAllTenants;
@@ -42,6 +49,14 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<SyncBusinessInvoicesHandler>();
         services.AddScoped<GetAadeConnectionStatusHandler>();
         services.AddScoped<ListConnectedBusinessesHandler>();
+
+        services.AddScoped<ConnectBankingHandler>();
+        services.AddScoped<CompleteBankingConnectionHandler>();
+        services.AddScoped<DisconnectBankingHandler>();
+        services.AddScoped<SyncBusinessBankTransactionsHandler>();
+        services.AddScoped<GetBankingConnectionStatusHandler>();
+        services.AddScoped<ListBankingConnectedBusinessesHandler>();
+        services.AddScoped<ListBankingProvidersHandler>();
 
         services.AddScoped<GetBusinessInvoiceSummaryHandler>();
         services.AddScoped<ListBusinessInvoicesPagedHandler>();

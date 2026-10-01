@@ -9,7 +9,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Roivo.Banking\Roivo.Banking.csproj" />
     <ProjectReference Include="..\Roivo.Core\Roivo.Core.csproj" />
   </ItemGroup>
 

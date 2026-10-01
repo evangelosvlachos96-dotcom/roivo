@@ -48,4 +48,11 @@ public static class BusinessPermissions
     /// business-tenants to their primary business.
     /// </summary>
     public static bool CanManageAadeFor(TenantType tenantType) => true;
+
+    /// <summary>
+    /// True if a tenant of the given type may manage the bank connection for a
+    /// business. Same rule as AADE: both tenant types qualify, and the UI
+    /// further restricts business-tenants to their primary business.
+    /// </summary>
+    public static bool CanManageBankingFor(TenantType tenantType) => true;
 }

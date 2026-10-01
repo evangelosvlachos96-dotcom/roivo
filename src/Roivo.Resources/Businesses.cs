@@ -36,6 +36,7 @@ public static class Businesses
 
     public const string AadeColumn_Header = "AADE";
     public const string ManageAadeConnection = "Διαχείριση σύνδεσης AADE";
+    public const string ManageBankingConnection = "Διαχείριση τραπεζικής σύνδεσης";
 
     // Empty states
     public const string EmptyList_Accountant = "Δεν έχετε προσθέσει ακόμα επιχειρήσεις. Κάντε κλικ στο \"Προσθήκη επιχείρησης\" για να ξεκινήσετε.";

@@ -3,12 +3,21 @@ using MudBlazor.Services;
 using Roivo.Aade.Configuration;
 using Roivo.Aade.Jobs;
 using Roivo.Application.Configuration;
+using Roivo.Banking.Configuration;
+using Roivo.Banking.Jobs;
 using Roivo.Web.Components;
 using Roivo.Web.Configuration;
 using Roivo.Infrastructure.Jobs;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Enable Banking hands out credentials as shell-style variables and .env is
+// gitignored, so layer them in before anything binds EnableBankingSettings.
+// Real environment variables still win — they are added after this.
+builder.Configuration.AddDotEnvFile(
+    DotEnvFile.FindNearest(builder.Environment.ContentRootPath) ?? ".env");
+builder.Configuration.AddEnvironmentVariables();
 
 builder.Host.UseRoivoLogging();
 
@@ -17,6 +26,7 @@ builder.Services
     .AddRoivoApplication()
     .AddRoivoBackgroundJobs(builder.Configuration)
     .AddRoivoAade(builder.Configuration)
+    .AddRoivoBanking(builder.Configuration)
     .AddRoivoIdentity(builder.Configuration)
     .AddRoivoOpenIddict(builder.Configuration)
     .AddRoivoSecurity(builder.Configuration);
@@ -28,6 +38,7 @@ builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 // Hangfire activates background jobs from the DI container; register here so
 // the recurring registration below can resolve the type.
 builder.Services.AddScoped<AadeFailureNotificationJob>();
+builder.Services.AddScoped<BankingFailureNotificationJob>();
 
 var app = builder.Build();
 
@@ -60,6 +71,21 @@ RecurringJob.AddOrUpdate<NightlyAadeSyncJob>(
 // Daytime delivery so the email lands when users are starting their day.
 RecurringJob.AddOrUpdate<AadeFailureNotificationJob>(
     "aade-failure-notification",
+    job => job.Execute(CancellationToken.None),
+    Cron.Daily(9),
+    new RecurringJobOptions { TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Athens") });
+
+// 04:00 Athens: an hour after the AADE sync so the two don't contend for the
+// same Hangfire workers.
+RecurringJob.AddOrUpdate<NightlyBankingSyncJob>(
+    "nightly-banking-sync",
+    job => job.Execute(),
+    Cron.Daily(4),
+    new RecurringJobOptions { TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Athens") });
+
+// 09:00 Athens: notify owners whose bank connection has been broken for >24h.
+RecurringJob.AddOrUpdate<BankingFailureNotificationJob>(
+    "banking-failure-notification",
     job => job.Execute(CancellationToken.None),
     Cron.Daily(9),
     new RecurringJobOptions { TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Athens") });

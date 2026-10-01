@@ -485,5 +485,9 @@ $RECYCLE.BIN/
 appsettings.Development.json
 logs/
 *.local.json
-i n s t r u c t i o n s . t x t  
+i n s t r u c t i o n s . t x t 
  
+ 
+# Enable Banking private key (M5) and any other PEM key material
+enable-banking-key.pem
+*.pem

@@ -4,11 +4,13 @@
 @using Roivo.Core.Domain.Entities
 @using Roivo.Application.Abstractions
 @using Roivo.Application.Features.Aade.Queries.GetAadeConnectionStatus
+@using Roivo.Application.Features.Banking.Queries.GetBankingConnectionStatus
 @using Roivo.Application.Features.Businesses.Commands.UpdateBusiness
 @using Roivo.Application.Features.Businesses.Queries.GetBusinessById
 @inject GetBusinessByIdHandler GetHandler
 @inject UpdateBusinessHandler UpdateHandler
 @inject GetAadeConnectionStatusHandler AadeStatusHandler
+@inject GetBankingConnectionStatusHandler BankingStatusHandler
 @inject NavigationManager Nav
 @inject ITenantContext TenantContext
 
@@ -111,6 +113,18 @@
                 }
             </MudStack>
         </MudPaper>
+
+        <MudPaper Class="pa-6 mt-4">
+            <MudText Typo="Typo.h6" Class="mb-2">@Roivo.Resources.Banking.PageTitle</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+                @BankingSummary()
+            </MudText>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Outlined.AccountBalance"
+                       OnClick='() => Nav.NavigateTo($"/businesses/{Id}/banking")'>
+                @Roivo.Resources.Businesses.ManageBankingConnection
+            </MudButton>
+        </MudPaper>
     }
 
 </MudContainer>
@@ -126,6 +140,7 @@
     private BusinessFormModel model = new();
     private Business? existingBusiness;
     private AadeConnectionInfo? aadeStatus;
+    private BankingConnectionInfo? bankingStatus;
     private bool IsDirty =>
         (model.Name?.Trim() ?? "") != (originalSnapshot.Name?.Trim() ?? "") ||
         (model.Afm?.Trim() ?? "") != (originalSnapshot.Afm?.Trim() ?? "") ||
@@ -161,9 +176,18 @@
         };
 
         aadeStatus = await AadeStatusHandler.Handle(new GetAadeConnectionStatusQuery(existingBusiness.Id), CancellationToken.None);
+        bankingStatus = await BankingStatusHandler.Handle(new GetBankingConnectionStatusQuery(existingBusiness.Id), CancellationToken.None);
 
         loading = false;
     }
+
+    private string BankingSummary() => bankingStatus?.State switch
+    {
+        BankingConnectionState.Connected or BankingConnectionState.Error =>
+            $"{bankingStatus.BankName ?? "—"} — {Roivo.Resources.Banking.LastSyncLabel}: "
+            + (bankingStatus.LastSyncAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—"),
+        _ => Roivo.Resources.Banking.Status_NotConnected + "."
+    };
 
     private string? ValidateAfm(string afm)
     {

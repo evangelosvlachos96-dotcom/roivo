@@ -1,0 +1,88 @@
+@page "/banking/callback"
+@attribute [Authorize]
+
+@using Microsoft.AspNetCore.WebUtilities
+@using Roivo.Application.Features.Banking.Commands.CompleteBankingConnection
+@inject CompleteBankingConnectionHandler CompleteHandler
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+@* Landing page for the post-consent redirect from the bank. Enable Banking
+   appends ?code=…&state=… — `state` carries the business id we put there when
+   the authorization started. *@
+
+<PageTitle>@Roivo.Resources.Banking.PageTitle</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-6">
+    @if (errorMessage is null)
+    {
+        <MudPaper Class="pa-6 text-center">
+            <MudProgressCircular Indeterminate="true" Class="mb-4" />
+            <MudText Typo="Typo.body1">@Roivo.Resources.Banking.ConnectingMessage</MudText>
+        </MudPaper>
+    }
+    else
+    {
+        <MudPaper Class="pa-6">
+            <MudAlert Severity="Severity.Error" Class="mb-4">@errorMessage</MudAlert>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GoBack">
+                @Common.BackButton
+            </MudButton>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    private string? errorMessage;
+    private Guid businessId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var query = QueryHelpers.ParseQuery(new Uri(Nav.Uri).Query);
+
+        // A user who declines at the bank is redirected back with an error and
+        // no code. That is a normal outcome, not a fault.
+        if (!query.TryGetValue("state", out var state)
+            || !Guid.TryParseExact(state.ToString(), "N", out businessId))
+        {
+            errorMessage = Roivo.Resources.Banking.Error_InvalidCode;
+            return;
+        }
+
+        if (!query.TryGetValue("code", out var code) || string.IsNullOrWhiteSpace(code))
+        {
+            errorMessage = Roivo.Resources.Banking.Error_InvalidCode;
+            return;
+        }
+
+        var result = await CompleteHandler.Handle(
+            new CompleteBankingConnectionCommand(businessId, code.ToString()),
+            CancellationToken.None);
+
+        switch (result)
+        {
+            case CompleteBankingConnectionResult.Success success:
+                Snackbar.Add(Roivo.Resources.Banking.ConnectionConfirmed.Format(success.AccountCount), Severity.Success);
+                Nav.NavigateTo($"/businesses/{businessId}/banking");
+                return;
+            case CompleteBankingConnectionResult.BusinessNotFound:
+                errorMessage = Roivo.Resources.Banking.Error_BusinessNotFound;
+                return;
+            case CompleteBankingConnectionResult.Forbidden f:
+                errorMessage = f.Reason;
+                return;
+            case CompleteBankingConnectionResult.InvalidCode:
+                errorMessage = Roivo.Resources.Banking.Error_InvalidCode;
+                return;
+            case CompleteBankingConnectionResult.NoAccountsGranted:
+                errorMessage = Roivo.Resources.Banking.Error_NoAccountsGranted;
+                return;
+            case CompleteBankingConnectionResult.BankingUnavailable:
+                errorMessage = Roivo.Resources.Banking.Error_BankingUnavailable;
+                return;
+        }
+    }
+
+    private void GoBack()
+        => Nav.NavigateTo(businessId == Guid.Empty ? "/businesses" : $"/businesses/{businessId}/banking");
+}
