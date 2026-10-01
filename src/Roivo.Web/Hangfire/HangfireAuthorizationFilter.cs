@@ -30,7 +30,8 @@ public sealed class HangfireAuthorizationFilter : IDashboardAuthorizationFilter
         var settings = httpContext.RequestServices
             .GetRequiredService<IOptionsSnapshot<HangfireDashboardSettings>>().Value;
 
-        if (settings.AuthorizedEmails.Count == 0)
+        var allowed = settings.ParseAuthorizedEmails();
+        if (allowed.Count == 0)
             return false;
 
         // Identity stores the email under ClaimTypes.Email; fall back to the
@@ -38,7 +39,6 @@ public sealed class HangfireAuthorizationFilter : IDashboardAuthorizationFilter
         var email = user.FindFirst(ClaimTypes.Email)?.Value
             ?? user.FindFirst(ClaimTypes.Name)?.Value;
 
-        return email is not null
-            && settings.AuthorizedEmails.Contains(email, StringComparer.OrdinalIgnoreCase);
+        return email is not null && allowed.Contains(email);
     }
 }

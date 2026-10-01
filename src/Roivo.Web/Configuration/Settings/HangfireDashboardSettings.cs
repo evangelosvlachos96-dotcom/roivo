@@ -12,10 +12,21 @@ namespace Roivo.Web.Configuration.Settings;
 public class HangfireDashboardSettings
 {
     /// <summary>
-    /// Email addresses allowed to open the dashboard. Compared
-    /// case-insensitively against the signed-in user's email claim. Empty
-    /// denies everyone — the dashboard exposes job arguments and stack traces
-    /// for every tenant, so it must never default to open.
+    /// Comma- or semicolon-separated email addresses allowed to open the
+    /// dashboard, compared case-insensitively against the signed-in user's
+    /// email claim. Empty denies everyone — the dashboard exposes job arguments
+    /// and stack traces for every tenant, so it must never default to open.
     /// </summary>
-    public IReadOnlyList<string> AuthorizedEmails { get; init; } = [];
+    /// <remarks>
+    /// A single delimited string rather than a list: this is set as one
+    /// environment variable on Render, and binding a list from the environment
+    /// would need indexed keys (<c>...__0</c>, <c>...__1</c>).
+    /// </remarks>
+    public string AuthorizedEmails { get; init; } = string.Empty;
+
+    /// <summary>Parses <see cref="AuthorizedEmails"/> into a lookup set.</summary>
+    public IReadOnlySet<string> ParseAuthorizedEmails() =>
+        AuthorizedEmails
+            .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 }
