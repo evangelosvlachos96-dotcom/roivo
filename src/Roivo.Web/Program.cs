@@ -91,6 +91,16 @@ builder.Services.AddScoped<BankingFailureNotificationJob>();
 builder.Services.AddOptions<HangfireDashboardSettings>()
     .Bind(builder.Configuration.GetSection("Hangfire:Dashboard"));
 
+// Swagger describes the API surface, which is useful while developing against
+// staging but is not something production should advertise. Registered only
+// where it is served, so Production carries neither the services nor the
+// generated document.
+if (builder.Environment.IsDevelopment() || builder.Environment.IsStaging())
+{
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen();
+}
+
 var app = builder.Build();
 
 // Render terminates TLS and forwards plain HTTP to the container, so without
@@ -120,6 +130,14 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
 
+// Mirrors the registration above: Development and Staging only, never
+// Production.
+if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
 // Mounted after UseAuthentication/UseAuthorization so the filter sees a
 // populated User. Production leaves it unmounted entirely — the jobs still run,
 // there is just no dashboard to reach.
@@ -137,9 +155,16 @@ else if (app.Environment.IsStaging())
     });
 }
 
+// Resolved from DI rather than the static RecurringJob facade: that facade
+// reads JobStorage.Current, which only gets set as a side effect of mounting
+// the dashboard. Production mounts no dashboard, so the static calls threw
+// "Current JobStorage instance has not been initialized yet" and the app never
+// started. IRecurringJobManager takes its storage from the container.
+var recurringJobs = app.Services.GetRequiredService<IRecurringJobManager>();
+
 // Register the nightly AADE sync. 03:00 in Europe/Athens — off-peak for our
 // users and aligned with AADE's own quieter window.
-RecurringJob.AddOrUpdate<NightlyAadeSyncJob>(
+recurringJobs.AddOrUpdate<NightlyAadeSyncJob>(
     "nightly-aade-sync",
     job => job.Execute(),
     Cron.Daily(3),
@@ -147,7 +172,7 @@ RecurringJob.AddOrUpdate<NightlyAadeSyncJob>(
 
 // 09:00 Athens: notify owners whose AADE connection has been broken for >24h.
 // Daytime delivery so the email lands when users are starting their day.
-RecurringJob.AddOrUpdate<AadeFailureNotificationJob>(
+recurringJobs.AddOrUpdate<AadeFailureNotificationJob>(
     "aade-failure-notification",
     job => job.Execute(CancellationToken.None),
     Cron.Daily(9),
@@ -155,14 +180,14 @@ RecurringJob.AddOrUpdate<AadeFailureNotificationJob>(
 
 // 04:00 Athens: an hour after the AADE sync so the two don't contend for the
 // same Hangfire workers.
-RecurringJob.AddOrUpdate<NightlyBankingSyncJob>(
+recurringJobs.AddOrUpdate<NightlyBankingSyncJob>(
     "nightly-banking-sync",
     job => job.Execute(),
     Cron.Daily(4),
     new RecurringJobOptions { TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Athens") });
 
 // 09:00 Athens: notify owners whose bank connection has been broken for >24h.
-RecurringJob.AddOrUpdate<BankingFailureNotificationJob>(
+recurringJobs.AddOrUpdate<BankingFailureNotificationJob>(
     "banking-failure-notification",
     job => job.Execute(CancellationToken.None),
     Cron.Daily(9),
