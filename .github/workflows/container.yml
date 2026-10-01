@@ -1,7 +1,13 @@
 name: Container
 
+# pull_request covers branches on the way in; push covers main and stage
+# after a merge lands. develop is intentionally absent from push: a PR
+# whose head branch is also a push-triggered branch would otherwise run
+# every check twice on the same commit.
 on:
   pull_request:
+    branches: [main, stage]
+  push:
     branches: [main, stage]
 
 permissions:
