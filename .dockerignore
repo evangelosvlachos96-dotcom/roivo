@@ -1,0 +1,35 @@
+# Build artefacts — must not leak into the image or bust layer caching.
+**/bin/
+**/obj/
+artifacts/
+publish/
+
+# Version control and IDE state
+.git/
+.github/
+.gitignore
+.gitmessage
+.vs/
+.vscode/
+.idea/
+**/*.user
+**/*.suo
+
+# Secrets and local-only configuration
+.env
+**/appsettings.Development.json
+**/*.local.json
+*.pem
+
+# Not needed to build or run the app
+docs/
+marketing/
+logs/
+**/logs/
+*.md
+docker-compose.yml
+Dockerfile
+.dockerignore
+instructions.txt
+later.md
+LICENSE

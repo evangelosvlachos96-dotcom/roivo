@@ -1,0 +1,5 @@
+# core.autocrlf=true would hand Windows checkouts a CRLF Dockerfile, and a CR
+# before a `\` line continuation breaks the RUN commands in a local
+# `docker build`. Keep container files LF in the working copy too.
+Dockerfile text eol=lf
+.dockerignore text eol=lf
