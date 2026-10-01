@@ -1,0 +1,34 @@
+name: Security
+
+on:
+  push:
+    branches: [main, stage, develop]
+  pull_request:
+    branches: [main, stage, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gitleaks scans commit history, not just the tip. The default
+          # shallow clone would hide a secret that was committed and then
+          # removed in a later commit.
+          fetch-depth: 0
+
+      - name: Scan for secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITLEAKS_LICENSE is only required for repositories owned by an
+          # organisation. This one is a public repository on a personal
+          # account, so the action runs unlicensed.

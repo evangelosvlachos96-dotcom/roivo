@@ -1,0 +1,39 @@
+name: Build and test
+
+on:
+  push:
+    branches: [main, stage, develop]
+  pull_request:
+    branches: [main, stage, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-and-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+          # No `cache: true`: it needs a packages.lock.json, which this
+          # repository does not use.
+
+      # Restores Roivo.slnx, which pulls in the test projects as well.
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build -c Release --no-restore
+
+      # --no-build relies on the Release output from the step above.
+      - name: Test
+        run: dotnet test -c Release --no-restore --no-build
