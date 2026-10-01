@@ -20,6 +20,15 @@ namespace Roivo.Banking;
 /// </summary>
 public sealed class EnableBankingClient : IBankingClient
 {
+    // Stage labels for failure logging — these name the call that failed, so a
+    // log line is actionable without cross-referencing the source.
+    private const string ListProvidersStage = "list providers";
+    private const string StartAuthorizationStage = "start authorization";
+    private const string CompleteAuthorizationStage = "complete authorization";
+    private const string GetSessionStage = "get session";
+    private const string FetchTransactionsStage = "fetch transactions";
+    private const string RevokeSessionStage = "revoke session";
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
@@ -62,8 +71,8 @@ public sealed class EnableBankingClient : IBankingClient
             if (!response.IsSuccessStatusCode)
             {
                 return response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden
-                    ? new BankingProvidersResult.Unauthorized(DescribeError(body, response))
-                    : new BankingProvidersResult.BankingServerError((int)response.StatusCode, DescribeError(body, response));
+                    ? new BankingProvidersResult.Unauthorized(DescribeError(body, response, ListProvidersStage))
+                    : new BankingProvidersResult.BankingServerError((int)response.StatusCode, DescribeError(body, response, ListProvidersStage));
             }
 
             var parsed = Deserialize<ProviderListDto>(body);
@@ -122,7 +131,7 @@ public sealed class EnableBankingClient : IBankingClient
             if (!response.IsSuccessStatusCode)
             {
                 if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
-                    return new BankingAuthorizationResult.Unauthorized(DescribeError(body, response));
+                    return new BankingAuthorizationResult.Unauthorized(DescribeError(body, response, StartAuthorizationStage));
 
                 // Enable Banking answers an unknown ASPSP name with 404, and a
                 // known-but-unusable one with 422. Both mean "pick another bank",
@@ -130,7 +139,7 @@ public sealed class EnableBankingClient : IBankingClient
                 if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.UnprocessableContent)
                     return new BankingAuthorizationResult.UnknownProvider(request.BankName, request.Country);
 
-                return new BankingAuthorizationResult.BankingServerError((int)response.StatusCode, DescribeError(body, response));
+                return new BankingAuthorizationResult.BankingServerError((int)response.StatusCode, DescribeError(body, response, StartAuthorizationStage));
             }
 
             var parsed = Deserialize<StartAuthResponseDto>(body);
@@ -169,6 +178,7 @@ public sealed class EnableBankingClient : IBankingClient
             // A bad code comes back as 400 or 401 from POST /sessions. Treat both
             // as InvalidCode: our own JWT was accepted for the request to get here.
             treatUnauthorizedAsInvalidCode: true,
+            CompleteAuthorizationStage,
             cancellationToken);
     }
 
@@ -181,6 +191,7 @@ public sealed class EnableBankingClient : IBankingClient
         return SendSessionRequestAsync(
             () => BuildRequest(HttpMethod.Get, $"sessions/{Uri.EscapeDataString(sessionId)}"),
             treatUnauthorizedAsInvalidCode: false,
+            GetSessionStage,
             cancellationToken);
     }
 
@@ -215,7 +226,7 @@ public sealed class EnableBankingClient : IBankingClient
                     if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden or HttpStatusCode.NotFound)
                         return new BankingFetchResult.SessionExpired();
 
-                    return new BankingFetchResult.BankingServerError((int)response.StatusCode, DescribeError(body, response));
+                    return new BankingFetchResult.BankingServerError((int)response.StatusCode, DescribeError(body, response, FetchTransactionsStage));
                 }
 
                 var parsed = Deserialize<TransactionPageDto>(body);
@@ -269,7 +280,7 @@ public sealed class EnableBankingClient : IBankingClient
                 return new BankingRevokeResult.AlreadyGone();
 
             var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            return new BankingRevokeResult.Failed(DescribeError(body, response));
+            return new BankingRevokeResult.Failed(DescribeError(body, response, RevokeSessionStage));
         }
         catch (HttpRequestException ex)
         {
@@ -284,6 +295,7 @@ public sealed class EnableBankingClient : IBankingClient
     private async Task<BankingSessionResult> SendSessionRequestAsync(
         Func<HttpRequestMessage> requestFactory,
         bool treatUnauthorizedAsInvalidCode,
+        string stage,
         CancellationToken cancellationToken)
     {
         try
@@ -307,7 +319,7 @@ public sealed class EnableBankingClient : IBankingClient
                 if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Gone)
                     return new BankingSessionResult.SessionExpired();
 
-                return new BankingSessionResult.BankingServerError((int)response.StatusCode, DescribeError(body, response));
+                return new BankingSessionResult.BankingServerError((int)response.StatusCode, DescribeError(body, response, stage));
             }
 
             var parsed = Deserialize<SessionDto>(body);
@@ -422,18 +434,37 @@ public sealed class EnableBankingClient : IBankingClient
         => string.IsNullOrWhiteSpace(body) ? default : JsonSerializer.Deserialize<T>(body, JsonOptions);
 
     /// <summary>
-    /// Builds a diagnostic string from an error body. Enable Banking's error
-    /// envelope carries no PSU data, so this is safe to log and to surface in a
-    /// result.
+    /// Builds a diagnostic string from an error body AND logs it against
+    /// <paramref name="stage"/>. Every failure returns a result type rather than
+    /// throwing, and the UI maps those to generic localised messages — so
+    /// without this the API's own explanation never reaches the log, and a
+    /// misconfigured application id looks identical to a network blip.
+    /// Enable Banking's error envelope carries no PSU data, so it is safe to log.
     /// </summary>
-    private static string DescribeError(string body, HttpResponseMessage response)
+    private string DescribeError(string body, HttpResponseMessage response, string stage)
+    {
+        var description = ParseErrorMessage(body, response);
+
+        // Warning, not Error: the caller decides whether this is fatal, and
+        // several of these are expected (a declined consent, a lapsed session).
+        _logger.LogWarning(
+            "Enable Banking {Stage} failed: HttpStatus={StatusCode} Detail={Detail}",
+            stage, (int)response.StatusCode, description);
+
+        return description;
+    }
+
+    private static string ParseErrorMessage(string body, HttpResponseMessage response)
     {
         try
         {
             var parsed = Deserialize<ApiErrorDto>(body);
             var message = parsed?.Message ?? parsed?.Error;
             if (!string.IsNullOrWhiteSpace(message))
-                return parsed?.Code is { Length: > 0 } code ? $"{code}: {message}" : message;
+            {
+                var code = parsed?.Code?.ToString();
+                return string.IsNullOrWhiteSpace(code) ? message : $"{code}: {message}";
+            }
         }
         catch (JsonException)
         {
