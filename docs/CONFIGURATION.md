@@ -6,6 +6,37 @@ Settings classes are strongly typed (`required init` properties) and validated a
 
 ---
 
+## Deployment environment variables
+
+`__` is the section separator, so a lone `_` can never sit between words: the built-in spelling of `Smtp:FromEmail` is `SMTP__FROMEMAIL`, not `SMTP_FROM_EMAIL`. Key lookup *is* case-insensitive, so `SMTP__FROMEMAIL` and `Smtp__FromEmail` are equivalent.
+
+For readability, `Program.cs` maps the names below onto configuration keys. They are registered after every other source, so a variable set here wins over `appsettings.json`, the `.env` file, and the `__` spelling of the same key. Adding a name to the table means adding it to the map in `Program.cs` too.
+
+| Environment variable | Configuration key | Required to start |
+|---|---|---|
+| `DATABASE_CONNECTION_STRING` | `ConnectionStrings:Default` | **Yes** |
+| `SMTP_HOST` | `Smtp:Host` | **Yes** |
+| `SMTP_PORT` | `Smtp:Port` | **Yes** |
+| `SMTP_USERNAME` | `Smtp:Username` | **Yes** |
+| `SMTP_PASSWORD` | `Smtp:Password` | **Yes** |
+| `SMTP_FROM_EMAIL` | `Smtp:FromEmail` | **Yes** |
+| `SMTP_FROM_NAME` | `Smtp:FromName` | **Yes** |
+| `SMTP_USE_STARTTLS` | `Smtp:UseStartTls` | **Yes** |
+| `ENABLE_BANKING_BASE_URL` | `EnableBanking:BaseUrl` | **Yes** |
+| `ENABLE_BANKING_APPLICATION_ID` | `EnableBanking:ApplicationId` | **Yes** |
+| `ENABLE_BANKING_PRIVATE_KEY_PATH` | `EnableBanking:PrivateKeyPath` | **Yes** |
+| `ENABLE_BANKING_REDIRECT_URL` | `EnableBanking:RedirectUrl` | **Yes** |
+| `APP_PUBLIC_BASE_URL` | `App:PublicBaseUrl` | No - defaults to `https://roivo.gr` |
+| `HANGFIRE_AUTHORIZED_EMAILS` | `Hangfire:Dashboard:AuthorizedEmails` | No - empty denies all |
+
+The four `ENABLE_BANKING_*` names are the same ones `DotEnvFile` reads out of `.env` for local development, so one spelling works in both places. `.env` additionally accepts `ENABLE_BANKING_SANDBOX_URL` and `ENABLE_BANKING_API_URL` as aliases for `EnableBanking:BaseUrl`; the environment map accepts only `ENABLE_BANKING_BASE_URL`.
+
+Anything not in this table still takes the `__` spelling - e.g. `IDENTITY__PASSWORD__REQUIREDLENGTH`, `AUTHCOOKIE__EXPIRATIONDAYS`, `AADE__BASEURL`.
+
+Not configuration, but set by the platform: `ASPNETCORE_ENVIRONMENT` (`Staging` / `Production`) and `ASPNETCORE_URLS` (the Dockerfile sets `http://+:8080`).
+
+---
+
 ## App
 
 Application-wide identity and infrastructure paths.

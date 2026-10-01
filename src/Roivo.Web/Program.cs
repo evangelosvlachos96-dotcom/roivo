@@ -22,6 +22,51 @@ builder.Configuration.AddDotEnvFile(
     DotEnvFile.FindNearest(builder.Environment.ContentRootPath) ?? ".env");
 builder.Configuration.AddEnvironmentVariables();
 
+// Deployment environment variables, in readable single-underscore names.
+//
+// The built-in convention spells these CONNECTIONSTRINGS__DEFAULT and
+// SMTP__FROMEMAIL: `__` is the section separator and a lone `_` is neither a
+// separator nor ignored, so it cannot sit between words. These names are the
+// deployment contract instead, mapped onto the keys the app actually reads.
+// Mirrored in docs/CONFIGURATION.md — keep the two in step.
+//
+// Registered last, so a variable set here wins over appsettings.json, the .env
+// file, and the `__` spelling of the same key.
+var environmentKeyMap = new Dictionary<string, string>(StringComparer.Ordinal)
+{
+    ["DATABASE_CONNECTION_STRING"] = "ConnectionStrings:Default",
+
+    // The same names DotEnvFile maps out of .env for local development, so one
+    // spelling works whether it comes from the file or the environment.
+    ["ENABLE_BANKING_BASE_URL"] = "EnableBanking:BaseUrl",
+    ["ENABLE_BANKING_APPLICATION_ID"] = "EnableBanking:ApplicationId",
+    ["ENABLE_BANKING_PRIVATE_KEY_PATH"] = "EnableBanking:PrivateKeyPath",
+    ["ENABLE_BANKING_REDIRECT_URL"] = "EnableBanking:RedirectUrl",
+
+    ["APP_PUBLIC_BASE_URL"] = "App:PublicBaseUrl",
+
+    ["HANGFIRE_AUTHORIZED_EMAILS"] = "Hangfire:Dashboard:AuthorizedEmails",
+
+    ["SMTP_HOST"] = "Smtp:Host",
+    ["SMTP_PORT"] = "Smtp:Port",
+    ["SMTP_USERNAME"] = "Smtp:Username",
+    ["SMTP_PASSWORD"] = "Smtp:Password",
+    ["SMTP_FROM_EMAIL"] = "Smtp:FromEmail",
+    ["SMTP_FROM_NAME"] = "Smtp:FromName",
+    ["SMTP_USE_STARTTLS"] = "Smtp:UseStartTls",
+};
+
+var mappedEnvironment = new Dictionary<string, string?>(StringComparer.Ordinal);
+foreach (var (environmentName, configurationKey) in environmentKeyMap)
+{
+    var value = Environment.GetEnvironmentVariable(environmentName);
+    if (!string.IsNullOrEmpty(value))
+        mappedEnvironment[configurationKey] = value;
+}
+
+if (mappedEnvironment.Count > 0)
+    builder.Configuration.AddInMemoryCollection(mappedEnvironment);
+
 builder.Host.UseRoivoLogging();
 
 builder.Services
