@@ -1,0 +1,365 @@
+@page "/businesses/{Id:guid}/reconciliation/history"
+@attribute [Authorize]
+
+@using System.Globalization
+@using System.Security.Claims
+@using System.Text
+@using Roivo.Application.Features.Businesses.Queries.GetBusinessById
+@using Roivo.Application.Features.Reconciliation.Commands.ConfirmSuggestedMatch
+@using Roivo.Application.Features.Reconciliation.Commands.RejectSuggestedMatch
+@using Roivo.Application.Features.Reconciliation.Queries.GetReconciliationDashboard
+@using Roivo.Application.Features.Reconciliation.Queries.ListReconciliationMatches
+@using Roivo.Core.Domain.Enums
+@inject GetBusinessByIdHandler GetBusinessHandler
+@inject ListReconciliationMatchesHandler ListMatchesHandler
+@inject ConfirmSuggestedMatchHandler ConfirmHandler
+@inject RejectSuggestedMatchHandler RejectHandler
+@inject AuthenticationStateProvider AuthState
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<PageTitle>@Reconciliation.History</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-6">
+
+    <MudPaper Class="pa-4 mb-4">
+        <MudButton StartIcon="@Icons.Material.Outlined.ArrowBack"
+                   Href="@($"/businesses/{Id}/reconciliation")">
+            @Common.BackButton
+        </MudButton>
+        <MudText Typo="Typo.h5">@Reconciliation.History</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">@Reconciliation.Subtitle</MudText>
+    </MudPaper>
+
+    @if (_loading)
+    {
+        <MudPaper Class="pa-6 text-center">
+            <MudProgressCircular Indeterminate="true" />
+            <MudText Typo="Typo.body2" Class="mt-2">@Common.Loading</MudText>
+        </MudPaper>
+    }
+    else if (_business is null)
+    {
+        <MudAlert Severity="Severity.Warning">@Common.Error_NotFound</MudAlert>
+    }
+    else
+    {
+        <MudPaper Class="pa-4">
+            <MudGrid Class="mb-2">
+                <MudItem xs="12" sm="6" md="4">
+                    <MudSelect T="string" Label="@Reconciliation.FilterByStatus"
+                               Value="@_statusFilter" ValueChanged="OnStatusFilterChanged">
+                        <MudSelectItem Value="@AllFilter">@Reconciliation.FilterAll</MudSelectItem>
+                        <MudSelectItem Value="@(nameof(ReconciliationMatchStatus.Confirmed))">@Reconciliation.Status_Confirmed</MudSelectItem>
+                        <MudSelectItem Value="@(nameof(ReconciliationMatchStatus.Pending))">@Reconciliation.Status_Pending</MudSelectItem>
+                        <MudSelectItem Value="@(nameof(ReconciliationMatchStatus.Rejected))">@Reconciliation.Status_Rejected</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="8" Class="d-flex align-center">
+                    <MudButton Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Outlined.Download"
+                               OnClick="ExportCsvAsync">
+                        @Reconciliation.ExportCsv
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+
+            <MudTable T="ReconciliationMatchListItem" Items="@FilteredMatches" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>@Reconciliation.Column_Date</MudTh>
+                    <MudTh>@Reconciliation.Column_Invoice</MudTh>
+                    <MudTh>@Reconciliation.Column_Transaction</MudTh>
+                    <MudTh>@Reconciliation.Column_Type</MudTh>
+                    <MudTh>@Reconciliation.Column_Status</MudTh>
+                    <MudTh>@Reconciliation.Confidence</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.MatchedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
+                    <MudTd>
+                        @context.InvoiceIssueDate.ToString("dd/MM/yyyy") — @FormatCurrency(context.InvoiceGrossAmount)
+                        <br /><MudText Typo="Typo.caption">@context.InvoiceCounterpartyName</MudText>
+                    </MudTd>
+                    <MudTd>
+                        @context.TransactionBookingDate.ToString("dd/MM/yyyy") — @FormatCurrency(context.TransactionAmount)
+                        <br /><MudText Typo="Typo.caption">@context.TransactionCounterpartyName</MudText>
+                    </MudTd>
+                    <MudTd>@MatchTypeLabel(context.MatchType)</MudTd>
+                    <MudTd>
+                        <MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Status)">
+                            @StatusLabel(context.Status)
+                        </MudChip>
+                    </MudTd>
+                    <MudTd>@FormatPercent(context.Confidence)</MudTd>
+                    <MudTd>
+                        @if (context.Status == nameof(ReconciliationMatchStatus.Pending))
+                        {
+                            <MudStack Row="true" Spacing="1">
+                                <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Success"
+                                           Disabled="@_busy"
+                                           OnClick="@(() => ConfirmAsync(context.MatchId))">
+                                    @Reconciliation.Confirm
+                                </MudButton>
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error"
+                                           Disabled="@_busy"
+                                           OnClick="@(() => RejectAsync(context.MatchId))">
+                                    @Reconciliation.Reject
+                                </MudButton>
+                            </MudStack>
+                        }
+                    </MudTd>
+                </RowTemplate>
+                <PagerContent>
+                    <MudTablePager />
+                </PagerContent>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.body2">@Reconciliation.NoMatches</MudText>
+                </NoRecordsContent>
+            </MudTable>
+
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center" Class="mt-3" Spacing="2">
+                <MudIconButton Icon="@Icons.Material.Outlined.ChevronLeft"
+                               Disabled="@(!HasPreviousPage || _busy)"
+                               OnClick="@(() => GoToPageAsync(_page - 1))" />
+                <MudText Typo="Typo.body2">@_page</MudText>
+                <MudIconButton Icon="@Icons.Material.Outlined.ChevronRight"
+                               Disabled="@(!HasNextPage || _busy)"
+                               OnClick="@(() => GoToPageAsync(_page + 1))" />
+            </MudStack>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    // The dashboard query is the only read path over matches; it returns the
+    // newest N regardless of window, so the history view asks for a large N
+    // and filters by status client-side.
+    private const int PageSize = 25;
+
+    private const string AllFilter = "All";
+
+    [Parameter] public Guid Id { get; set; }
+
+    private bool _loading = true;
+    private bool _busy;
+    private Business? _business;
+    private string? _userId;
+    private string _statusFilter = AllFilter;
+    private IReadOnlyList<ReconciliationMatchListItem> _matches = [];
+    private int _page = 1;
+    private int _totalCount;
+
+    // Filtering and paging happen in the database, so this is simply the page
+    // that came back.
+    private IEnumerable<ReconciliationMatchListItem> FilteredMatches => _matches;
+
+    private bool HasPreviousPage => _page > 1;
+    private bool HasNextPage => _page * PageSize < _totalCount;
+
+    private ReconciliationMatchStatus? SelectedStatus =>
+        _statusFilter == AllFilter
+            ? null
+            : Enum.Parse<ReconciliationMatchStatus>(_statusFilter);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthState.GetAuthenticationStateAsync();
+        _userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        _business = await GetBusinessHandler.Handle(
+            new GetBusinessByIdQuery(Id, ActiveOnly: true), CancellationToken.None);
+
+        if (_business is not null)
+        {
+            await LoadMatchesAsync();
+        }
+
+        _loading = false;
+    }
+
+    private async Task LoadMatchesAsync()
+    {
+        var data = await ListMatchesHandler.Handle(
+            new ListReconciliationMatchesQuery(Id, SelectedStatus, _page, PageSize),
+            CancellationToken.None);
+
+        _matches = data.Items;
+        _totalCount = data.TotalCount;
+    }
+
+    private async Task OnStatusFilterChanged(string value)
+    {
+        _statusFilter = value;
+        _page = 1;
+        await LoadMatchesAsync();
+    }
+
+    private async Task GoToPageAsync(int page)
+    {
+        _page = Math.Max(1, page);
+        await LoadMatchesAsync();
+    }
+
+    private async Task ConfirmAsync(Guid matchId)
+    {
+        if (string.IsNullOrEmpty(_userId))
+        {
+            Snackbar.Add(Common.Error_Forbidden, Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var result = await ConfirmHandler.Handle(
+                new ConfirmSuggestedMatchCommand(matchId, _userId), CancellationToken.None);
+
+            switch (result)
+            {
+                case ConfirmSuggestedMatchResult.Success:
+                    Snackbar.Add(Reconciliation.MatchConfirmed, Severity.Success);
+                    await LoadMatchesAsync();
+                    break;
+                case ConfirmSuggestedMatchResult.Forbidden:
+                    Snackbar.Add(Common.Error_Forbidden, Severity.Warning);
+                    break;
+                case ConfirmSuggestedMatchResult.NotFound:
+                    Snackbar.Add(Common.Error_NotFound, Severity.Warning);
+                    break;
+                case ConfirmSuggestedMatchResult.NotPending:
+                    Snackbar.Add(Reconciliation.Error_NotPending, Severity.Warning);
+                    await LoadMatchesAsync();
+                    break;
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task RejectAsync(Guid matchId)
+    {
+        if (string.IsNullOrEmpty(_userId))
+        {
+            Snackbar.Add(Common.Error_Forbidden, Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var result = await RejectHandler.Handle(
+                new RejectSuggestedMatchCommand(matchId, _userId), CancellationToken.None);
+
+            switch (result)
+            {
+                case RejectSuggestedMatchResult.Success:
+                    Snackbar.Add(Reconciliation.MatchRejected, Severity.Info);
+                    await LoadMatchesAsync();
+                    break;
+                case RejectSuggestedMatchResult.Forbidden:
+                    Snackbar.Add(Common.Error_Forbidden, Severity.Warning);
+                    break;
+                case RejectSuggestedMatchResult.NotFound:
+                    Snackbar.Add(Common.Error_NotFound, Severity.Warning);
+                    break;
+                case RejectSuggestedMatchResult.NotPending:
+                    Snackbar.Add(Reconciliation.Error_NotPending, Severity.Warning);
+                    await LoadMatchesAsync();
+                    break;
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ExportCsvAsync()
+    {
+        var csv = BuildCsv();
+
+        // Base64 keeps the payload free of quotes and newlines, so the inline
+        // snippet needs no escaping pass.
+        var payload = Convert.ToBase64String(Encoding.UTF8.GetBytes(csv));
+        var fileName = $"reconciliation-{Id}-{DateTime.UtcNow:yyyyMMddHHmmss}.csv";
+
+        var script =
+            "(function(){var a=document.createElement('a');" +
+            $"a.href='data:text/csv;charset=utf-8;base64,{payload}';" +
+            $"a.download='{fileName}';" +
+            "document.body.appendChild(a);a.click();a.remove();})()";
+
+        await JS.InvokeVoidAsync("eval", script);
+    }
+
+    private string BuildCsv()
+    {
+        var builder = new StringBuilder();
+
+        builder.AppendLine(string.Join(';', new[]
+        {
+            Reconciliation.Column_Date,
+            Reconciliation.Column_Invoice,
+            Reconciliation.Column_Counterparty,
+            Reconciliation.Column_Transaction,
+            Reconciliation.Column_Amount,
+            Reconciliation.Column_Type,
+            Reconciliation.Column_Status,
+            Reconciliation.Confidence,
+        }.Select(Escape)));
+
+        foreach (var match in FilteredMatches)
+        {
+            builder.AppendLine(string.Join(';', new[]
+            {
+                Escape(match.MatchedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture)),
+                Escape(match.InvoiceIssueDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)),
+                Escape(match.InvoiceCounterpartyName ?? match.TransactionCounterpartyName ?? string.Empty),
+                Escape(match.TransactionBookingDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)),
+                Escape(match.TransactionAmount.ToString("0.00", CultureInfo.InvariantCulture)),
+                Escape(MatchTypeLabel(match.MatchType)),
+                Escape(StatusLabel(match.Status)),
+                Escape(match.Confidence.ToString("0.00", CultureInfo.InvariantCulture)),
+            }));
+        }
+
+        return builder.ToString();
+    }
+
+    private static string Escape(string value)
+        => value.Contains(';') || value.Contains('"') || value.Contains('\n')
+            ? $"\"{value.Replace("\"", "\"\"")}\""
+            : value;
+
+    private static string FormatCurrency(decimal value)
+        => string.Format(CultureInfo.GetCultureInfo("el-GR"), "{0:C}", value);
+
+    private static string FormatPercent(decimal fraction)
+        => string.Format(CultureInfo.GetCultureInfo("el-GR"), "{0:P1}", fraction);
+
+    private static string StatusLabel(string status) => status switch
+    {
+        nameof(ReconciliationMatchStatus.Confirmed) => Reconciliation.Status_Confirmed,
+        nameof(ReconciliationMatchStatus.Pending) => Reconciliation.Status_Pending,
+        nameof(ReconciliationMatchStatus.Rejected) => Reconciliation.Status_Rejected,
+        _ => status
+    };
+
+    private static Color StatusColor(string status) => status switch
+    {
+        nameof(ReconciliationMatchStatus.Confirmed) => Color.Success,
+        nameof(ReconciliationMatchStatus.Pending) => Color.Warning,
+        nameof(ReconciliationMatchStatus.Rejected) => Color.Error,
+        _ => Color.Default
+    };
+
+    private static string MatchTypeLabel(string matchType) => matchType switch
+    {
+        nameof(ReconciliationMatchType.Automatic) => Reconciliation.Type_Automatic,
+        nameof(ReconciliationMatchType.Manual) => Reconciliation.Type_Manual,
+        nameof(ReconciliationMatchType.Suggested) => Reconciliation.Type_Suggested,
+        _ => matchType
+    };
+}

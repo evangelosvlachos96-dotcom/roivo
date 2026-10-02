@@ -1,0 +1,429 @@
+@page "/businesses/{Id:guid}/cashflow"
+@attribute [Authorize]
+
+@using System.Globalization
+@using Roivo.Application.Features.Businesses.Queries.GetBusinessById
+@using Roivo.Application.Features.Cashflow.Queries.GetCashflowDashboard
+@using Roivo.Application.Features.Cashflow.Services
+@* The query's result record is also called CashflowDashboard, which the page
+   class name would shadow; the alias keeps both nameable. *@
+@using DashboardData = Roivo.Application.Features.Cashflow.Queries.GetCashflowDashboard.CashflowDashboard
+@inject GetBusinessByIdHandler GetBusinessHandler
+@inject GetCashflowDashboardHandler GetDashboardHandler
+@inject NavigationManager Nav
+
+<PageTitle>@Roivo.Resources.Cashflow.Title</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-6">
+
+    <MudPaper Class="pa-4 mb-4">
+        <MudButton StartIcon="@Icons.Material.Outlined.ArrowBack"
+                   OnClick='() => Nav.NavigateTo("/businesses")'>
+            @Common.BackButton
+        </MudButton>
+        <MudText Typo="Typo.h5">@Roivo.Resources.Cashflow.Title</MudText>
+        <MudText Typo="Typo.body2">@(business?.Name ?? "")</MudText>
+        <MudText Typo="Typo.caption">@Roivo.Resources.Cashflow.Subtitle</MudText>
+    </MudPaper>
+
+    @if (loading)
+    {
+        <MudPaper Class="pa-6 text-center">
+            <MudProgressCircular Indeterminate="true" />
+            <MudText Typo="Typo.body2" Class="mt-2">@Common.Loading</MudText>
+        </MudPaper>
+    }
+    else if (business is null)
+    {
+        <MudAlert Severity="Severity.Warning">@Common.Error_NotFound</MudAlert>
+    }
+    else if (dashboard is null)
+    {
+        <MudAlert Severity="Severity.Error">@Common.Error_Generic</MudAlert>
+    }
+    else
+    {
+        <MudGrid Class="mb-4">
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4" Height="100%">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Cashflow.CurrentBalance</MudText>
+                    <MudText Typo="Typo.h5">@FormatCurrency(dashboard.Summary.CurrentBalance)</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4" Height="100%">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Cashflow.Forecast30Day</MudText>
+                    <MudText Typo="Typo.h5"
+                             Color="@(dashboard.Summary.Forecast30DayBalance >= 0 ? Color.Success : Color.Error)">
+                        @FormatCurrency(dashboard.Summary.Forecast30DayBalance)
+                    </MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4" Height="100%">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Cashflow.BurnRate</MudText>
+                    <MudText Typo="Typo.h5">@FormatCurrency(dashboard.Summary.BurnRate)</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4" Height="100%">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Cashflow.DaysOfRunway</MudText>
+                    @if (dashboard.Summary.DaysOfRunway == CashflowSummary.UnlimitedRunway)
+                    {
+                        <MudText Typo="Typo.subtitle1" Color="Color.Success">@Roivo.Resources.Cashflow.UnlimitedRunway</MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.h5" Color="@(dashboard.Summary.DaysOfRunway <= 30 ? Color.Error : Color.Default)">
+                            @dashboard.Summary.DaysOfRunway
+                        </MudText>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudPaper Class="pa-4 mb-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                <MudText Typo="Typo.subtitle1">@Roivo.Resources.Cashflow.PredictedBalance</MudText>
+                <MudButtonGroup Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small">
+                    <MudButton Variant="@(view == ForecastView.Daily ? Variant.Filled : Variant.Outlined)"
+                               OnClick="@(() => SetView(ForecastView.Daily))">
+                        @Roivo.Resources.Cashflow.ViewDaily
+                    </MudButton>
+                    <MudButton Variant="@(view == ForecastView.Weekly ? Variant.Filled : Variant.Outlined)"
+                               OnClick="@(() => SetView(ForecastView.Weekly))">
+                        @Roivo.Resources.Cashflow.ViewWeekly
+                    </MudButton>
+                    <MudButton Variant="@(view == ForecastView.Monthly ? Variant.Filled : Variant.Outlined)"
+                               OnClick="@(() => SetView(ForecastView.Monthly))">
+                        @Roivo.Resources.Cashflow.ViewMonthly
+                    </MudButton>
+                </MudButtonGroup>
+            </MudStack>
+
+            @if (!dashboard.HasSufficientHistory)
+            {
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                    @Roivo.Resources.Cashflow.InsufficientHistory.Format(CashflowForecastEngine.MinimumHistoryDays)
+                </MudAlert>
+            }
+            else if (buckets.Count == 0)
+            {
+                <MudText Typo="Typo.body2">@Common.NoData</MudText>
+            }
+            else
+            {
+                <MudChart T="double"
+                          ChartType="ChartType.Line"
+                          ChartSeries="@chartSeries"
+                          ChartLabels="@chartLabels"
+                          Width="100%"
+                          Height="340px" />
+
+                <MudSimpleTable Dense="true" Hover="true" Striped="true" Class="mt-4">
+                    <thead>
+                        <tr>
+                            <th>@Roivo.Resources.Cashflow.DueDate</th>
+                            <th>@Roivo.Resources.Cashflow.Inflows</th>
+                            <th>@Roivo.Resources.Cashflow.Outflows</th>
+                            <th>@Roivo.Resources.Cashflow.PredictedBalance</th>
+                            <th>@Roivo.Resources.Cashflow.ConfidenceBand</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var bucket in buckets)
+                        {
+                            <tr>
+                                <td>@bucket.Label</td>
+                                <td>@FormatCurrency(bucket.Inflow)</td>
+                                <td>@FormatCurrency(bucket.Outflow)</td>
+                                <td>@FormatCurrency(bucket.Balance)</td>
+                                <td>@FormatCurrency(bucket.ConfidenceLow) — @FormatCurrency(bucket.ConfidenceHigh)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+
+                <MudGrid Class="mt-2">
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Cashflow.AverageDailyInflow</MudText>
+                        <MudText Typo="Typo.body1">@FormatCurrency(dashboard.Summary.AverageDailyInflow)</MudText>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Cashflow.AverageDailyOutflow</MudText>
+                        <MudText Typo="Typo.body1">@FormatCurrency(dashboard.Summary.AverageDailyOutflow)</MudText>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Cashflow.Forecast60Day</MudText>
+                        <MudText Typo="Typo.body1">@FormatCurrency(dashboard.Summary.Forecast60DayBalance)</MudText>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Cashflow.Forecast90Day</MudText>
+                        <MudText Typo="Typo.body1">@FormatCurrency(dashboard.Summary.Forecast90DayBalance)</MudText>
+                    </MudItem>
+                </MudGrid>
+            }
+        </MudPaper>
+
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudPaper Class="pa-4" Height="100%">
+                    <MudText Typo="Typo.subtitle1" Class="mb-3">@Roivo.Resources.Cashflow.Alerts</MudText>
+                    @if (dashboard.Alerts.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2">@Roivo.Resources.Cashflow.NoAlerts</MudText>
+                    }
+                    else
+                    {
+                        @foreach (var alert in dashboard.Alerts)
+                        {
+                            <MudAlert Severity="@SeverityFor(alert.Severity)" Variant="Variant.Outlined" Class="mb-2">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                    <div>
+                                        <MudText Typo="Typo.subtitle2">@AlertTitle(alert.Type)</MudText>
+                                        <MudText Typo="Typo.caption">
+                                            @alert.Date.ToString("dd/MM/yyyy") · @SeverityLabel(alert.Severity)
+                                        </MudText>
+                                    </div>
+                                    <MudText Typo="Typo.body2">@FormatCurrency(alert.Amount)</MudText>
+                                </MudStack>
+                            </MudAlert>
+                        }
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudPaper Class="pa-4" Height="100%">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                        <MudText Typo="Typo.subtitle1">@Roivo.Resources.Cashflow.TaxCalendar</MudText>
+                        <MudButton Size="Size.Small"
+                                   EndIcon="@Icons.Material.Outlined.ChevronRight"
+                                   OnClick="@(() => Nav.NavigateTo($"/businesses/{Id}/tax-calendar"))">
+                            @Roivo.Resources.Cashflow.Nav_TaxCalendar
+                        </MudButton>
+                    </MudStack>
+
+                    @if (dashboard.UpcomingTaxObligations.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2">@Roivo.Resources.Cashflow.NoObligations</MudText>
+                    }
+                    else
+                    {
+                        @foreach (var obligation in dashboard.UpcomingTaxObligations)
+                        {
+                            <MudPaper Outlined="true" Class="pa-3 mb-2">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                    <div>
+                                        <MudText Typo="Typo.subtitle2">@TaxTypeLabel(obligation.TaxType)</MudText>
+                                        <MudText Typo="Typo.caption">
+                                            @Roivo.Resources.Cashflow.Period: @obligation.Period ·
+                                            @Roivo.Resources.Cashflow.DueDate: @obligation.DueDate.ToString("dd/MM/yyyy")
+                                        </MudText>
+                                    </div>
+                                    <MudStack AlignItems="AlignItems.End" Spacing="0">
+                                        <MudText Typo="Typo.body2">@FormatCurrency(obligation.ExpectedAmount)</MudText>
+                                        <MudChip T="string" Size="Size.Small" Color="@StatusColor(obligation)">
+                                            @StatusLabel(obligation)
+                                        </MudChip>
+                                    </MudStack>
+                                </MudStack>
+                            </MudPaper>
+                        }
+
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                            @Roivo.Resources.Cashflow.EstimateDisclaimer
+                        </MudText>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private const int ForecastDays = 90;
+
+    private enum ForecastView { Daily, Weekly, Monthly }
+
+    private bool loading = true;
+    private Business? business;
+    private DashboardData? dashboard;
+
+    private ForecastView view = ForecastView.Daily;
+
+    // Rebuilt from the aggregation whenever the toggle or the data changes, so
+    // the render pass never recomputes the series.
+    private List<ForecastBucket> buckets = [];
+    private List<ChartSeries<double>> chartSeries = [];
+    private string[] chartLabels = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        business = await GetBusinessHandler.Handle(
+            new GetBusinessByIdQuery(Id, ActiveOnly: true), CancellationToken.None);
+
+        if (business is null)
+        {
+            loading = false;
+            return;
+        }
+
+        dashboard = await GetDashboardHandler.Handle(
+            new GetCashflowDashboardQuery(Id, ForecastDays), CancellationToken.None);
+
+        Rebuild();
+        loading = false;
+    }
+
+    private void SetView(ForecastView next)
+    {
+        if (view == next) return;
+        view = next;
+        Rebuild();
+    }
+
+    private void Rebuild()
+    {
+        buckets = Aggregate();
+
+        // Daily over 90 days produces far more labels than fit, so only every
+        // seventh tick is labelled; weekly/monthly buckets are sparse already.
+        var step = view == ForecastView.Daily ? 7 : 1;
+        chartLabels = buckets
+            .Select((b, i) => i % step == 0 ? b.Label : string.Empty)
+            .ToArray();
+
+        chartSeries =
+        [
+            new ChartSeries<double>
+            {
+                Name = Roivo.Resources.Cashflow.PredictedBalance,
+                Data = new ChartData<double>(buckets.Select(b => (double)b.Balance).ToArray()),
+            },
+            new ChartSeries<double>
+            {
+                Name = Roivo.Resources.Cashflow.Inflows,
+                Data = new ChartData<double>(buckets.Select(b => (double)b.Inflow).ToArray()),
+            },
+            new ChartSeries<double>
+            {
+                Name = Roivo.Resources.Cashflow.Outflows,
+                Data = new ChartData<double>(buckets.Select(b => (double)b.Outflow).ToArray()),
+            },
+        ];
+    }
+
+    private List<ForecastBucket> Aggregate()
+    {
+        var daily = dashboard?.DailyForecasts;
+        if (daily is null || daily.Count == 0)
+            return [];
+
+        return view switch
+        {
+            // ISO weeks: Monday is the bucket key.
+            ForecastView.Weekly => GroupBy(
+                daily,
+                d => d.Date.AddDays(-(((int)d.Date.DayOfWeek + 6) % 7)),
+                key => key.ToString("dd/MM/yyyy")),
+
+            ForecastView.Monthly => GroupBy(
+                daily,
+                d => new DateOnly(d.Date.Year, d.Date.Month, 1),
+                key => key.ToString("MM/yyyy")),
+
+            _ => [.. daily.Select(d => new ForecastBucket(
+                d.Date.ToString("dd/MM"),
+                d.PredictedInflow,
+                d.PredictedOutflow,
+                d.PredictedBalance,
+                d.ConfidenceLow,
+                d.ConfidenceHigh))],
+        };
+    }
+
+    // Flows sum over the bucket; the balance and its confidence band are a
+    // point-in-time figure, so the bucket carries its last day's values.
+    private static List<ForecastBucket> GroupBy(
+        IReadOnlyList<DailyForecast> daily,
+        Func<DailyForecast, DateOnly> keySelector,
+        Func<DateOnly, string> labelSelector)
+        => [.. daily
+            .GroupBy(keySelector)
+            .OrderBy(g => g.Key)
+            .Select(g =>
+            {
+                var last = g.OrderBy(d => d.Date).Last();
+                return new ForecastBucket(
+                    labelSelector(g.Key),
+                    g.Sum(d => d.PredictedInflow),
+                    g.Sum(d => d.PredictedOutflow),
+                    last.PredictedBalance,
+                    last.ConfidenceLow,
+                    last.ConfidenceHigh);
+            })];
+
+    private static Severity SeverityFor(string severity) => severity switch
+    {
+        CashflowAlertSeverity.Critical => Severity.Error,
+        _ => Severity.Warning,
+    };
+
+    private static string SeverityLabel(string severity) => severity switch
+    {
+        CashflowAlertSeverity.Critical => Roivo.Resources.Cashflow.Severity_Critical,
+        _ => Roivo.Resources.Cashflow.Severity_Warning,
+    };
+
+    // The engine's Message is English diagnostic text; the UI renders the
+    // localized title for the discriminator instead.
+    private static string AlertTitle(string type) => type switch
+    {
+        CashflowAlertType.LowBalance => Roivo.Resources.Cashflow.Alert_LowBalance,
+        CashflowAlertType.NegativeBalance => Roivo.Resources.Cashflow.Alert_NegativeBalance,
+        CashflowAlertType.TaxDue => Roivo.Resources.Cashflow.Alert_TaxDue,
+        CashflowAlertType.LargeExpense => Roivo.Resources.Cashflow.Alert_LargeExpense,
+        _ => Roivo.Resources.Cashflow.Alerts,
+    };
+
+    private static string TaxTypeLabel(TaxType taxType) => taxType switch
+    {
+        TaxType.Vat => Roivo.Resources.Cashflow.Tax_Vat,
+        TaxType.IncomeTax => Roivo.Resources.Cashflow.Tax_IncomeTax,
+        TaxType.WithholdingTax => Roivo.Resources.Cashflow.Tax_WithholdingTax,
+        TaxType.SocialSecurity => Roivo.Resources.Cashflow.Tax_SocialSecurity,
+        TaxType.ProfessionalTax => Roivo.Resources.Cashflow.Tax_ProfessionalTax,
+        TaxType.TaxPrepayment => Roivo.Resources.Cashflow.Tax_TaxPrepayment,
+        _ => Roivo.Resources.Cashflow.TaxCalendar,
+    };
+
+    private static string StatusLabel(TaxObligation obligation)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        if (obligation.IsPaid) return Roivo.Resources.Cashflow.Status_Paid;
+        return obligation.IsOverdue(today)
+            ? Roivo.Resources.Cashflow.Status_Overdue
+            : Roivo.Resources.Cashflow.Status_Pending;
+    }
+
+    private static Color StatusColor(TaxObligation obligation)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        if (obligation.IsPaid) return Color.Success;
+        return obligation.IsOverdue(today) ? Color.Error : Color.Warning;
+    }
+
+    private static string FormatCurrency(decimal value)
+        => string.Format(CultureInfo.GetCultureInfo("el-GR"), "{0:C}", value);
+
+    private sealed record ForecastBucket(
+        string Label,
+        decimal Inflow,
+        decimal Outflow,
+        decimal Balance,
+        decimal ConfidenceLow,
+        decimal ConfidenceHigh);
+}

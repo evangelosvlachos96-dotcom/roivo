@@ -1,5 +1,20 @@
 using Microsoft.Extensions.DependencyInjection;
 using Roivo.Application.Features.Businesses.Commands.CreateBusiness;
+using Roivo.Application.Features.Cashflow.Commands.AddRecurringItem;
+using Roivo.Application.Features.Cashflow.Commands.MarkTaxPaid;
+using Roivo.Application.Features.Cashflow.Queries.GetCashflowDashboard;
+using Roivo.Application.Features.Cashflow.Queries.GetCashflowForecast;
+using Roivo.Application.Features.Cashflow.Queries.GetTaxCalendar;
+using Roivo.Application.Features.Cashflow.Queries.ListCashflowCategories;
+using Roivo.Application.Features.Cashflow.Services;
+using Roivo.Application.Features.Reconciliation.Commands.ConfirmSuggestedMatch;
+using Roivo.Application.Features.Reconciliation.Commands.ManualMatch;
+using Roivo.Application.Features.Reconciliation.Commands.RejectSuggestedMatch;
+using Roivo.Application.Features.Reconciliation.Commands.RunReconciliation;
+using Roivo.Application.Features.Reconciliation.Queries.GetReconciliationDashboard;
+using Roivo.Application.Features.Reconciliation.Queries.GetUnreconciledItems;
+using Roivo.Application.Features.Reconciliation.Queries.ListReconciliationMatches;
+using Roivo.Application.Features.Reconciliation.Services;
 using Roivo.Application.Features.Businesses.Commands.DeactivateBusiness;
 using Roivo.Application.Features.Businesses.Commands.ReactivateBusiness;
 using Roivo.Application.Features.Businesses.Commands.UpdateBusiness;
@@ -60,6 +75,27 @@ public static class ApplicationServiceCollectionExtensions
 
         services.AddScoped<GetBusinessInvoiceSummaryHandler>();
         services.AddScoped<ListBusinessInvoicesPagedHandler>();
+
+        // The engines are stateless over their repositories, so scoped matches
+        // the repository lifetime without holding anything across requests.
+        services.AddScoped<IReconciliationEngine, ReconciliationEngine>();
+        services.AddScoped<ICashflowForecastEngine, CashflowForecastEngine>();
+        services.AddScoped<IGreekTaxCalendar, GreekTaxCalendar>();
+
+        services.AddScoped<RunReconciliationHandler>();
+        services.AddScoped<ConfirmSuggestedMatchHandler>();
+        services.AddScoped<RejectSuggestedMatchHandler>();
+        services.AddScoped<ManualMatchHandler>();
+        services.AddScoped<GetReconciliationDashboardHandler>();
+        services.AddScoped<GetUnreconciledItemsHandler>();
+        services.AddScoped<ListReconciliationMatchesHandler>();
+
+        services.AddScoped<GetCashflowForecastHandler>();
+        services.AddScoped<GetCashflowDashboardHandler>();
+        services.AddScoped<GetTaxCalendarHandler>();
+        services.AddScoped<MarkTaxPaidHandler>();
+        services.AddScoped<AddRecurringItemHandler>();
+        services.AddScoped<ListCashflowCategoriesHandler>();
 
         return services;
     }

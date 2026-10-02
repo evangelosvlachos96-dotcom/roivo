@@ -21,6 +21,11 @@ public class ApplicationDbContext(
     public DbSet<BankTransaction> BankTransactions => Set<BankTransaction>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<IncomeBookEntry> IncomeBookEntries => Set<IncomeBookEntry>();
+    public DbSet<ReconciliationMatch> ReconciliationMatches => Set<ReconciliationMatch>();
+    public DbSet<ReconciliationRule> ReconciliationRules => Set<ReconciliationRule>();
+    public DbSet<CashflowForecast> CashflowForecasts => Set<CashflowForecast>();
+    public DbSet<CashflowCategory> CashflowCategories => Set<CashflowCategory>();
+    public DbSet<TaxObligation> TaxObligations => Set<TaxObligation>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 

@@ -1,0 +1,308 @@
+@page "/businesses/{Id:guid}/reconciliation"
+@attribute [Authorize]
+
+@using Roivo.Application.Features.Businesses.Queries.GetBusinessById
+@using Roivo.Application.Features.Reconciliation.Commands.RunReconciliation
+@using Roivo.Application.Features.Reconciliation.Queries.GetReconciliationDashboard
+@using DashboardData = Roivo.Application.Features.Reconciliation.Queries.GetReconciliationDashboard.ReconciliationDashboard
+@inject GetBusinessByIdHandler GetBusinessHandler
+@inject GetReconciliationDashboardHandler GetDashboardHandler
+@inject RunReconciliationHandler RunHandler
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<PageTitle>@Reconciliation.Title</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-6">
+
+    <MudPaper Class="pa-4 mb-4">
+        <MudButton StartIcon="@Icons.Material.Outlined.ArrowBack"
+                   OnClick='() => Nav.NavigateTo("/businesses")'>
+            @Common.BackButton
+        </MudButton>
+        <MudText Typo="Typo.h5">@Reconciliation.Title</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">@Reconciliation.Subtitle</MudText>
+        @if (_business is not null)
+        {
+            <MudText Typo="Typo.body2">@_business.Name</MudText>
+        }
+    </MudPaper>
+
+    @if (_loading)
+    {
+        <MudPaper Class="pa-6 text-center">
+            <MudProgressCircular Indeterminate="true" />
+            <MudText Typo="Typo.body2" Class="mt-2">@Common.Loading</MudText>
+        </MudPaper>
+    }
+    else if (_business is null)
+    {
+        <MudAlert Severity="Severity.Warning">@Common.Error_NotFound</MudAlert>
+    }
+    else
+    {
+        <MudPaper Class="pa-4 mb-4">
+            <MudText Typo="Typo.subtitle2" Class="mb-2">@Reconciliation.DateRange</MudText>
+            <MudGrid>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudDatePicker Label="@Reconciliation.DateFrom" @bind-Date="_from"
+                                   @bind-Date:after="LoadDashboardAsync" />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudDatePicker Label="@Reconciliation.DateTo" @bind-Date="_to"
+                                   @bind-Date:after="LoadDashboardAsync" />
+                </MudItem>
+                <MudItem xs="12" md="6" Class="d-flex align-center">
+                    <MudStack Row="true" Spacing="2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Outlined.Sync"
+                                   Disabled="@_running"
+                                   OnClick="RunReconciliationAsync">
+                            @Reconciliation.RunReconciliation
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined"
+                                   StartIcon="@Icons.Material.Outlined.CallSplit"
+                                   Href="@($"/businesses/{Id}/reconciliation/unmatched")">
+                            @Reconciliation.ManualMatching
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined"
+                                   StartIcon="@Icons.Material.Outlined.History"
+                                   Href="@($"/businesses/{Id}/reconciliation/history")">
+                            @Reconciliation.History
+                        </MudButton>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        @if (_data is not null)
+        {
+            <MudGrid Class="mb-4">
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@Reconciliation.MatchRate</MudText>
+                        <MudText Typo="Typo.h4">@FormatPercent(_data.MatchRate)</MudText>
+                        <MudProgressLinear Color="Color.Success" Rounded="true" Size="Size.Small"
+                                           Value="@((double)(_data.MatchRate * 100m))" Class="mt-2" />
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@Reconciliation.UnmatchedInvoices</MudText>
+                        <MudText Typo="Typo.h4">@_data.UnreconciledInvoices</MudText>
+                        <MudText Typo="Typo.caption">@Reconciliation.TotalInvoices: @_data.TotalInvoices</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@Reconciliation.UnmatchedTransactions</MudText>
+                        <MudText Typo="Typo.h4">@_data.UnreconciledTransactions</MudText>
+                        <MudText Typo="Typo.caption">@Reconciliation.TotalTransactions: @_data.TotalTransactions</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@Reconciliation.ReconciledAmount</MudText>
+                        <MudText Typo="Typo.h4">@FormatCurrency(_data.ReconciledAmount)</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <MudGrid Class="mb-4">
+                <MudItem xs="12" md="5">
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.subtitle2" Class="mb-2">@Reconciliation.MatchRate</MudText>
+                        @if (HasChartData)
+                        {
+                            <MudChart T="double" ChartType="ChartType.Donut"
+                                      Width="260px" Height="260px"
+                                      ChartSeries="@ChartSeries"
+                                      ChartLabels="@ChartLabels" />
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2">@Common.NoData</MudText>
+                        }
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" md="7">
+                    <MudPaper Class="pa-4">
+                        <MudGrid>
+                            <MudItem xs="6">
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">@Reconciliation.ConfirmedMatches</MudText>
+                                <MudText Typo="Typo.h5">@_data.ConfirmedMatches</MudText>
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">@Reconciliation.PendingMatches</MudText>
+                                <MudText Typo="Typo.h5">@_data.PendingMatches</MudText>
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.subtitle2" Class="mb-2">@Reconciliation.SuggestedMatches</MudText>
+                <MudTable T="ReconciliationMatchListItem" Items="@_data.RecentMatches" Dense="true" Hover="true">
+                    <HeaderContent>
+                        <MudTh>@Reconciliation.Column_Date</MudTh>
+                        <MudTh>@Reconciliation.Column_Invoice</MudTh>
+                        <MudTh>@Reconciliation.Column_Transaction</MudTh>
+                        <MudTh>@Reconciliation.Column_Type</MudTh>
+                        <MudTh>@Reconciliation.Column_Status</MudTh>
+                        <MudTh>@Reconciliation.Confidence</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@context.MatchedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
+                        <MudTd>
+                            @context.InvoiceIssueDate.ToString("dd/MM/yyyy") — @FormatCurrency(context.InvoiceGrossAmount)
+                            <br /><MudText Typo="Typo.caption">@context.InvoiceCounterpartyName</MudText>
+                        </MudTd>
+                        <MudTd>
+                            @context.TransactionBookingDate.ToString("dd/MM/yyyy") — @FormatCurrency(context.TransactionAmount)
+                            <br /><MudText Typo="Typo.caption">@context.TransactionCounterpartyName</MudText>
+                        </MudTd>
+                        <MudTd>@MatchTypeLabel(context.MatchType)</MudTd>
+                        <MudTd>
+                            <MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Status)">
+                                @StatusLabel(context.Status)
+                            </MudChip>
+                        </MudTd>
+                        <MudTd>@FormatPercent(context.Confidence)</MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudText Typo="Typo.body2">@Reconciliation.NoMatches</MudText>
+                    </NoRecordsContent>
+                </MudTable>
+            </MudPaper>
+        }
+    }
+</MudContainer>
+
+@code {
+    private const int DefaultWindowDays = 90;
+
+    [Parameter] public Guid Id { get; set; }
+
+    private bool _loading = true;
+    private bool _running;
+    private Business? _business;
+    private DashboardData? _data;
+    private DateTime? _from = DateTime.Today.AddDays(-DefaultWindowDays);
+    private DateTime? _to = DateTime.Today;
+
+    private bool HasChartData => _data is not null && (_data.ConfirmedMatches + _data.UnreconciledInvoices) > 0;
+
+    private List<ChartSeries<double>> ChartSeries =>
+    [
+        new ChartSeries<double>
+        {
+            Name = Reconciliation.MatchRate,
+            Data = new ChartData<double>(_data is null
+                ? Array.Empty<double>()
+                : new double[] { _data.ConfirmedMatches, _data.UnreconciledInvoices }),
+        }
+    ];
+
+    private string[] ChartLabels =>
+        [Reconciliation.ConfirmedMatches, Reconciliation.UnmatchedInvoices];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _business = await GetBusinessHandler.Handle(
+            new GetBusinessByIdQuery(Id, ActiveOnly: true), CancellationToken.None);
+
+        if (_business is not null)
+        {
+            await LoadDashboardAsync();
+        }
+
+        _loading = false;
+    }
+
+    private async Task LoadDashboardAsync()
+    {
+        _data = await GetDashboardHandler.Handle(
+            new GetReconciliationDashboardQuery(Id, ToDateOnly(_from), ToDateOnly(_to)),
+            CancellationToken.None);
+    }
+
+    private async Task RunReconciliationAsync()
+    {
+        var from = ToDateOnly(_from);
+        var to = ToDateOnly(_to);
+
+        if (from is null || to is null)
+        {
+            Snackbar.Add(Reconciliation.Error_InvalidDateRange, Severity.Warning);
+            return;
+        }
+
+        _running = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await RunHandler.Handle(
+                new RunReconciliationCommand(Id, from.Value, to.Value), CancellationToken.None);
+
+            switch (result)
+            {
+                case RunReconciliationResult.Success ok:
+                    Snackbar.Add(
+                        Reconciliation.RunCompleted.Format(
+                            ok.Result.Summary.AutoMatchedCount,
+                            ok.Result.Summary.SuggestedCount),
+                        Severity.Success);
+                    await LoadDashboardAsync();
+                    break;
+                case RunReconciliationResult.Forbidden:
+                    Snackbar.Add(Common.Error_Forbidden, Severity.Warning);
+                    break;
+                case RunReconciliationResult.NotFound:
+                    Snackbar.Add(Common.Error_NotFound, Severity.Warning);
+                    break;
+                case RunReconciliationResult.InvalidDateRange:
+                    Snackbar.Add(Reconciliation.Error_InvalidDateRange, Severity.Warning);
+                    break;
+            }
+        }
+        finally
+        {
+            _running = false;
+        }
+    }
+
+    private static DateOnly? ToDateOnly(DateTime? value)
+        => value is null ? null : DateOnly.FromDateTime(value.Value);
+
+    private static string FormatCurrency(decimal value)
+        => string.Format(System.Globalization.CultureInfo.GetCultureInfo("el-GR"), "{0:C}", value);
+
+    private static string FormatPercent(decimal fraction)
+        => string.Format(System.Globalization.CultureInfo.GetCultureInfo("el-GR"), "{0:P1}", fraction);
+
+    private static string StatusLabel(string status) => status switch
+    {
+        nameof(ReconciliationMatchStatus.Confirmed) => Reconciliation.Status_Confirmed,
+        nameof(ReconciliationMatchStatus.Pending) => Reconciliation.Status_Pending,
+        nameof(ReconciliationMatchStatus.Rejected) => Reconciliation.Status_Rejected,
+        _ => status
+    };
+
+    private static Color StatusColor(string status) => status switch
+    {
+        nameof(ReconciliationMatchStatus.Confirmed) => Color.Success,
+        nameof(ReconciliationMatchStatus.Pending) => Color.Warning,
+        nameof(ReconciliationMatchStatus.Rejected) => Color.Error,
+        _ => Color.Default
+    };
+
+    private static string MatchTypeLabel(string matchType) => matchType switch
+    {
+        nameof(ReconciliationMatchType.Automatic) => Reconciliation.Type_Automatic,
+        nameof(ReconciliationMatchType.Manual) => Reconciliation.Type_Manual,
+        nameof(ReconciliationMatchType.Suggested) => Reconciliation.Type_Suggested,
+        _ => matchType
+    };
+}

@@ -1,0 +1,289 @@
+@page "/businesses/{Id:guid}/reconciliation/unmatched"
+@attribute [Authorize]
+
+@using System.Security.Claims
+@using Roivo.Application.Features.Businesses.Queries.GetBusinessById
+@using Roivo.Application.Features.Reconciliation.Commands.ManualMatch
+@using Roivo.Application.Features.Reconciliation.Queries.GetUnreconciledItems
+@inject GetBusinessByIdHandler GetBusinessHandler
+@inject GetUnreconciledItemsHandler GetUnreconciledHandler
+@inject ManualMatchHandler ManualMatchCommandHandler
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<PageTitle>@Reconciliation.ManualMatching</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-6">
+
+    <MudPaper Class="pa-4 mb-4">
+        <MudButton StartIcon="@Icons.Material.Outlined.ArrowBack"
+                   Href="@($"/businesses/{Id}/reconciliation")">
+            @Common.BackButton
+        </MudButton>
+        <MudText Typo="Typo.h5">@Reconciliation.ManualMatching</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">@Reconciliation.Subtitle</MudText>
+    </MudPaper>
+
+    @if (_loading)
+    {
+        <MudPaper Class="pa-6 text-center">
+            <MudProgressCircular Indeterminate="true" />
+            <MudText Typo="Typo.body2" Class="mt-2">@Common.Loading</MudText>
+        </MudPaper>
+    }
+    else if (_business is null)
+    {
+        <MudAlert Severity="Severity.Warning">@Common.Error_NotFound</MudAlert>
+    }
+    else
+    {
+        <MudPaper Class="pa-4 mb-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Outlined.Link"
+                           Disabled="@_matching"
+                           OnClick="MatchSelectedAsync">
+                    @Reconciliation.MatchSelected
+                </MudButton>
+                @if (_selectedInvoice is null || _selectedTransaction is null)
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@Reconciliation.SelectBothSides</MudText>
+                }
+            </MudStack>
+        </MudPaper>
+
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">@Reconciliation.UnmatchedInvoices</MudText>
+
+                    <MudTable T="UnreconciledItem" Items="@_invoices" Dense="true" Hover="true"
+                              Loading="@_invoicesLoading"
+                              OnRowClick="@OnInvoiceRowClick"
+                              RowClassFunc="@InvoiceRowClass">
+                        <HeaderContent>
+                            <MudTh>@Reconciliation.Column_Date</MudTh>
+                            <MudTh>@Reconciliation.Column_Amount</MudTh>
+                            <MudTh>@Reconciliation.Column_Counterparty</MudTh>
+                            <MudTh>@Reconciliation.Column_Description</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.Date.ToString("dd/MM/yyyy")</MudTd>
+                            <MudTd>@FormatCurrency(context.Amount)</MudTd>
+                            <MudTd>@context.CounterpartyName</MudTd>
+                            <MudTd>@context.Description</MudTd>
+                        </RowTemplate>
+                        <NoRecordsContent>
+                            <MudText Typo="Typo.body2">@Reconciliation.NoUnmatchedInvoices</MudText>
+                        </NoRecordsContent>
+                    </MudTable>
+
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Spacing="1" Class="mt-2">
+                        <MudIconButton Icon="@Icons.Material.Outlined.ChevronLeft"
+                                       Disabled="@(_invoicePage <= 1)"
+                                       OnClick="@(() => ChangeInvoicePageAsync(-1))" />
+                        <MudText Typo="Typo.body2">@_invoicePage</MudText>
+                        <MudIconButton Icon="@Icons.Material.Outlined.ChevronRight"
+                                       Disabled="@(_invoices.Count < PageSize)"
+                                       OnClick="@(() => ChangeInvoicePageAsync(1))" />
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">@Reconciliation.UnmatchedTransactions</MudText>
+
+                    <MudTable T="UnreconciledItem" Items="@_transactions" Dense="true" Hover="true"
+                              Loading="@_transactionsLoading"
+                              OnRowClick="@OnTransactionRowClick"
+                              RowClassFunc="@TransactionRowClass">
+                        <HeaderContent>
+                            <MudTh>@Reconciliation.Column_Date</MudTh>
+                            <MudTh>@Reconciliation.Column_Amount</MudTh>
+                            <MudTh>@Reconciliation.Column_Counterparty</MudTh>
+                            <MudTh>@Reconciliation.Column_Description</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.Date.ToString("dd/MM/yyyy")</MudTd>
+                            <MudTd>@FormatCurrency(context.Amount)</MudTd>
+                            <MudTd>@context.CounterpartyName</MudTd>
+                            <MudTd>@context.Description</MudTd>
+                        </RowTemplate>
+                        <NoRecordsContent>
+                            <MudText Typo="Typo.body2">@Reconciliation.NoUnmatchedTransactions</MudText>
+                        </NoRecordsContent>
+                    </MudTable>
+
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd" Spacing="1" Class="mt-2">
+                        <MudIconButton Icon="@Icons.Material.Outlined.ChevronLeft"
+                                       Disabled="@(_transactionPage <= 1)"
+                                       OnClick="@(() => ChangeTransactionPageAsync(-1))" />
+                        <MudText Typo="Typo.body2">@_transactionPage</MudText>
+                        <MudIconButton Icon="@Icons.Material.Outlined.ChevronRight"
+                                       Disabled="@(_transactions.Count < PageSize)"
+                                       OnClick="@(() => ChangeTransactionPageAsync(1))" />
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+
+@code {
+    private const int PageSize = 25;
+
+    [Parameter] public Guid Id { get; set; }
+
+    private bool _loading = true;
+    private bool _invoicesLoading;
+    private bool _transactionsLoading;
+    private bool _matching;
+    private Business? _business;
+    private string? _userId;
+
+    private IReadOnlyList<UnreconciledItem> _invoices = [];
+    private IReadOnlyList<UnreconciledItem> _transactions = [];
+    private int _invoicePage = 1;
+    private int _transactionPage = 1;
+
+    private UnreconciledItem? _selectedInvoice;
+    private UnreconciledItem? _selectedTransaction;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthState.GetAuthenticationStateAsync();
+        _userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        _business = await GetBusinessHandler.Handle(
+            new GetBusinessByIdQuery(Id, ActiveOnly: true), CancellationToken.None);
+
+        if (_business is not null)
+        {
+            await LoadInvoicesAsync();
+            await LoadTransactionsAsync();
+        }
+
+        _loading = false;
+    }
+
+    private async Task LoadInvoicesAsync()
+    {
+        _invoicesLoading = true;
+        try
+        {
+            var page = await GetUnreconciledHandler.Handle(
+                new GetUnreconciledItemsQuery(Id, UnreconciledItemType.Invoices, _invoicePage, PageSize),
+                CancellationToken.None);
+            _invoices = page.Items;
+        }
+        finally
+        {
+            _invoicesLoading = false;
+        }
+    }
+
+    private async Task LoadTransactionsAsync()
+    {
+        _transactionsLoading = true;
+        try
+        {
+            var page = await GetUnreconciledHandler.Handle(
+                new GetUnreconciledItemsQuery(Id, UnreconciledItemType.Transactions, _transactionPage, PageSize),
+                CancellationToken.None);
+            _transactions = page.Items;
+        }
+        finally
+        {
+            _transactionsLoading = false;
+        }
+    }
+
+    private async Task ChangeInvoicePageAsync(int delta)
+    {
+        _invoicePage = Math.Max(1, _invoicePage + delta);
+        _selectedInvoice = null;
+        await LoadInvoicesAsync();
+    }
+
+    private async Task ChangeTransactionPageAsync(int delta)
+    {
+        _transactionPage = Math.Max(1, _transactionPage + delta);
+        _selectedTransaction = null;
+        await LoadTransactionsAsync();
+    }
+
+    private void OnInvoiceRowClick(TableRowClickEventArgs<UnreconciledItem> args)
+    {
+        var item = args.Item;
+        _selectedInvoice = item is not null && _selectedInvoice?.Id == item.Id ? null : item;
+    }
+
+    private void OnTransactionRowClick(TableRowClickEventArgs<UnreconciledItem> args)
+    {
+        var item = args.Item;
+        _selectedTransaction = item is not null && _selectedTransaction?.Id == item.Id ? null : item;
+    }
+
+    private string InvoiceRowClass(UnreconciledItem item, int index)
+        => _selectedInvoice?.Id == item.Id ? "mud-theme-primary" : string.Empty;
+
+    private string TransactionRowClass(UnreconciledItem item, int index)
+        => _selectedTransaction?.Id == item.Id ? "mud-theme-primary" : string.Empty;
+
+    private async Task MatchSelectedAsync()
+    {
+        if (_selectedInvoice is null || _selectedTransaction is null)
+        {
+            Snackbar.Add(Reconciliation.SelectBothSides, Severity.Warning);
+            return;
+        }
+
+        if (string.IsNullOrEmpty(_userId))
+        {
+            Snackbar.Add(Common.Error_Forbidden, Severity.Warning);
+            return;
+        }
+
+        _matching = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await ManualMatchCommandHandler.Handle(
+                new ManualMatchCommand(Id, _selectedInvoice.Id, _selectedTransaction.Id, _userId),
+                CancellationToken.None);
+
+            switch (result)
+            {
+                case ManualMatchResult.Success:
+                    Snackbar.Add(Reconciliation.MatchCreated, Severity.Success);
+                    _selectedInvoice = null;
+                    _selectedTransaction = null;
+                    await LoadInvoicesAsync();
+                    await LoadTransactionsAsync();
+                    break;
+                case ManualMatchResult.Forbidden:
+                    Snackbar.Add(Common.Error_Forbidden, Severity.Warning);
+                    break;
+                case ManualMatchResult.NotFound:
+                    Snackbar.Add(Common.Error_NotFound, Severity.Warning);
+                    break;
+                case ManualMatchResult.AlreadyMatched:
+                    Snackbar.Add(Reconciliation.Error_AlreadyMatched, Severity.Warning);
+                    break;
+                case ManualMatchResult.SideAlreadyReconciled:
+                    Snackbar.Add(Reconciliation.Error_SideAlreadyReconciled, Severity.Warning);
+                    break;
+            }
+        }
+        finally
+        {
+            _matching = false;
+        }
+    }
+
+    private static string FormatCurrency(decimal value)
+        => string.Format(System.Globalization.CultureInfo.GetCultureInfo("el-GR"), "{0:C}", value);
+}

@@ -87,6 +87,8 @@ builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 // the recurring registration below can resolve the type.
 builder.Services.AddScoped<AadeFailureNotificationJob>();
 builder.Services.AddScoped<BankingFailureNotificationJob>();
+builder.Services.AddScoped<NightlyReconciliationJob>();
+builder.Services.AddScoped<NightlyCashflowForecastJob>();
 
 builder.Services.AddOptions<HangfireDashboardSettings>()
     .Bind(builder.Configuration.GetSection("Hangfire:Dashboard"));
@@ -191,6 +193,21 @@ recurringJobs.AddOrUpdate<BankingFailureNotificationJob>(
     "banking-failure-notification",
     job => job.Execute(CancellationToken.None),
     Cron.Daily(9),
+    new RecurringJobOptions { TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Athens") });
+
+// 05:00 Athens: an hour after the banking sync, so the night's transactions are
+// already imported and there is something new to match.
+recurringJobs.AddOrUpdate<NightlyReconciliationJob>(
+    "nightly-reconciliation",
+    job => job.Execute(),
+    Cron.Daily(5),
+    new RecurringJobOptions { TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Athens") });
+
+// 06:00 Athens: after reconciliation, so the forecast is built on matched data.
+recurringJobs.AddOrUpdate<NightlyCashflowForecastJob>(
+    "nightly-cashflow-forecast",
+    job => job.Execute(),
+    Cron.Daily(6),
     new RecurringJobOptions { TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Athens") });
 
 // Keep-alive target for cron-job.org so Render's free tier does not idle the

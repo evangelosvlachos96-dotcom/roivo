@@ -1,0 +1,294 @@
+@page "/businesses/{Id:guid}/cashflow/categories"
+@attribute [Authorize]
+
+@using System.Globalization
+@using Roivo.Application.Features.Businesses.Queries.GetBusinessById
+@using Roivo.Application.Features.Cashflow.Commands.AddRecurringItem
+@using Roivo.Application.Features.Cashflow.Queries.ListCashflowCategories
+@inject GetBusinessByIdHandler GetBusinessHandler
+@inject AddRecurringItemHandler AddRecurringItemHandler
+@inject ListCashflowCategoriesHandler ListCategoriesHandler
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<PageTitle>@Roivo.Resources.Cashflow.Categories</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-6">
+
+    <MudPaper Class="pa-4 mb-4">
+        <MudButton StartIcon="@Icons.Material.Outlined.ArrowBack"
+                   OnClick="@(() => Nav.NavigateTo($"/businesses/{Id}/cashflow"))">
+            @Common.BackButton
+        </MudButton>
+        <MudText Typo="Typo.h5">@Roivo.Resources.Cashflow.Categories</MudText>
+        <MudText Typo="Typo.body2">@(business?.Name ?? "")</MudText>
+    </MudPaper>
+
+    @if (loading)
+    {
+        <MudPaper Class="pa-6 text-center">
+            <MudProgressCircular Indeterminate="true" />
+            <MudText Typo="Typo.body2" Class="mt-2">@Common.Loading</MudText>
+        </MudPaper>
+    }
+    else if (business is null)
+    {
+        <MudAlert Severity="Severity.Warning">@Common.Error_NotFound</MudAlert>
+    }
+    else
+    {
+        <MudGrid>
+            <MudItem xs="12" md="5">
+                <MudPaper Class="pa-4" Height="100%">
+                    <MudText Typo="Typo.subtitle1" Class="mb-3">@Roivo.Resources.Cashflow.AddRecurringItem</MudText>
+
+                    <MudForm @ref="form" Model="input" @bind-IsValid="isFormValid">
+                        <MudTextField @bind-Value="input.Name"
+                                      Label="@Roivo.Resources.Cashflow.CategoryName"
+                                      Required="true"
+                                      RequiredError="@Common.Required"
+                                      MaxLength="200"
+                                      Immediate="true"
+                                      Class="mb-4" />
+
+                        <MudSelect T="CashflowCategoryType"
+                                   @bind-Value="input.Type"
+                                   Label="@Roivo.Resources.Cashflow.CategoryType"
+                                   Class="mb-4">
+                            <MudSelectItem Value="@CashflowCategoryType.Income">@Roivo.Resources.Cashflow.Type_Income</MudSelectItem>
+                            <MudSelectItem Value="@CashflowCategoryType.Expense">@Roivo.Resources.Cashflow.Type_Expense</MudSelectItem>
+                        </MudSelect>
+
+                        <MudNumericField T="decimal"
+                                         @bind-Value="input.Amount"
+                                         Label="@Roivo.Resources.Cashflow.Amount"
+                                         Min="0"
+                                         Immediate="true"
+                                         Class="mb-4" />
+
+                        <MudNumericField T="int?"
+                                         @bind-Value="input.RecurringDay"
+                                         Label="@Roivo.Resources.Cashflow.RecurringDay"
+                                         Min="1"
+                                         Max="31"
+                                         Immediate="true"
+                                         Class="mb-4" />
+
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <MudAlert Severity="Severity.Error" Class="mb-4">@errorMessage</MudAlert>
+                        }
+
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Outlined.Add"
+                                   OnClick="HandleAdd"
+                                   Disabled="@(!isFormValid || saving)">
+                            @(saving ? Common.Saving : Roivo.Resources.Cashflow.AddRecurringItem)
+                        </MudButton>
+                    </MudForm>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="7">
+                <MudPaper Class="pa-4 mb-4">
+                    <MudText Typo="Typo.subtitle1" Class="mb-3">@Roivo.Resources.Cashflow.Categories</MudText>
+
+                    @if (categories.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2">@Roivo.Resources.Cashflow.NoCategories</MudText>
+                    }
+                    else
+                    {
+                        <MudSimpleTable Dense="true" Hover="true" Striped="true">
+                            <thead>
+                                <tr>
+                                    <th>@Roivo.Resources.Cashflow.CategoryName</th>
+                                    <th>@Roivo.Resources.Cashflow.CategoryType</th>
+                                    <th>@Roivo.Resources.Cashflow.Amount</th>
+                                    <th>@Roivo.Resources.Cashflow.RecurringDay</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var category in categories)
+                                {
+                                    <tr>
+                                        <td>@category.Name</td>
+                                        <td>
+                                            <MudChip T="string" Size="Size.Small"
+                                                     Color="@(category.Type == CashflowCategoryType.Income ? Color.Success : Color.Error)">
+                                                @TypeLabel(category.Type)
+                                            </MudChip>
+                                        </td>
+                                        <td>@FormatCurrency(category.Amount)</td>
+                                        <td>@(category.RecurringDay?.ToString(CultureInfo.InvariantCulture) ?? "—")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+
+                        <MudGrid Class="mt-3">
+                            <MudItem xs="6">
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Cashflow.Inflows</MudText>
+                                <MudText Typo="Typo.body1" Color="Color.Success">@FormatCurrency(MonthlyIncome)</MudText>
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Cashflow.Outflows</MudText>
+                                <MudText Typo="Typo.body1" Color="Color.Error">@FormatCurrency(MonthlyExpense)</MudText>
+                            </MudItem>
+                        </MudGrid>
+                    }
+                </MudPaper>
+
+                @if (categories.Count > 0)
+                {
+                    <MudPaper Class="pa-4">
+                        <MudText Typo="Typo.subtitle1" Class="mb-3">@Roivo.Resources.Cashflow.Amount</MudText>
+                        <MudChart T="double"
+                                  ChartType="ChartType.Donut"
+                                  ChartSeries="@chartSeries"
+                                  ChartLabels="@chartLabels"
+                                  Width="100%"
+                                  Height="300px" />
+                    </MudPaper>
+                }
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool loading = true;
+    private bool saving;
+    private bool isFormValid;
+
+    private MudForm form = null!;
+    private string? errorMessage;
+    private Business? business;
+
+    private readonly CategoryInput input = new();
+
+    private List<CategoryRow> categories = [];
+
+    private List<ChartSeries<double>> chartSeries = [];
+    private string[] chartLabels = [];
+
+    private decimal MonthlyIncome => categories
+        .Where(c => c.Type == CashflowCategoryType.Income)
+        .Sum(c => c.Amount);
+
+    private decimal MonthlyExpense => categories
+        .Where(c => c.Type == CashflowCategoryType.Expense)
+        .Sum(c => c.Amount);
+
+    protected override async Task OnInitializedAsync()
+    {
+        business = await GetBusinessHandler.Handle(
+            new GetBusinessByIdQuery(Id, ActiveOnly: true), CancellationToken.None);
+
+        if (business is not null)
+            await LoadCategoriesAsync();
+
+        loading = false;
+    }
+
+    private async Task LoadCategoriesAsync()
+    {
+        var stored = await ListCategoriesHandler.Handle(
+            new ListCashflowCategoriesQuery(Id), CancellationToken.None);
+
+        categories = [.. stored.Income.Concat(stored.Expense)
+            .Select(c => new CategoryRow(c.Name, c.Type, c.AverageAmount ?? 0m, c.RecurringDay))];
+
+        RebuildChart();
+    }
+
+    private async Task HandleAdd()
+    {
+        await form.ValidateAsync();
+        if (!isFormValid)
+        {
+            errorMessage = Common.Error_ValidationFailed;
+            return;
+        }
+
+        saving = true;
+        errorMessage = null;
+        try
+        {
+            var result = await AddRecurringItemHandler.Handle(
+                new AddRecurringItemCommand(
+                    Id,
+                    input.Name.Trim(),
+                    input.Amount,
+                    input.Type,
+                    input.RecurringDay),
+                CancellationToken.None);
+
+            switch (result)
+            {
+                case AddRecurringItemResult.Success:
+                    Snackbar.Add(Roivo.Resources.Cashflow.CategoryAdded, Severity.Success);
+                    // Re-read so the list reflects what was actually stored —
+                    // the domain trims the name and drops the day for a
+                    // non-recurring item.
+                    await LoadCategoriesAsync();
+                    input.Name = string.Empty;
+                    input.Amount = 0m;
+                    input.RecurringDay = null;
+                    return;
+                case AddRecurringItemResult.Forbidden:
+                    errorMessage = Common.Error_Forbidden;
+                    return;
+                case AddRecurringItemResult.NotFound:
+                    errorMessage = Common.Error_NotFound;
+                    return;
+                case AddRecurringItemResult.Invalid:
+                    errorMessage = Common.Error_ValidationFailed;
+                    return;
+                default:
+                    errorMessage = Common.Error_Generic;
+                    return;
+            }
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private void RebuildChart()
+    {
+        chartLabels = [.. categories.Select(c => c.Name)];
+        chartSeries =
+        [
+            new ChartSeries<double>
+            {
+                Name = Roivo.Resources.Cashflow.Amount,
+                Data = new ChartData<double>(categories.Select(c => (double)c.Amount).ToArray()),
+            },
+        ];
+    }
+
+    private static string TypeLabel(CashflowCategoryType type) => type == CashflowCategoryType.Income
+        ? Roivo.Resources.Cashflow.Type_Income
+        : Roivo.Resources.Cashflow.Type_Expense;
+
+    private static string FormatCurrency(decimal value)
+        => string.Format(CultureInfo.GetCultureInfo("el-GR"), "{0:C}", value);
+
+    private sealed class CategoryInput
+    {
+        public string Name { get; set; } = string.Empty;
+        public CashflowCategoryType Type { get; set; } = CashflowCategoryType.Expense;
+        public decimal Amount { get; set; }
+        public int? RecurringDay { get; set; }
+    }
+
+    private sealed record CategoryRow(
+        string Name,
+        CashflowCategoryType Type,
+        decimal Amount,
+        int? RecurringDay);
+}
