@@ -55,4 +55,18 @@ public static class BusinessPermissions
     /// further restricts business-tenants to their primary business.
     /// </summary>
     public static bool CanManageBankingFor(TenantType tenantType) => true;
+
+    /// <summary>
+    /// True if a tenant of the given type may run reconciliation and accept or
+    /// reject matches. Both qualify: reconciling is the core daily task for an
+    /// accountant and for an owner running their own books.
+    /// </summary>
+    public static bool CanReconcileFor(TenantType tenantType) => true;
+
+    /// <summary>
+    /// True if a tenant of the given type may view cashflow forecasts and
+    /// manage the tax calendar. Both qualify, for the same reason as
+    /// <see cref="CanReconcileFor"/>.
+    /// </summary>
+    public static bool CanManageCashflowFor(TenantType tenantType) => true;
 }

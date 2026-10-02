@@ -125,6 +125,37 @@
                 @Roivo.Resources.Businesses.ManageBankingConnection
             </MudButton>
         </MudPaper>
+
+        <MudPaper Class="pa-6 mt-4">
+            <MudText Typo="Typo.h6" Class="mb-2">@Roivo.Resources.Reconciliation.Title</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+                @Roivo.Resources.Reconciliation.Subtitle
+            </MudText>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Outlined.CompareArrows"
+                       OnClick='() => Nav.NavigateTo($"/businesses/{Id}/reconciliation")'>
+                @Roivo.Resources.Reconciliation.Title
+            </MudButton>
+        </MudPaper>
+
+        <MudPaper Class="pa-6 mt-4">
+            <MudText Typo="Typo.h6" Class="mb-2">@Roivo.Resources.Cashflow.Nav_Cashflow</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+                @Roivo.Resources.Cashflow.Subtitle
+            </MudText>
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Outlined.ShowChart"
+                           OnClick='() => Nav.NavigateTo($"/businesses/{Id}/cashflow")'>
+                    @Roivo.Resources.Cashflow.Nav_Cashflow
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Outlined.CalendarMonth"
+                           OnClick='() => Nav.NavigateTo($"/businesses/{Id}/tax-calendar")'>
+                    @Roivo.Resources.Cashflow.Nav_TaxCalendar
+                </MudButton>
+            </MudStack>
+        </MudPaper>
     }
 
 </MudContainer>

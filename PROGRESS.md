@@ -4,6 +4,116 @@ A running log of what's been built, when, and any notes worth keeping. Newest en
 
 ---
 
+## M6 + M7 — Reconciliation engine and cashflow forecasting ✅ Code complete 2026-10-01
+
+Built together as one epic because M7 cannot forecast without M6's matched data,
+and both land on the same two new UI surfaces.
+
+### M6 — Reconciliation engine
+
+**Domain:** `ReconciliationMatch` (automatic / manual / suggested, pending /
+confirmed / rejected) and `ReconciliationRule` (per-business amount and date
+tolerance, optional counterparty pattern). `IsReconciled` + `ReconciledAt` added
+to `Invoice` (via `MarkReconciled` / `ClearReconciliation`) and
+`BankTransaction`.
+
+**Matching:** `ReconciliationEngine` scores every eligible pair — exact amount
+0.4, within tolerance 0.2; date within 1 day 0.3, 3 days 0.2, 7 days 0.1;
+counterparty 0.3. At or above 0.8 the match is applied automatically; 0.5 and up
+is suggested for review. Assignment is greedy over a globally sorted candidate
+list, so the strongest pair claims a transaction before a weaker one competing
+for it.
+
+**Handlers:** `RunReconciliation`, `ConfirmSuggestedMatch`,
+`RejectSuggestedMatch`, `ManualMatch`, `GetReconciliationDashboard`,
+`GetUnreconciledItems`.
+
+**Job:** `NightlyReconciliationJob` at 05:00 Europe/Athens, an hour after the
+banking sync, over the trailing 90 days. Only businesses with *both* AADE and
+banking connected are eligible — with one side missing every invoice would
+report as unreconciled.
+
+### M7 — Cashflow forecasting
+
+**Domain:** `CashflowForecast` (prediction plus the actuals backfilled later),
+`CashflowCategory` (recurring rent / payroll / subscriptions), `TaxObligation`.
+
+**Forecasting:** `CashflowForecastEngine` blends a day-of-week and a
+day-of-month profile from the last 365 days of bank activity, layers on
+recurring categories and unpaid tax obligations, and runs a 90-day balance
+forward. The confidence band widens with the square root of the horizon.
+Alerts fire for negative balance, low balance, a tax date, and an outlier
+outflow.
+
+**Tax calendar:** `GreekTaxCalendar` generates ΦΠΑ (quarterly, 20th after
+quarter end), Παρακρατούμενος Φόρος (monthly, 20th), ΕΦΚΑ (monthly, month end),
+and the three income-tax instalments with their prepayment and Τέλος
+Επιτηδεύματος. VAT is estimated from actual invoice VAT (output less input,
+floored at zero); income tax from projected revenue.
+
+**Handlers:** `GetCashflowForecast`, `GetCashflowDashboard`, `GetTaxCalendar`,
+`MarkTaxPaid`, `AddRecurringItem`.
+
+**Job:** `NightlyCashflowForecastJob` at 06:00 Europe/Athens, after
+reconciliation. Skips any business with under 30 days of history.
+
+### Tests
+
+`Roivo.Application.Tests` 136 → **208** (+72). Engine scoring 13, tax calendar
+14, forecast engine 10, reconciliation handlers 10, cashflow handlers 25.
+A seeded 100-invoice synthetic dataset holds the engine to the milestone's
+70% auto-match bar and asserts that every automatic match is correct — a wrong
+auto-match is worse than none, because nobody reviews it.
+
+### Decisions worth knowing
+
+- **Both engines live in Application over repository abstractions**, not in
+  `Roivo.Forecasting` (still empty) — they are pure computation over rows we
+  already hold, with no third-party integration to isolate.
+- **A rejected match is kept, never deleted.** It is the only record that the
+  engine proposed a pair and a human said no, which is what stops the next
+  nightly run proposing it again. The unique index on
+  `(InvoiceId, BankTransactionId)` is filtered to exclude rejected rows, so a
+  pair can still be matched by hand afterwards.
+- **Direction has to agree**: an invoice we issued is settled by a credit, one
+  we received by a debit. Without that check a refund of the same size scores
+  identically to the payment.
+- **Cancelled invoices are excluded** from matching — AADE voided them, so
+  there is no money to find, and leaving them in would permanently depress the
+  match rate.
+- **Withholding tax and ΕΦΚΑ estimate zero.** Both depend on payroll, which
+  Roivo never sees. A user-entered recurring category is the honest way to get
+  them into the forecast; a guess would read as authoritative.
+- **No history produces no projection**, not a flat line at the current
+  balance. A flat line reads as a prediction.
+- **Tax obligations are identified by `(business, type, period)`**, so
+  regenerating the calendar is idempotent and never clobbers a recorded payment.
+
+### Known gaps / next steps
+
+- **M8 is now mostly built.** The spec folded the Greek tax calendar into M7, so
+  ROADMAP's M8 is reduced to ΕΝΦΙΑ, the monthly-vs-quarterly ΦΠΑ distinction by
+  books type, and surfacing obligations as markers on the cashflow chart.
+- **Invoice status is not set to Paid on match.** M6's roadmap line asks for it;
+  the build sets `IsReconciled` / `ReconciledAt` only, leaving
+  `Invoice.Status` as AADE reported it. Deliberate — the two facts are
+  different, and conflating them would lose the distinction — but it is a gap
+  against the roadmap wording.
+- **Critical cashflow alerts are logged, not emailed.** Wiring them into
+  `EmailJob` needs a per-business dedupe stamp, or a persistent shortfall mails
+  the owner every night.
+- **Tax rates are hardcoded** (ΦΠΑ 24%, income tax 22%, prepayment 80%, Τέλος
+  Επιτηδεύματος €650). They belong in configuration before anyone relies on the
+  figures, and AADE moves statutory deadlines by decision most years.
+- **Forecast accuracy is unmeasured against reality.** `CashflowForecast` stores
+  `Actual*` columns and a `BalanceError` for exactly this, but nothing backfills
+  them yet.
+- The engine's 70% bar is met against *generated* data shaped like Greek SMB
+  activity. It is a regression guard on the thresholds, not evidence about real
+  bank feeds.
+
+---
+
 ## Cashflow UI v1 — synced AADE data viewer ✅ Completed 2026-05-21
 
 First UI surfacing the data M4 syncs from AADE (incoming `Invoices` + outgoing aggregated `IncomeBookEntries`). Per-business page at `/businesses/{id}/invoices` with two tabs.

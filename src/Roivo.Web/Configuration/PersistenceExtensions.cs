@@ -41,6 +41,8 @@ public static class PersistenceExtensions
         services.AddScoped<IInvoiceQueryRepository, InvoiceQueryRepository>();
         services.AddScoped<IBankAccountRepository, BankAccountRepository>();
         services.AddScoped<IBankTransactionRepository, BankTransactionRepository>();
+        services.AddScoped<IReconciliationRepository, ReconciliationRepository>();
+        services.AddScoped<ICashflowRepository, CashflowRepository>();
         services.AddScoped<IAuditWriter, AuditWriter>();
 
         return services;

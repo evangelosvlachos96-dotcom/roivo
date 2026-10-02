@@ -19,5 +19,15 @@ public class BankTransaction : ITenantScoped
     public string? Reference { get; set; }
     public string? RawPayload { get; set; }
     public Guid? MatchedInvoiceId { get; set; }
+
+    /// <summary>
+    /// True once a confirmed <see cref="ReconciliationMatch"/> accounts for this
+    /// transaction. <see cref="MatchedInvoiceId"/> is the denormalised pointer to
+    /// the invoice on the other side of that match, kept so transaction lists can
+    /// show the link without joining.
+    /// </summary>
+    public bool IsReconciled { get; set; }
+
+    public DateTime? ReconciledAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

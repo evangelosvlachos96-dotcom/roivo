@@ -39,4 +39,15 @@ public enum AuditAction
     BankingConnectionRevoked = 302,
     BankingSyncCompleted = 303,
     BankingSyncFailed = 304,
+
+    // Reconciliation (400–499)
+    ReconciliationRun = 400,
+    ReconciliationMatchConfirmed = 401,
+    ReconciliationMatchRejected = 402,
+    ReconciliationMatchCreatedManually = 403,
+
+    // Cashflow and tax (500–599)
+    CashflowForecastGenerated = 500,
+    TaxObligationMarkedPaid = 501,
+    CashflowCategoryCreated = 502,
 }
