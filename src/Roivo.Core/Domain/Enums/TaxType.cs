@@ -24,4 +24,7 @@ public enum TaxType
 
     /// <summary>Προκαταβολή Φόρου. Advance on next year, with the income-tax instalments.</summary>
     TaxPrepayment = 6,
+
+    /// <summary>ΕΝΦΙΑ. Annual property tax, settled in monthly instalments from September.</summary>
+    PropertyTax = 7,
 }

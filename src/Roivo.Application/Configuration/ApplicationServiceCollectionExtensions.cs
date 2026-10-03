@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Roivo.Application.Abstractions;
 using Roivo.Application.Features.Businesses.Commands.CreateBusiness;
 using Roivo.Application.Features.Cashflow.Commands.AddRecurringItem;
 using Roivo.Application.Features.Cashflow.Commands.MarkTaxPaid;
@@ -49,6 +50,9 @@ public static class ApplicationServiceCollectionExtensions
     public static IServiceCollection AddRoivoApplication(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+
+        // Singleton: stateless, and every layer must agree on what "now" is.
+        services.AddSingleton<IClock, SystemClock>();
 
         services.AddScoped<CreateBusinessHandler>();
         services.AddScoped<UpdateBusinessHandler>();

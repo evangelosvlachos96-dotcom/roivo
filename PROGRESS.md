@@ -4,6 +4,63 @@ A running log of what's been built, when, and any notes worth keeping. Newest en
 
 ---
 
+## M8 — Tax calendar completion, plus a shared clock ✅ Code complete 2026-10-03
+
+### M8
+
+- **ΕΝΦΙΑ (property tax)** in `GreekTaxCalendar`: five monthly instalments,
+  September through January. Generated **only** when the owner has supplied
+  `Business.EstimatedPropertyValue` — Roivo cannot see the property register, so
+  with no value it projects nothing rather than inventing a figure.
+- **Monthly vs quarterly ΦΠΑ** keyed off the new `Business.VatFrequency`.
+  Quarterly stays the 20th after the quarter closes; monthly is the 20th of the
+  following month. A business gets one or the other, never both.
+- Both read through a new `ICashflowRepository.GetTaxProfileAsync` projection,
+  so the calendar reads two fields instead of loading (and risking mutating) a
+  whole aggregate.
+
+### Shared clock
+
+`IClock` / `SystemClock` in `Roivo.Application.Abstractions`, registered as a
+singleton. The reconciliation dashboard was seeding its date range from
+`DateTime.Today` (server local) while every handler worked in UTC — Greece is
+UTC+2/+3, so for up to three hours a day the two disagreed about which day it
+was, and the same obligation read "pending" on one screen and "overdue" on
+another. Entity `CreatedAt = DateTime.UtcNow` defaults are deliberately left
+alone: entities are not DI-resolved, and they were never the inconsistency.
+
+### Tests
+
+`Roivo.Application.Tests` 213 → **229**. Suite total **322 passed, 1 skipped**.
+Tax-calendar tests now run against a `FakeClock` rather than absolute dates, so
+they cannot rot the way two earlier ones did.
+
+### Verified against staging, not just compiled
+
+Seeded 60 days of bank transactions for a test business and loaded the cashflow
+page: the forecast engine produced a real 90-day projection (balance €8,500 →
+€12,560), and **the MudChart rendered with data for the first time** — three
+series, scaled axes, a populated confidence band. Until then every chart in M6
+and M7 had only ever been seen behind an empty-data guard, so the MudBlazor 9.4
+`ChartSeries<double>` / `ChartData<double>` wiring was unproven.
+
+### Known gaps / next steps
+
+- **M9 (accountant dashboard) and M10 (email notifications) are NOT built.**
+  Only scaffolding exists: `Features/Accountant/AccountantAccess.cs` and
+  `Services/CashflowHealth.cs`, plus `Roivo.Resources/Notifications.cs`. No
+  handlers, pages, templates or jobs. The `NotificationSettings` entity exists
+  but is deliberately **not** mapped — no `DbSet`, no EF configuration, no
+  migration — so it is inert groundwork rather than half-applied schema.
+- The `AddBusinessTaxProfile` migration covers only the two `Business` columns.
+  `VatFrequency`'s default is set to `Quarterly` by hand; EF generated `""`,
+  which every pre-existing row would have failed to parse.
+- ΕΝΦΙΑ uses a single flat rate as a coarse projection. The real figure is
+  per-property and location-based; this is a cashflow estimate, not a
+  calculation, and the rate belongs in configuration before anyone relies on it.
+
+---
+
 ## M6 + M7 — Reconciliation engine and cashflow forecasting ✅ Code complete 2026-10-01
 
 Built together as one epic because M7 cannot forecast without M6's matched data,
