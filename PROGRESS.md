@@ -371,9 +371,12 @@ filtered index on `BankingAccessTokenEncrypted` for the cron.
   stale redirect.
 - Consent expiry (90 days) is stored and displayed but nothing proactively warns
   the user before it lapses — today they find out when a sync fails.
-- Pre-existing, outside M5: `NightlyAadeSyncJob`'s per-business job logs
-  "Business … not found; skipping" for every business, because
-  `SyncBusinessInvoicesHandler` loads through the tenant-filtered repository
-  while the cron runs with no tenant scope. The banking sync hit the same trap
-  and works around it with an explicit `BypassTenantScope` flag; AADE needs the
-  same fix or its nightly sync is a no-op.
+- ~~Pre-existing, outside M5: `NightlyAadeSyncJob`'s per-business job logs
+  "Business … not found; skipping" for every business~~ — **fixed 2026-10-02.**
+  `SyncBusinessInvoicesCommand` gained `BypassTenantScope`, and the tenant id
+  now comes from the loaded aggregate rather than ambient context. The identity
+  probes in `InvoiceRepository.UpsertAsync` and both
+  `IncomeBookEntryRepository` reads also needed `IgnoreQueryFilters()`: without
+  them the tenant-less cron missed every existing row and either inserted
+  orphaned `TenantId = Guid.Empty` duplicates or collided with the unique
+  indexes. Three regression tests cover it.
