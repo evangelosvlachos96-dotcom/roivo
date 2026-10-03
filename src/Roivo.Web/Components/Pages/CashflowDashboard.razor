@@ -43,6 +43,17 @@
     }
     else
     {
+        @if (!dashboard.HasSufficientHistory)
+        {
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+                @Roivo.Resources.Cashflow.InsufficientHistory.Format(CashflowForecastEngine.MinimumHistoryDays)
+            </MudAlert>
+        }
+
+        @* The forecast cards are predictions. Below the history threshold the
+           engine returns the current balance for every horizon rather than a
+           projection, so presenting them as a forecast would invent certainty
+           the engine explicitly declines to claim. Only the balance is real. *@
         <MudGrid Class="mb-4">
             <MudItem xs="12" sm="6" md="3">
                 <MudPaper Class="pa-4" Height="100%">
@@ -50,6 +61,8 @@
                     <MudText Typo="Typo.h5">@FormatCurrency(dashboard.Summary.CurrentBalance)</MudText>
                 </MudPaper>
             </MudItem>
+            @if (dashboard.HasSufficientHistory)
+            {
             <MudItem xs="12" sm="6" md="3">
                 <MudPaper Class="pa-4" Height="100%">
                     <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Cashflow.Forecast30Day</MudText>
@@ -80,6 +93,7 @@
                     }
                 </MudPaper>
             </MudItem>
+            }
         </MudGrid>
 
         <MudPaper Class="pa-4 mb-4">
