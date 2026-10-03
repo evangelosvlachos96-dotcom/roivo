@@ -205,14 +205,25 @@ public sealed class AadeHttpClient : IAadeClient
             var statusCode = (int)response.StatusCode;
             var responseBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
-            // TEMPORARY DIAGNOSTIC: never logs the subscription key or user id —
-            // only the URL we hit and what AADE returned. Remove once the sync 400 is fixed.
-            _logger.LogInformation(
-                "AADE fetch response: Url={Url}, HttpStatus={StatusCode}, BodyLength={BodyLength}, BodyPreview={BodyPreview}",
-                request.RequestUri,
-                statusCode,
-                responseBody.Length,
-                responseBody.Length > 1500 ? responseBody.Substring(0, 1500) : responseBody);
+            // A successful body is a list of real invoices — counterparty names,
+            // VAT numbers, amounts — so it is never logged. The preview is kept
+            // for failures, which is when the body explains the status and
+            // carries an error document rather than taxpayer data.
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation(
+                    "AADE fetch response: Url={Url}, HttpStatus={StatusCode}, BodyLength={BodyLength}",
+                    request.RequestUri, statusCode, responseBody.Length);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "AADE fetch failed: Url={Url}, HttpStatus={StatusCode}, BodyLength={BodyLength}, BodyPreview={BodyPreview}",
+                    request.RequestUri,
+                    statusCode,
+                    responseBody.Length,
+                    responseBody.Length > 1500 ? responseBody[..1500] : responseBody);
+            }
 
             if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
                 return (Array.Empty<T>(), new AadeFetchResult.InvalidCredentials());

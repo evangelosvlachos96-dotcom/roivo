@@ -20,7 +20,8 @@ public class SyncBusinessInvoicesHandlerTests
         FakeIncomeBookEntryRepository BookRepo,
         FakeAadeClient Client,
         FakeAadeCredentialStore Store,
-        FakeAuditWriter Audit);
+        FakeAuditWriter Audit,
+        FakeTenantContext Tenant);
 
     private static Sut BuildSut()
     {
@@ -33,7 +34,7 @@ public class SyncBusinessInvoicesHandlerTests
         var tenant = new FakeTenantContext();
         return new Sut(
             new SyncBusinessInvoicesHandler(businesses, invoices, bookEntries, client, store, audit, tenant),
-            businesses, invoices, bookEntries, client, store, audit);
+            businesses, invoices, bookEntries, client, store, audit, tenant);
     }
 
     private static Business SeedConnected(Sut sut, string afm = ValidAfm)
@@ -328,5 +329,58 @@ public class SyncBusinessInvoicesHandlerTests
         stored.HasAadeFailure.Should().BeFalse();
         stored.AadeLastFailureAt.Should().BeNull();
         stored.AadeLastFailureReason.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task TheCronCanReachBusinessesDespiteHavingNoTenantScope()
+    {
+        var sut = BuildSut();
+        var business = SeedConnected(sut);
+        sut.BusinessRepo.SimulateNoTenantScope = true;
+        sut.Client.NextFetch = Fetched([Inv("m1")], [], 1, 0);
+
+        var result = await sut.Handler.Handle(
+            new SyncBusinessInvoicesCommand(business.Id, BypassTenantScope: true));
+
+        result.Should().BeOfType<SyncBusinessInvoicesResult.Success>();
+    }
+
+    [Fact]
+    public async Task ARequestScopedCallerStillCannotReachAnotherTenantsBusiness()
+    {
+        var sut = BuildSut();
+        var business = SeedConnected(sut);
+        sut.BusinessRepo.SimulateNoTenantScope = true;
+
+        var result = await sut.Handler.Handle(new SyncBusinessInvoicesCommand(business.Id));
+
+        result.Should().BeOfType<SyncBusinessInvoicesResult.BusinessNotFound>();
+        sut.Client.FetchCalls.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task RowsWrittenByTheCronCarryTheOwningTenantNotTheAmbientOne()
+    {
+        var sut = BuildSut();
+        var business = SeedConnected(sut);
+
+        // What the real cron sees: a background scope with no ambient tenant.
+        // Rows must still be stamped with the business's owner, or they are
+        // written orphaned and the owner can never see them.
+        var owningTenant = Guid.NewGuid();
+        business.TenantId = owningTenant;
+        sut.BusinessRepo.SimulateNoTenantScope = true;
+        sut.Tenant.CurrentTenantId = Guid.Empty;
+
+        sut.Client.NextFetch = Fetched([Inv("m1")], [Book()], 1, 20);
+
+        var result = await sut.Handler.Handle(
+            new SyncBusinessInvoicesCommand(business.Id, BypassTenantScope: true));
+
+        result.Should().BeOfType<SyncBusinessInvoicesResult.Success>();
+
+        sut.InvoiceRepo.ByMark.Values.Should().OnlyContain(i => i.TenantId == owningTenant);
+        sut.BookRepo.Store.Values.Should().OnlyContain(e => e.TenantId == owningTenant);
+        sut.Audit.Calls.Should().OnlyContain(c => c.TenantId == owningTenant);
     }
 }

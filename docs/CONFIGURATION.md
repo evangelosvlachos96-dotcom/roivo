@@ -21,13 +21,18 @@ For readability, `Program.cs` maps the names below onto configuration keys. They
 | `SMTP_PASSWORD` | `Smtp:Password` | **Yes** |
 | `SMTP_FROM_EMAIL` | `Smtp:FromEmail` | **Yes** |
 | `SMTP_FROM_NAME` | `Smtp:FromName` | **Yes** |
-| `SMTP_USE_STARTTLS` | `Smtp:UseStartTls` | **Yes** |
+| `SMTP_USE_STARTTLS` | `Smtp:UseStartTls` | No — see below |
+| `SMTP_TRANSPORT` | `Smtp:Transport` | No — defaults to `Resend` |
 | `ENABLE_BANKING_BASE_URL` | `EnableBanking:BaseUrl` | **Yes** |
 | `ENABLE_BANKING_APPLICATION_ID` | `EnableBanking:ApplicationId` | **Yes** |
 | `ENABLE_BANKING_PRIVATE_KEY_PATH` | `EnableBanking:PrivateKeyPath` | **Yes** |
 | `ENABLE_BANKING_REDIRECT_URL` | `EnableBanking:RedirectUrl` | **Yes** |
 | `APP_PUBLIC_BASE_URL` | `App:PublicBaseUrl` | No - defaults to `https://roivo.gr` |
 | `HANGFIRE_AUTHORIZED_EMAILS` | `Hangfire:Dashboard:AuthorizedEmails` | No - empty denies all |
+
+`SMTP_TRANSPORT` selects how mail leaves the process: `Resend` (the default) posts to Resend's HTTPS API, `Smtp` connects over SMTP. **Render blocks the outbound SMTP ports (25/465/587)**, so a deployed instance can only send over HTTPS — a Render service must leave this at `Resend`. Use `SMTP_TRANSPORT=Smtp` for a local Mailtrap or MailHog box. `SMTP_PASSWORD` carries the Resend API key (`re_…`) either way, since Resend's own SMTP credentials use the API key as the password.
+
+`SMTP_HOST`, `SMTP_PORT` and `SMTP_USERNAME` are ignored by the Resend transport but are still required to start, because one settings shape serves both transports. `SMTP_USE_STARTTLS` is listed as `required` on the settings class but carries no validation attribute, so an absent value silently binds `false` and the app still boots.
 
 The four `ENABLE_BANKING_*` names are the same ones `DotEnvFile` reads out of `.env` for local development, so one spelling works in both places. `.env` additionally accepts `ENABLE_BANKING_SANDBOX_URL` and `ENABLE_BANKING_API_URL` as aliases for `EnableBanking:BaseUrl`; the environment map accepts only `ENABLE_BANKING_BASE_URL`.
 
@@ -116,6 +121,22 @@ Outbound email via MailKit (used for registration confirmation, password reset).
 | `FromEmail` | _(none — required)_ | Address shown in the `From:` header. Production default: `noreply@roivo.gr`. |
 | `FromName` | _(none — required)_ | Display name shown in the `From:` header. Production default: `Roivo`. |
 | `UseStartTls` | _(none — required)_ | If true, upgrades the connection with STARTTLS after the initial handshake. |
+
+## Aade
+
+AADE myDATA integration. Per-business credentials (`aade-user-id`, subscription key) are **not** configuration — they are entered per business in the UI and stored encrypted on the `Businesses` row.
+
+| Key | Default | Description |
+|---|---|---|
+| `BaseUrl` | `https://mydataapidev.aade.gr` | myDATA host. This default is AADE's **development** sandbox, which is what staging should use. Production must override it to `https://mydataapi.aade.gr`. Not in the clean-name map above — set it as `AADE__BASEURL`. Never set it to an empty string: the app throws at startup. |
+| `TimeoutSeconds` | `10` | Per-request timeout. |
+| `ConnectTimeoutSeconds` | `5` | Separate connect timeout so DNS/TCP failures surface fast. |
+| `MaxRetries` | `3` | Polly retries, transient failures only. |
+| `RequestDocsPath` | `RequestDocs` | Incoming-invoice endpoint path. |
+| `RequestMyIncomePath` | `RequestMyIncome` | Outgoing-summary endpoint path. |
+| `IncomeEpochDate` | `01/01/2015` | Fixed pre-myDATA epoch used as the mandatory `dateFrom`. |
+
+Unlike the other sections, `AadeSettings` carries no DataAnnotations, so `ValidateDataAnnotations()` validates nothing — a missing `Aade` section throws an explicit `InvalidOperationException` at startup instead.
 
 ## Serilog
 

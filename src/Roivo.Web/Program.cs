@@ -54,6 +54,8 @@ var environmentKeyMap = new Dictionary<string, string>(StringComparer.Ordinal)
     ["SMTP_FROM_EMAIL"] = "Smtp:FromEmail",
     ["SMTP_FROM_NAME"] = "Smtp:FromName",
     ["SMTP_USE_STARTTLS"] = "Smtp:UseStartTls",
+    // "Resend" (default, and the only transport that works on Render) or "Smtp".
+    ["SMTP_TRANSPORT"] = "Smtp:Transport",
 };
 
 var mappedEnvironment = new Dictionary<string, string?>(StringComparer.Ordinal);
