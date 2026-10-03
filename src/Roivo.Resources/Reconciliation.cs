@@ -35,6 +35,8 @@ public static class Reconciliation
     public const string ExportCsv = "Εξαγωγή σε CSV";
 
     // History
+    public const string RecentMatches = "Πρόσφατες αντιστοιχίσεις";
+    public const string MatchedVsUnmatched = "Αντιστοιχισμένα / μη αντιστοιχισμένα";
     public const string History = "Ιστορικό αντιστοιχίσεων";
     public const string FilterByStatus = "Φίλτρο κατάστασης";
     public const string FilterAll = "Όλες";

@@ -33,8 +33,17 @@ public sealed class GetTaxCalendarHandler
             .GenerateAsync(query.BusinessId, query.From, query.To, cancellationToken)
             .ConfigureAwait(false);
 
-        if (generated.Count > 0)
-            await _repository.UpsertTaxObligationsAsync(generated, cancellationToken).ConfigureAwait(false);
+        // Only obligations that have not yet fallen due are persisted. Viewing a
+        // past quarter must not manufacture unpaid rows for periods that are
+        // over: nobody will ever mark them paid, so they would render as
+        // permanently overdue, and paging back through years would write a row
+        // per period per visit. Historical quarters still display whatever is
+        // genuinely on file.
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var persistable = generated.Where(o => o.DueDate >= today).ToList();
+
+        if (persistable.Count > 0)
+            await _repository.UpsertTaxObligationsAsync(persistable, cancellationToken).ConfigureAwait(false);
 
         var stored = await _repository
             .ListTaxObligationsAsync(query.BusinessId, query.From, query.To, cancellationToken)

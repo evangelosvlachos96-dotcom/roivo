@@ -111,7 +111,7 @@
             <MudGrid Class="mb-4">
                 <MudItem xs="12" md="5">
                     <MudPaper Class="pa-4">
-                        <MudText Typo="Typo.subtitle2" Class="mb-2">@Reconciliation.MatchRate</MudText>
+                        <MudText Typo="Typo.subtitle2" Class="mb-2">@Reconciliation.MatchedVsUnmatched</MudText>
                         @if (HasChartData)
                         {
                             <MudChart T="double" ChartType="ChartType.Donut"
@@ -142,7 +142,7 @@
             </MudGrid>
 
             <MudPaper Class="pa-4">
-                <MudText Typo="Typo.subtitle2" Class="mb-2">@Reconciliation.SuggestedMatches</MudText>
+                <MudText Typo="Typo.subtitle2" Class="mb-2">@Reconciliation.RecentMatches</MudText>
                 <MudTable T="ReconciliationMatchListItem" Items="@_data.RecentMatches" Dense="true" Hover="true">
                     <HeaderContent>
                         <MudTh>@Reconciliation.Column_Date</MudTh>

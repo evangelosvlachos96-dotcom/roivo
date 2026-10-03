@@ -109,9 +109,6 @@
                         }
                     </MudTd>
                 </RowTemplate>
-                <PagerContent>
-                    <MudTablePager />
-                </PagerContent>
                 <NoRecordsContent>
                     <MudText Typo="Typo.body2">@Reconciliation.NoMatches</MudText>
                 </NoRecordsContent>
@@ -135,6 +132,9 @@
     // newest N regardless of window, so the history view asks for a large N
     // and filters by status client-side.
     private const int PageSize = 25;
+
+    /// <summary>Batch size when paging the whole history for an export.</summary>
+    private const int ExportPageSize = 200;
 
     private const string AllFilter = "All";
 
@@ -278,11 +278,16 @@
 
     private async Task ExportCsvAsync()
     {
-        var csv = BuildCsv();
+        var csv = BuildCsv(await LoadAllForExportAsync());
+
+        // Excel on a Greek Windows box reads a BOM-less UTF-8 .csv as the ANSI
+        // codepage, which mojibakes every header and label. The preamble has to
+        // be written explicitly — GetBytes never emits one.
+        var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv)).ToArray();
 
         // Base64 keeps the payload free of quotes and newlines, so the inline
         // snippet needs no escaping pass.
-        var payload = Convert.ToBase64String(Encoding.UTF8.GetBytes(csv));
+        var payload = Convert.ToBase64String(bytes);
         var fileName = $"reconciliation-{Id}-{DateTime.UtcNow:yyyyMMddHHmmss}.csv";
 
         var script =
@@ -294,31 +299,59 @@
         await JS.InvokeVoidAsync("eval", script);
     }
 
-    private string BuildCsv()
+    /// <summary>
+    /// Pages through the whole filtered history. The table shows one page, but
+    /// an export has to be the full set, not the rows that happen to be on
+    /// screen.
+    /// </summary>
+    private async Task<IReadOnlyList<ReconciliationMatchListItem>> LoadAllForExportAsync()
+    {
+        var all = new List<ReconciliationMatchListItem>();
+
+        for (var page = 1; ; page++)
+        {
+            var batch = await ListMatchesHandler.Handle(
+                new ListReconciliationMatchesQuery(Id, SelectedStatus, page, ExportPageSize),
+                CancellationToken.None);
+
+            all.AddRange(batch.Items);
+
+            if (batch.Items.Count == 0 || all.Count >= batch.TotalCount)
+                return all;
+        }
+    }
+
+    private string BuildCsv(IReadOnlyList<ReconciliationMatchListItem> matches)
     {
         var builder = new StringBuilder();
 
+        // Both sides of every match: the invoice amount is the figure an
+        // accountant checks the bank amount against, so neither may be dropped.
         builder.AppendLine(string.Join(';', new[]
         {
             Reconciliation.Column_Date,
             Reconciliation.Column_Invoice,
+            Reconciliation.Column_Amount,
             Reconciliation.Column_Counterparty,
             Reconciliation.Column_Transaction,
             Reconciliation.Column_Amount,
+            Reconciliation.Column_Counterparty,
             Reconciliation.Column_Type,
             Reconciliation.Column_Status,
             Reconciliation.Confidence,
         }.Select(Escape)));
 
-        foreach (var match in FilteredMatches)
+        foreach (var match in matches)
         {
             builder.AppendLine(string.Join(';', new[]
             {
                 Escape(match.MatchedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture)),
                 Escape(match.InvoiceIssueDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)),
-                Escape(match.InvoiceCounterpartyName ?? match.TransactionCounterpartyName ?? string.Empty),
+                Escape(match.InvoiceGrossAmount.ToString("0.00", CultureInfo.InvariantCulture)),
+                Escape(match.InvoiceCounterpartyName ?? string.Empty),
                 Escape(match.TransactionBookingDate.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)),
                 Escape(match.TransactionAmount.ToString("0.00", CultureInfo.InvariantCulture)),
+                Escape(match.TransactionCounterpartyName ?? string.Empty),
                 Escape(MatchTypeLabel(match.MatchType)),
                 Escape(StatusLabel(match.Status)),
                 Escape(match.Confidence.ToString("0.00", CultureInfo.InvariantCulture)),
@@ -328,10 +361,22 @@
         return builder.ToString();
     }
 
+    /// <summary>
+    /// Quotes per RFC 4180 and neutralises spreadsheet formulas. A counterparty
+    /// or bank reference starting <c>=</c>, <c>+</c>, <c>-</c> or <c>@</c> is
+    /// otherwise evaluated as a formula on open, and bank descriptors routinely
+    /// start with a sign.
+    /// </summary>
     private static string Escape(string value)
-        => value.Contains(';') || value.Contains('"') || value.Contains('\n')
-            ? $"\"{value.Replace("\"", "\"\"")}\""
+    {
+        var safe = value.Length > 0 && value[0] is '=' or '+' or '-' or '@'
+            ? "'" + value
             : value;
+
+        return safe.Contains(';') || safe.Contains('"') || safe.Contains('\n') || safe.Contains('\r')
+            ? $"\"{safe.Replace("\"", "\"\"")}\""
+            : safe;
+    }
 
     private static string FormatCurrency(decimal value)
         => string.Format(CultureInfo.GetCultureInfo("el-GR"), "{0:C}", value);

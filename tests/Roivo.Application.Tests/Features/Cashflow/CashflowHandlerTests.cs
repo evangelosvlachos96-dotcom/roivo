@@ -286,6 +286,18 @@ public class CashflowHandlerTests
 
     // ----------------------------------------------- GetTaxCalendar (query)
 
+
+    /// <summary>
+    /// A window that is always in the future, so the handler persists into it.
+    /// Absolute dates rot: once they fall into the past the handler stops
+    /// writing, by design.
+    /// </summary>
+    private static (DateOnly From, DateOnly To) FutureWindow(int months = 6)
+    {
+        var from = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(1);
+        return (from, from.AddMonths(months));
+    }
+
     private static (GetTaxCalendarHandler Handler, FakeCashflowRepository Repo) BuildTaxCalendarSut()
     {
         var repo = new FakeCashflowRepository();
@@ -296,8 +308,7 @@ public class CashflowHandlerTests
     public async Task GetTaxCalendar_generates_and_persists_obligations_on_first_call()
     {
         var (handler, repo) = BuildTaxCalendarSut();
-        var from = new DateOnly(2026, 1, 1);
-        var to = new DateOnly(2026, 6, 30);
+        var (from, to) = FutureWindow();
 
         var calendar = await handler.Handle(new GetTaxCalendarQuery(BusinessId, from, to));
 
@@ -315,7 +326,8 @@ public class CashflowHandlerTests
     public async Task GetTaxCalendar_second_call_over_the_same_window_does_not_duplicate()
     {
         var (handler, repo) = BuildTaxCalendarSut();
-        var query = new GetTaxCalendarQuery(BusinessId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
+        var (windowFrom, windowTo) = FutureWindow(12);
+        var query = new GetTaxCalendarQuery(BusinessId, windowFrom, windowTo);
 
         var first = await handler.Handle(query);
         var storedAfterFirst = repo.TaxObligations.Select(o => o.Id).ToList();
@@ -339,7 +351,8 @@ public class CashflowHandlerTests
     public async Task GetTaxCalendar_keeps_a_recorded_payment_across_a_regeneration()
     {
         var (handler, repo) = BuildTaxCalendarSut();
-        var query = new GetTaxCalendarQuery(BusinessId, new DateOnly(2026, 1, 1), new DateOnly(2026, 6, 30));
+        var (paymentFrom, paymentTo) = FutureWindow();
+        var query = new GetTaxCalendarQuery(BusinessId, paymentFrom, paymentTo);
 
         var first = await handler.Handle(query);
         var paid = first.Obligations[0];
@@ -510,5 +523,36 @@ public class CashflowHandlerTests
 
         result.DailyForecasts.Should().HaveCount(30);
         result.Summary.CurrentBalance.Should().Be(5000m);
+    }
+
+    [Fact]
+    public async Task GetTaxCalendar_ViewingAPastQuarter_DoesNotManufactureOverdueObligations()
+    {
+        var (handler, repo) = BuildTaxCalendarSut();
+
+        // A user paging back through history must not create unpaid rows for
+        // periods that are already over — nobody would ever mark them paid, so
+        // they would show as permanently overdue.
+        var lastYear = DateOnly.FromDateTime(DateTime.UtcNow).AddYears(-1);
+        var from = new DateOnly(lastYear.Year, 1, 1);
+        var to = new DateOnly(lastYear.Year, 3, 31);
+
+        var result = await handler.Handle(new GetTaxCalendarQuery(Guid.NewGuid(), from, to));
+
+        result.Obligations.Should().BeEmpty();
+        repo.TaxObligations.Should().BeEmpty("a read must not write history");
+    }
+
+    [Fact]
+    public async Task GetTaxCalendar_AFutureWindowStillPersists()
+    {
+        var (handler, repo) = BuildTaxCalendarSut();
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var result = await handler.Handle(
+            new GetTaxCalendarQuery(Guid.NewGuid(), today, today.AddDays(120)));
+
+        result.Obligations.Should().NotBeEmpty();
+        repo.TaxObligations.Should().OnlyContain(o => o.DueDate >= today);
     }
 }
