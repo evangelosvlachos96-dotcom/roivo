@@ -1,0 +1,433 @@
+@page "/accountant/reports"
+@attribute [Authorize]
+
+@using System.Globalization
+@using System.Text
+@using Roivo.Application.Abstractions
+@using Roivo.Application.Features.Accountant.Queries.GetAccountantReport
+@using Roivo.Application.Features.Accountant.Services
+@using Roivo.Application.Features.Cashflow.Services
+@inject GetAccountantReportHandler GetReportHandler
+@inject IClock Clock
+@inject IJSRuntime JS
+
+<PageTitle>@Roivo.Resources.Accountant.Reports_Title</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-6">
+
+    <MudPaper Class="pa-4 mb-4">
+        <MudButton StartIcon="@Icons.Material.Outlined.ArrowBack" Href="/accountant/dashboard">
+            @Common.BackButton
+        </MudButton>
+        <MudText Typo="Typo.h5">@Roivo.Resources.Accountant.Reports_Title</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">@Roivo.Resources.Accountant.Reports_Subtitle</MudText>
+    </MudPaper>
+
+    @if (_loading)
+    {
+        <MudPaper Class="pa-6 text-center">
+            <MudProgressCircular Indeterminate="true" />
+            <MudText Typo="Typo.body2" Class="mt-2">@Common.Loading</MudText>
+        </MudPaper>
+    }
+    else if (_forbidden)
+    {
+        <MudAlert Severity="Severity.Warning">@Common.Error_Forbidden</MudAlert>
+    }
+    else if (_report is null)
+    {
+        <MudAlert Severity="Severity.Error">@Common.Error_Generic</MudAlert>
+    }
+    else
+    {
+        <MudPaper Class="pa-4 mb-4">
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.ChevronLeft"
+                           Disabled="@_busy" OnClick="@(() => ShiftMonthAsync(-1))">
+                    @Roivo.Resources.Accountant.Reports_PreviousMonth
+                </MudButton>
+                <MudText Typo="Typo.subtitle1">
+                    @Roivo.Resources.Accountant.Reports_Period.Format(
+                        FormatDate(_report.From), FormatDate(_report.To))
+                </MudText>
+                <MudButton Variant="Variant.Outlined" EndIcon="@Icons.Material.Outlined.ChevronRight"
+                           Disabled="@_busy" OnClick="@(() => ShiftMonthAsync(1))">
+                    @Roivo.Resources.Accountant.Reports_NextMonth
+                </MudButton>
+                <MudSpacer />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Outlined.Download"
+                           Disabled="@_busy" OnClick="ExportCsvAsync">
+                    @Roivo.Resources.Accountant.Reports_ExportCsv
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mb-4">
+            <MudText Typo="Typo.subtitle2" Class="mb-2">@Roivo.Resources.Accountant.Reports_Reconciliation</MudText>
+            <MudTable T="AccountantReconciliationRow" Items="@_report.ReconciliationSummary"
+                      Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
+                <HeaderContent>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Business</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Afm</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Invoices</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Transactions</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Confirmed</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Pending</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Unreconciled</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_ReconciledAmount</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_MatchRate</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Business">@context.BusinessName</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Afm">@context.Afm</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Invoices">@context.TotalInvoices</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Transactions">@context.TotalTransactions</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Confirmed">@context.ConfirmedMatches</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Pending">@context.PendingMatches</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Unreconciled">@context.UnreconciledInvoices</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_ReconciledAmount">@FormatCurrency(context.ReconciledAmount)</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_MatchRate">@FormatPercent(context.MatchRate)</MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.body2">@Roivo.Resources.Accountant.NoBusinesses</MudText>
+                </NoRecordsContent>
+                <FooterContent>
+                    <MudTd>@Roivo.Resources.Accountant.Reports_Totals</MudTd>
+                    <MudTd>@_report.ReconciliationTotals.Businesses</MudTd>
+                    <MudTd>@_report.ReconciliationTotals.TotalInvoices</MudTd>
+                    <MudTd>@_report.ReconciliationTotals.TotalTransactions</MudTd>
+                    <MudTd>@_report.ReconciliationTotals.ConfirmedMatches</MudTd>
+                    <MudTd>@_report.ReconciliationTotals.PendingMatches</MudTd>
+                    <MudTd>@_report.ReconciliationTotals.UnreconciledInvoices</MudTd>
+                    <MudTd>@FormatCurrency(_report.ReconciliationTotals.ReconciledAmount)</MudTd>
+                    <MudTd>@FormatPercent(_report.ReconciliationTotals.AverageMatchRate)</MudTd>
+                </FooterContent>
+            </MudTable>
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mb-4">
+            <MudText Typo="Typo.subtitle2">@Roivo.Resources.Accountant.Reports_TaxCalendar</MudText>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                @Roivo.Resources.Accountant.Reports_TaxCalendarHorizon.Format(FormatDate(_report.TaxCalendarTo))
+            </MudText>
+            <MudTable T="AccountantTaxCalendarRow" Items="@_report.TaxCalendar" Class="mt-2"
+                      Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
+                <HeaderContent>
+                    <MudTh>@Roivo.Resources.Accountant.Column_DueDate</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Business</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_TaxType</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Period</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Amount</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Status</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_DueDate">@FormatDate(context.DueDate)</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Business">@context.BusinessName</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_TaxType">@TaxTypeLabel(context.TaxType)</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Period">@context.Period</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Amount">@FormatCurrency(context.ExpectedAmount)</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Status">
+                        <MudChip T="string" Size="Size.Small" Color="@TaxStatusColor(context)">
+                            @TaxStatusLabel(context)
+                        </MudChip>
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.body2">@Roivo.Resources.Accountant.Reports_NoTaxObligations</MudText>
+                </NoRecordsContent>
+            </MudTable>
+        </MudPaper>
+
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.subtitle2" Class="mb-2">@Roivo.Resources.Accountant.Reports_Cashflow</MudText>
+            <MudTable T="AccountantCashflowRow" Items="@_report.CashflowOverview"
+                      Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
+                <HeaderContent>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Business</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_CashflowHealth</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Runway</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Balance30</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Balance60</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Balance90</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_PredictedInflow</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_PredictedOutflow</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Business">@context.BusinessName</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_CashflowHealth">
+                        <MudChip T="string" Size="Size.Small" Color="@HealthColor(context.Health)">
+                            @HealthLabel(context.Health)
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Runway">@RunwayLabel(context.DaysOfRunway)</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Balance30">@FormatOptionalCurrency(context.Balance30Day)</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Balance60">@FormatOptionalCurrency(context.Balance60Day)</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Balance90">@FormatOptionalCurrency(context.Balance90Day)</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_PredictedInflow">@FormatCurrency(context.PredictedInflow)</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_PredictedOutflow">@FormatCurrency(context.PredictedOutflow)</MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.body2">@Roivo.Resources.Accountant.Reports_NoCashflowData</MudText>
+                </NoRecordsContent>
+            </MudTable>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    /// <summary>Field separator. Semicolon is what Excel on a Greek locale expects.</summary>
+    private const char Delimiter = ';';
+
+    private bool _loading = true;
+    private bool _busy;
+    private bool _forbidden;
+    private AccountantReport? _report;
+    private DateOnly _month;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _month = Clock.Today;
+        await LoadAsync();
+        _loading = false;
+    }
+
+    private async Task LoadAsync()
+    {
+        var result = await GetReportHandler.Handle(
+            new GetAccountantReportQuery(_month), CancellationToken.None);
+
+        switch (result)
+        {
+            case GetAccountantReportResult.Success ok:
+                _report = ok.Report;
+                _forbidden = false;
+                break;
+            case GetAccountantReportResult.Forbidden:
+                _report = null;
+                _forbidden = true;
+                break;
+        }
+    }
+
+    private async Task ShiftMonthAsync(int months)
+    {
+        _busy = true;
+        try
+        {
+            _month = _month.AddMonths(months);
+            await LoadAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ExportCsvAsync()
+    {
+        if (_report is null)
+            return;
+
+        _busy = true;
+        try
+        {
+            // The handler returns the whole report in one shot — no paging — so
+            // the export is the full set by construction, not the visible rows.
+            var csv = BuildCsv(_report);
+
+            // Excel on a Greek Windows box reads a BOM-less UTF-8 .csv as the
+            // ANSI codepage, which mojibakes every header. GetBytes never emits
+            // a preamble, so it has to be prepended explicitly.
+            var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv)).ToArray();
+
+            // Base64 keeps the payload free of quotes and newlines, so the
+            // inline snippet needs no escaping pass.
+            var payload = Convert.ToBase64String(bytes);
+            var fileName = $"accountant-report-{_report.From:yyyyMM}-{Clock.UtcNow:yyyyMMddHHmmss}.csv";
+
+            var script =
+                "(function(){var a=document.createElement('a');" +
+                $"a.href='data:text/csv;charset=utf-8;base64,{payload}';" +
+                $"a.download='{fileName}';" +
+                "document.body.appendChild(a);a.click();a.remove();})()";
+
+            await JS.InvokeVoidAsync("eval", script);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string BuildCsv(AccountantReport report)
+    {
+        var builder = new StringBuilder();
+
+        builder.AppendLine(Row(Roivo.Resources.Accountant.Csv_ReconciliationSection));
+        builder.AppendLine(Row(
+            Roivo.Resources.Accountant.Column_Business,
+            Roivo.Resources.Accountant.Column_Afm,
+            Roivo.Resources.Accountant.Column_Invoices,
+            Roivo.Resources.Accountant.Column_Transactions,
+            Roivo.Resources.Accountant.Column_Confirmed,
+            Roivo.Resources.Accountant.Column_Pending,
+            Roivo.Resources.Accountant.Column_Unreconciled,
+            Roivo.Resources.Accountant.Column_ReconciledAmount,
+            Roivo.Resources.Accountant.Column_MatchRate));
+
+        foreach (var row in report.ReconciliationSummary)
+        {
+            builder.AppendLine(Row(
+                row.BusinessName,
+                row.Afm,
+                Number(row.TotalInvoices),
+                Number(row.TotalTransactions),
+                Number(row.ConfirmedMatches),
+                Number(row.PendingMatches),
+                Number(row.UnreconciledInvoices),
+                Money(row.ReconciledAmount),
+                Money(row.MatchRate)));
+        }
+
+        builder.AppendLine(Row(
+            Roivo.Resources.Accountant.Reports_Totals,
+            Number(report.ReconciliationTotals.Businesses),
+            Number(report.ReconciliationTotals.TotalInvoices),
+            Number(report.ReconciliationTotals.TotalTransactions),
+            Number(report.ReconciliationTotals.ConfirmedMatches),
+            Number(report.ReconciliationTotals.PendingMatches),
+            Number(report.ReconciliationTotals.UnreconciledInvoices),
+            Money(report.ReconciliationTotals.ReconciledAmount),
+            Money(report.ReconciliationTotals.AverageMatchRate)));
+
+        builder.AppendLine();
+        builder.AppendLine(Row(Roivo.Resources.Accountant.Csv_TaxSection));
+        builder.AppendLine(Row(
+            Roivo.Resources.Accountant.Column_DueDate,
+            Roivo.Resources.Accountant.Column_Business,
+            Roivo.Resources.Accountant.Column_TaxType,
+            Roivo.Resources.Accountant.Column_Period,
+            Roivo.Resources.Accountant.Column_Amount,
+            Roivo.Resources.Accountant.Column_Status));
+
+        foreach (var row in report.TaxCalendar)
+        {
+            builder.AppendLine(Row(
+                FormatDate(row.DueDate),
+                row.BusinessName,
+                TaxTypeLabel(row.TaxType),
+                row.Period,
+                Money(row.ExpectedAmount),
+                TaxStatusLabel(row)));
+        }
+
+        builder.AppendLine();
+        builder.AppendLine(Row(Roivo.Resources.Accountant.Csv_CashflowSection));
+        builder.AppendLine(Row(
+            Roivo.Resources.Accountant.Column_Business,
+            Roivo.Resources.Accountant.Column_CashflowHealth,
+            Roivo.Resources.Accountant.Column_Runway,
+            Roivo.Resources.Accountant.Column_Balance30,
+            Roivo.Resources.Accountant.Column_Balance60,
+            Roivo.Resources.Accountant.Column_Balance90,
+            Roivo.Resources.Accountant.Column_PredictedInflow,
+            Roivo.Resources.Accountant.Column_PredictedOutflow));
+
+        foreach (var row in report.CashflowOverview)
+        {
+            builder.AppendLine(Row(
+                row.BusinessName,
+                HealthLabel(row.Health),
+                RunwayLabel(row.DaysOfRunway),
+                row.Balance30Day is { } b30 ? Money(b30) : string.Empty,
+                row.Balance60Day is { } b60 ? Money(b60) : string.Empty,
+                row.Balance90Day is { } b90 ? Money(b90) : string.Empty,
+                Money(row.PredictedInflow),
+                Money(row.PredictedOutflow)));
+        }
+
+        return builder.ToString();
+    }
+
+    private static string Row(params string[] fields)
+        => string.Join(Delimiter, fields.Select(Escape));
+
+    /// <summary>
+    /// Quotes per RFC 4180 and neutralises spreadsheet formulas. A business name
+    /// or a bank descriptor starting <c>=</c>, <c>+</c>, <c>-</c> or <c>@@</c> is
+    /// otherwise evaluated as a formula when the file is opened, and a negative
+    /// projected balance starts with a sign.
+    /// </summary>
+    private static string Escape(string value)
+    {
+        var safe = value.Length > 0 && value[0] is '=' or '+' or '-' or '@'
+            ? "'" + value
+            : value;
+
+        return safe.Contains(Delimiter) || safe.Contains('"') || safe.Contains('\n') || safe.Contains('\r')
+            ? $"\"{safe.Replace("\"", "\"\"")}\""
+            : safe;
+    }
+
+    private static string Number(int value) => value.ToString(CultureInfo.InvariantCulture);
+
+    private static string Money(decimal value) => value.ToString("0.00", CultureInfo.InvariantCulture);
+
+    private static string FormatDate(DateOnly date) => date.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+
+    private static string FormatCurrency(decimal value)
+        => string.Format(CultureInfo.GetCultureInfo("el-GR"), "{0:C}", value);
+
+    private static string FormatOptionalCurrency(decimal? value)
+        => value is { } amount ? FormatCurrency(amount) : "—";
+
+    private static string FormatPercent(decimal fraction)
+        => string.Format(CultureInfo.GetCultureInfo("el-GR"), "{0:P1}", fraction);
+
+    private static string TaxTypeLabel(string taxType) => taxType switch
+    {
+        nameof(TaxType.Vat) => Roivo.Resources.Cashflow.Tax_Vat,
+        nameof(TaxType.IncomeTax) => Roivo.Resources.Cashflow.Tax_IncomeTax,
+        nameof(TaxType.WithholdingTax) => Roivo.Resources.Cashflow.Tax_WithholdingTax,
+        nameof(TaxType.SocialSecurity) => Roivo.Resources.Cashflow.Tax_SocialSecurity,
+        nameof(TaxType.ProfessionalTax) => Roivo.Resources.Cashflow.Tax_ProfessionalTax,
+        nameof(TaxType.TaxPrepayment) => Roivo.Resources.Cashflow.Tax_TaxPrepayment,
+        _ => taxType,
+    };
+
+    private static string TaxStatusLabel(AccountantTaxCalendarRow row)
+    {
+        if (row.IsPaid) return Roivo.Resources.Accountant.Status_Paid;
+        return row.IsOverdue ? Roivo.Resources.Accountant.Status_Overdue : Roivo.Resources.Accountant.Status_Pending;
+    }
+
+    private static Color TaxStatusColor(AccountantTaxCalendarRow row)
+    {
+        if (row.IsPaid) return Color.Success;
+        return row.IsOverdue ? Color.Error : Color.Warning;
+    }
+
+    private static string HealthLabel(string health) => health switch
+    {
+        CashflowHealth.Green => Roivo.Resources.Accountant.Health_Green,
+        CashflowHealth.Yellow => Roivo.Resources.Accountant.Health_Yellow,
+        CashflowHealth.Red => Roivo.Resources.Accountant.Health_Red,
+        _ => Roivo.Resources.Accountant.Health_Unknown,
+    };
+
+    private static Color HealthColor(string health) => health switch
+    {
+        CashflowHealth.Green => Color.Success,
+        CashflowHealth.Yellow => Color.Warning,
+        CashflowHealth.Red => Color.Error,
+        _ => Color.Default,
+    };
+
+    private static string RunwayLabel(int? daysOfRunway) => daysOfRunway switch
+    {
+        null => Roivo.Resources.Accountant.Runway_Unknown,
+        CashflowSummary.UnlimitedRunway => Roivo.Resources.Accountant.Runway_Unlimited,
+        var days => Roivo.Resources.Accountant.Runway_Days.Format(days),
+    };
+}

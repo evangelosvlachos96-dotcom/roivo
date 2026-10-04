@@ -4,6 +4,88 @@ A running log of what's been built, when, and any notes worth keeping. Newest en
 
 ---
 
+## M9 + M10 — Accountant workspace and email notifications ✅ Code complete 2026-10-04
+
+### M9 — Accountant dashboard
+
+Three pages at `/accountant/dashboard`, `/accountant/alerts`, `/accountant/reports`,
+behind `AccountantAccess.CanViewAccountantWorkspace` — a business-owner tenant
+gets `Forbidden`, not a thinner version of the page.
+
+- **Dashboard**: per client, AADE and banking status, reconciliation rate,
+  cashflow health, last sync; summary bar with totals, average match rate,
+  cashflow warnings and tax deadlines inside 30 days.
+- **Alerts**: aggregated across clients, ordered Critical → Warning → Info.
+  Only the *earliest* predicted shortfall per business is reported — later
+  negative days are the same shortfall, not new ones — and a business with no
+  invoices is not flagged for a 0% match rate, which is absence of work rather
+  than a backlog.
+- **Reports**: consolidated reconciliation, tax calendar and cashflow views,
+  with a CSV export matching the corrected implementation (formula-injection
+  prefix, UTF-8 BOM, full set, RFC 4180 quoting).
+
+**Cashflow health** is a pure function over days of runway: Red under 30 days —
+one ΦΠΑ/ΕΦΚΑ cycle, inside which the shortfall can no longer be fixed by
+rescheduling — Yellow under 90, Green at the forecast horizon, and **Unknown**
+when nothing is stored, which is deliberately not the same as healthy.
+
+**Data isolation** is the central risk and is tested, not just intended: the
+handlers use only the tenant-filtered `ListActiveAsync()`, never the
+`...AcrossAllTenantsAsync` cron variants. A test wraps a repository that mirrors
+production's filtered/unfiltered asymmetry, so swapping in a cron read fails the
+test instead of leaking another tenant's clients.
+
+**Query cost** is bounded by the bulk reads `ListStoredForecastsAsync` and
+`ListTaxObligationsForBusinessesAsync` — two queries regardless of client count,
+rather than one forecast run per business.
+
+### M10 — Email notifications
+
+Five kinds (daily digest, tax reminder, cashflow alert, sync failure, weekly
+reconciliation) over the Resend HTTP transport that M-fix made work. Per-user,
+per-business `NotificationSettings`, now mapped with a unique index on
+`(BusinessId, UserId)`. Settings UI at
+`/businesses/{id}/settings/notifications` with a test-send button.
+
+Four Hangfire jobs, all Europe/Athens: **cashflow-alert 06:30** (deliberately
+after the 06:00 forecast it reads — earlier would alert on yesterday's
+projection), **daily-digest 07:00**, **tax-reminder 08:00** (ahead of the 09:00
+failure notifications, so a deadline lands before the noise), and
+**weekly-reconciliation Monday 07:00**. Ten recurring jobs now registered,
+verified in Hangfire's own tables.
+
+### Tests
+
+**406 passed, 1 skipped** (322 → 406, +84: 47 accountant, 37 notification).
+
+### Decisions worth knowing
+
+- **`Roivo.Infrastructure` may reference `Roivo.Resources`** — the csproj says so
+  explicitly and CODING_STANDARDS only bars Application/Core/Aade/Banking. So the
+  email templates read Greek strings directly instead of having them threaded
+  through from the caller.
+- **Notification idempotency rides on AuditLogs.** The entity and its migration
+  were frozen when the jobs were written, so `NotificationDispatchLog` records a
+  ledger row per send rather than stamping a column. It works and is dedupe-keyed
+  per job, but see the gap below.
+
+### Known gaps / next steps
+
+- **The dispatch ledger belongs in its own table.** A `NotificationDispatches`
+  table — `TenantId`, `DispatchKey`, `SentAt`, unique on `(TenantId, DispatchKey)`
+  — would replace the AuditLogs ledger and turn the current check-then-send into
+  one atomic insert, closing the race if two Hangfire workers run a job at once.
+  A `LastSentAt` column on `NotificationSettings` would *not* do: the tax reminder
+  dedupes per obligation per lead-time stage, which needs a row per key.
+- **Reconciliation counts are still N+1 on the accountant dashboard.**
+  `IReconciliationRepository` has no bulk variant, so a 50-client dashboard makes
+  50 `GetCountsAsync` calls. The other two aggregates are already bulk.
+- Both migrations are applied to staging; existing businesses defaulted to
+  `Quarterly` ΦΠΑ and a null property value, so no ΕΝΦΙΑ is projected for them
+  until someone enters a value.
+
+---
+
 ## M8 — Tax calendar completion, plus a shared clock ✅ Code complete 2026-10-03
 
 ### M8

@@ -21,11 +21,27 @@
 
         <AuthorizeView>
             <Authorized>
+                @* An accountant's home is the consolidated workspace; a
+                   business owner's is their own single business. *@
                 <MudButton Variant="Variant.Text"
                            StartIcon="@Icons.Material.Outlined.Dashboard"
-                           OnClick='() => Nav.NavigateTo("/dashboard")'>
+                           OnClick='() => Nav.NavigateTo(isAccountant ? "/accountant/dashboard" : "/dashboard")'>
                     @Common.Nav_Dashboard
                 </MudButton>
+
+                @if (isAccountant)
+                {
+                    <MudButton Variant="Variant.Text"
+                               StartIcon="@Icons.Material.Outlined.NotificationsActive"
+                               OnClick='() => Nav.NavigateTo("/accountant/alerts")'>
+                        @Roivo.Resources.Accountant.Nav_Alerts
+                    </MudButton>
+                    <MudButton Variant="Variant.Text"
+                               StartIcon="@Icons.Material.Outlined.Assessment"
+                               OnClick='() => Nav.NavigateTo("/accountant/reports")'>
+                        @Roivo.Resources.Accountant.Nav_Reports
+                    </MudButton>
+                }
                 <MudButton Variant="Variant.Text"
                            StartIcon="@Icons.Material.Outlined.Business"
                            OnClick='() => Nav.NavigateTo("/businesses")'>
@@ -73,10 +89,22 @@
 @code {
     private string displayName = "";
 
+    /// <summary>
+    /// Read from the tenant_type claim rather than the database: the claim is
+    /// minted at sign-in by TenantClaimsPrincipalFactory precisely so the
+    /// layout can branch without a per-render query.
+    /// </summary>
+    private bool isAccountant;
+
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthState.GetAuthenticationStateAsync();
         if (authState.User.Identity?.IsAuthenticated != true) return;
+
+        isAccountant = string.Equals(
+            authState.User.FindFirst("tenant_type")?.Value,
+            nameof(Roivo.Core.Domain.Enums.TenantType.Accountant),
+            StringComparison.Ordinal);
 
         var userIdValue = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         if (!Guid.TryParse(userIdValue, out var userId)) return;

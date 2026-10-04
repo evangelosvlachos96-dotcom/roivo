@@ -50,4 +50,19 @@ public enum AuditAction
     CashflowForecastGenerated = 500,
     TaxObligationMarkedPaid = 501,
     CashflowCategoryCreated = 502,
+
+    // Notifications (600–699)
+
+    /// <summary>A user changed their notification preferences for a business.</summary>
+    NotificationSettingsUpdated = 600,
+
+    /// <summary>A user asked for a sample notification email to be sent to themselves.</summary>
+    TestNotificationSent = 601,
+
+    /// <summary>
+    /// A background notification job sent one email. Doubles as the dispatch
+    /// ledger the jobs read to stay idempotent — see
+    /// <c>INotificationDispatchLog</c>.
+    /// </summary>
+    NotificationEmailSent = 602,
 }

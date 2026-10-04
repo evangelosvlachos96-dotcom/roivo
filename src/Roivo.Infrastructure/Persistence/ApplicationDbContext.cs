@@ -26,6 +26,7 @@ public class ApplicationDbContext(
     public DbSet<CashflowForecast> CashflowForecasts => Set<CashflowForecast>();
     public DbSet<CashflowCategory> CashflowCategories => Set<CashflowCategory>();
     public DbSet<TaxObligation> TaxObligations => Set<TaxObligation>();
+    public DbSet<NotificationSettings> NotificationSettings => Set<NotificationSettings>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 

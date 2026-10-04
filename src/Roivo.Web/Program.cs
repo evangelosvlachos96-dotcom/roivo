@@ -91,6 +91,10 @@ builder.Services.AddScoped<AadeFailureNotificationJob>();
 builder.Services.AddScoped<BankingFailureNotificationJob>();
 builder.Services.AddScoped<NightlyReconciliationJob>();
 builder.Services.AddScoped<NightlyCashflowForecastJob>();
+builder.Services.AddScoped<DailyDigestJob>();
+builder.Services.AddScoped<TaxReminderJob>();
+builder.Services.AddScoped<CashflowAlertJob>();
+builder.Services.AddScoped<WeeklyReconciliationJob>();
 
 builder.Services.AddOptions<HangfireDashboardSettings>()
     .Bind(builder.Configuration.GetSection("Hangfire:Dashboard"));
@@ -210,6 +214,37 @@ recurringJobs.AddOrUpdate<NightlyCashflowForecastJob>(
     "nightly-cashflow-forecast",
     job => job.Execute(),
     Cron.Daily(6),
+    new RecurringJobOptions { TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Athens") });
+
+// 06:30 Athens: after the 06:00 forecast, which it reads. Running it before
+// would alert on yesterday's projection.
+recurringJobs.AddOrUpdate<CashflowAlertJob>(
+    "cashflow-alert",
+    job => job.Execute(CancellationToken.None),
+    "30 6 * * *",
+    new RecurringJobOptions { TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Athens") });
+
+// 07:00 Athens: the accountant's morning summary, once the night's syncing,
+// reconciliation and forecasting have all landed.
+recurringJobs.AddOrUpdate<DailyDigestJob>(
+    "daily-digest",
+    job => job.Execute(CancellationToken.None),
+    Cron.Daily(7),
+    new RecurringJobOptions { TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Athens") });
+
+// 08:00 Athens: tax reminders, ahead of the 09:00 failure notifications so a
+// deadline lands before the noise.
+recurringJobs.AddOrUpdate<TaxReminderJob>(
+    "tax-reminder",
+    job => job.Execute(CancellationToken.None),
+    Cron.Daily(8),
+    new RecurringJobOptions { TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Athens") });
+
+// Monday 07:00 Athens: the week's reconciliation summary.
+recurringJobs.AddOrUpdate<WeeklyReconciliationJob>(
+    "weekly-reconciliation",
+    job => job.Execute(CancellationToken.None),
+    Cron.Weekly(DayOfWeek.Monday, 7),
     new RecurringJobOptions { TimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Athens") });
 
 // Keep-alive target for cron-job.org so Render's free tier does not idle the

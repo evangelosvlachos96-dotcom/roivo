@@ -1,0 +1,163 @@
+@page "/accountant/alerts"
+@attribute [Authorize]
+
+@using System.Globalization
+@using Roivo.Application.Features.Accountant.Queries.GetAccountantAlerts
+@using Roivo.Application.Features.Accountant.Services
+@inject GetAccountantAlertsHandler GetAlertsHandler
+
+<PageTitle>@Roivo.Resources.Accountant.Alerts_Title</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-6">
+
+    <MudPaper Class="pa-4 mb-4">
+        <MudButton StartIcon="@Icons.Material.Outlined.ArrowBack" Href="/accountant/dashboard">
+            @Common.BackButton
+        </MudButton>
+        <MudText Typo="Typo.h5">@Roivo.Resources.Accountant.Alerts_Title</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">@Roivo.Resources.Accountant.Alerts_Subtitle</MudText>
+    </MudPaper>
+
+    @if (_loading)
+    {
+        <MudPaper Class="pa-6 text-center">
+            <MudProgressCircular Indeterminate="true" />
+            <MudText Typo="Typo.body2" Class="mt-2">@Common.Loading</MudText>
+        </MudPaper>
+    }
+    else if (_forbidden)
+    {
+        <MudAlert Severity="Severity.Warning">@Common.Error_Forbidden</MudAlert>
+    }
+    else if (_alerts.Count == 0)
+    {
+        <MudAlert Severity="Severity.Success">@Roivo.Resources.Accountant.Alerts_None</MudAlert>
+    }
+    else
+    {
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.subtitle2" Class="mb-2">
+                @Roivo.Resources.Accountant.Alerts_Count.Format(_alerts.Count)
+            </MudText>
+            <MudTable T="AccountantAlert" Items="@_alerts" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
+                <HeaderContent>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Severity</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Business</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Alert</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Date</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Detail</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Actions</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Severity">
+                        <MudChip T="string" Size="Size.Small" Color="@SeverityColor(context.Severity)">
+                            @SeverityLabel(context.Severity)
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Business">@context.BusinessName</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Alert">@TypeLabel(context.Type)</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Date">@DateLabel(context.Date)</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Detail">@DetailLabel(context)</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Actions">
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                                   EndIcon="@Icons.Material.Outlined.OpenInNew"
+                                   Href="@TargetHref(context)">
+                            @LinkLabel(context.Type)
+                        </MudButton>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    private bool _loading = true;
+    private bool _forbidden;
+    private IReadOnlyList<AccountantAlert> _alerts = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await GetAlertsHandler.Handle(
+            new GetAccountantAlertsQuery(), CancellationToken.None);
+
+        switch (result)
+        {
+            case GetAccountantAlertsResult.Success ok:
+                _alerts = ok.Alerts;
+                break;
+            case GetAccountantAlertsResult.Forbidden:
+                _forbidden = true;
+                break;
+        }
+
+        _loading = false;
+    }
+
+    private static string SeverityLabel(string severity) => severity switch
+    {
+        AccountantAlertSeverity.Critical => Roivo.Resources.Accountant.Severity_Critical,
+        AccountantAlertSeverity.Warning => Roivo.Resources.Accountant.Severity_Warning,
+        _ => Roivo.Resources.Accountant.Severity_Info,
+    };
+
+    private static Color SeverityColor(string severity) => severity switch
+    {
+        AccountantAlertSeverity.Critical => Color.Error,
+        AccountantAlertSeverity.Warning => Color.Warning,
+        _ => Color.Info,
+    };
+
+    private static string TypeLabel(string type) => type switch
+    {
+        AccountantAlertType.NegativeBalancePredicted => Roivo.Resources.Accountant.Alert_NegativeBalancePredicted,
+        AccountantAlertType.TaxDueSoon => Roivo.Resources.Accountant.Alert_TaxDueSoon,
+        AccountantAlertType.BankingSyncFailed => Roivo.Resources.Accountant.Alert_BankingSyncFailed,
+        AccountantAlertType.AadeSyncFailed => Roivo.Resources.Accountant.Alert_AadeSyncFailed,
+        AccountantAlertType.LowReconciliationRate => Roivo.Resources.Accountant.Alert_LowReconciliationRate,
+        _ => type,
+    };
+
+    // Deep-links to the page that can actually resolve the alert, so the row is
+    // one click from a fix rather than from a read-only summary.
+    private static string TargetHref(AccountantAlert alert) => alert.Type switch
+    {
+        AccountantAlertType.NegativeBalancePredicted => $"/businesses/{alert.BusinessId}/cashflow",
+        AccountantAlertType.TaxDueSoon => $"/businesses/{alert.BusinessId}/tax-calendar",
+        AccountantAlertType.BankingSyncFailed => $"/businesses/{alert.BusinessId}/banking",
+        AccountantAlertType.AadeSyncFailed => $"/businesses/{alert.BusinessId}/aade",
+        _ => $"/businesses/{alert.BusinessId}/reconciliation",
+    };
+
+    private static string LinkLabel(string type) => type switch
+    {
+        AccountantAlertType.NegativeBalancePredicted => Roivo.Resources.Accountant.Link_Cashflow,
+        AccountantAlertType.TaxDueSoon => Roivo.Resources.Accountant.Link_TaxCalendar,
+        AccountantAlertType.BankingSyncFailed => Roivo.Resources.Accountant.Banking,
+        AccountantAlertType.AadeSyncFailed => Roivo.Resources.Accountant.Aade,
+        _ => Roivo.Resources.Accountant.Link_Reconciliation,
+    };
+
+    private static string DateLabel(DateOnly? date)
+        => date?.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture) ?? "—";
+
+    private static string DetailLabel(AccountantAlert alert)
+    {
+        if (alert.Rate is { } rate)
+            return FormatPercent(rate);
+
+        if (alert.Amount is { } amount)
+            return FormatCurrency(amount);
+
+        // The integration's failure tag is unlocalized diagnostic text; showing
+        // it beats showing nothing when a sync is broken for a reason we have
+        // no Greek phrasing for yet.
+        return alert.Reason ?? "—";
+    }
+
+    private static string FormatCurrency(decimal value)
+        => string.Format(CultureInfo.GetCultureInfo("el-GR"), "{0:C}", value);
+
+    private static string FormatPercent(decimal fraction)
+        => string.Format(CultureInfo.GetCultureInfo("el-GR"), "{0:P1}", fraction);
+}

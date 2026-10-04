@@ -93,6 +93,10 @@ public static class Notifications
     public const string Reconciliation_RowUnmatchedTransactions = "Ασυμφώνητες κινήσεις";
     public const string Reconciliation_Cta = "Άνοιγμα συμφωνιών";
 
+    // ΕΝΦΙΑ has no label in Cashflow.cs (the tax-calendar UI never renders it),
+    // but the reminder email can name any obligation the calendar produced.
+    public const string TaxLabel_PropertyTax = "ΕΝΦΙΑ";
+
     // Sample values used by the test email so the layout is recognisable.
     public const string Sample_BusinessName = "Δείγμα Επιχείρησης";
     public const string Sample_Notice = "Αυτό είναι δοκιμαστικό μήνυμα με πλασματικά στοιχεία.";

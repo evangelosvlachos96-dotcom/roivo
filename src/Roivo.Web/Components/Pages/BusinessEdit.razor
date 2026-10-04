@@ -156,6 +156,18 @@
                 </MudButton>
             </MudStack>
         </MudPaper>
+
+        <MudPaper Class="pa-6 mt-4">
+            <MudText Typo="Typo.h6" Class="mb-2">@Roivo.Resources.Notifications.Title</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+                @Roivo.Resources.Notifications.Subtitle
+            </MudText>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Outlined.NotificationsNone"
+                       OnClick='() => Nav.NavigateTo($"/businesses/{Id}/settings/notifications")'>
+                @Roivo.Resources.Notifications.Nav_Notifications
+            </MudButton>
+        </MudPaper>
     }
 
 </MudContainer>

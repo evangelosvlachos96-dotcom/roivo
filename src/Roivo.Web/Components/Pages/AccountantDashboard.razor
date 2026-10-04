@@ -1,0 +1,192 @@
+@page "/accountant/dashboard"
+@attribute [Authorize]
+
+@using System.Globalization
+@using Roivo.Application.Features.Accountant.Queries.GetAccountantDashboard
+@using Roivo.Application.Features.Accountant.Services
+@using Roivo.Application.Features.Cashflow.Services
+@using DashboardData = Roivo.Application.Features.Accountant.Queries.GetAccountantDashboard.AccountantDashboard
+@inject GetAccountantDashboardHandler GetDashboardHandler
+
+<PageTitle>@Roivo.Resources.Accountant.Title</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-6">
+
+    <MudPaper Class="pa-4 mb-4">
+        <MudText Typo="Typo.h5">@Roivo.Resources.Accountant.Title</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">@Roivo.Resources.Accountant.Subtitle</MudText>
+    </MudPaper>
+
+    @if (_loading)
+    {
+        <MudPaper Class="pa-6 text-center">
+            <MudProgressCircular Indeterminate="true" />
+            <MudText Typo="Typo.body2" Class="mt-2">@Common.Loading</MudText>
+        </MudPaper>
+    }
+    else if (_forbidden)
+    {
+        <MudAlert Severity="Severity.Warning">@Common.Error_Forbidden</MudAlert>
+    }
+    else if (_data is null)
+    {
+        <MudAlert Severity="Severity.Error">@Common.Error_Generic</MudAlert>
+    }
+    else
+    {
+        <MudGrid Class="mb-4">
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Accountant.Summary_TotalBusinesses</MudText>
+                    <MudText Typo="Typo.h4">@_data.Summary.TotalBusinesses</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Accountant.Summary_AverageMatchRate</MudText>
+                    <MudText Typo="Typo.h4">@FormatPercent(_data.Summary.AverageMatchRate)</MudText>
+                    <MudProgressLinear Color="Color.Success" Rounded="true" Size="Size.Small" Class="mt-2"
+                                       Value="@((double)(_data.Summary.AverageMatchRate * 100m))" />
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Accountant.Summary_CashflowWarnings</MudText>
+                    <MudText Typo="Typo.h4">@_data.Summary.BusinessesWithCashflowWarnings</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Accountant.Summary_TaxDeadlines</MudText>
+                    <MudText Typo="Typo.h4">@_data.Summary.TaxDeadlinesNext30Days</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudPaper Class="pa-4">
+            <MudTable T="AccountantBusinessRow" Items="@_data.Businesses" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
+                <HeaderContent>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Business</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Afm</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Connections</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_MatchRate</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_CashflowHealth</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Runway</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_TaxDeadlines</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_LastSync</MudTh>
+                    <MudTh>@Roivo.Resources.Accountant.Column_Actions</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Business">@context.Name</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Afm">@context.Afm</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Connections">
+                        <MudStack Row="true" Spacing="1">
+                            <MudChip T="string" Size="Size.Small"
+                                     Color="@(context.AadeConnected ? Color.Success : Color.Default)"
+                                     Title="@(context.AadeConnected ? Roivo.Resources.Accountant.Connected : Roivo.Resources.Accountant.NotConnected)">
+                                @Roivo.Resources.Accountant.Aade
+                            </MudChip>
+                            <MudChip T="string" Size="Size.Small"
+                                     Color="@(context.BankingConnected ? Color.Success : Color.Default)"
+                                     Title="@(context.BankingConnected ? Roivo.Resources.Accountant.Connected : Roivo.Resources.Accountant.NotConnected)">
+                                @Roivo.Resources.Accountant.Banking
+                            </MudChip>
+                        </MudStack>
+                    </MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_MatchRate">
+                        @FormatPercent(context.MatchRate)
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                            @context.ConfirmedMatches / @context.TotalInvoices
+                        </MudText>
+                    </MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_CashflowHealth">
+                        <MudChip T="string" Size="Size.Small" Color="@HealthColor(context.CashflowHealth)">
+                            @HealthLabel(context.CashflowHealth)
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Runway">@RunwayLabel(context.DaysOfRunway)</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_TaxDeadlines">@context.TaxDeadlinesNext30Days</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_LastSync">
+                        <MudText Typo="Typo.caption">
+                            @Roivo.Resources.Accountant.Aade: @SyncLabel(context.LastAadeSyncAt)
+                        </MudText>
+                        <MudText Typo="Typo.caption">
+                            @Roivo.Resources.Accountant.Banking: @SyncLabel(context.LastBankingSyncAt)
+                        </MudText>
+                    </MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Accountant.Column_Actions">
+                        <MudStack Row="true" Spacing="1">
+                            <MudIconButton Size="Size.Small" Icon="@Icons.Material.Outlined.CompareArrows"
+                                           Title="@Roivo.Resources.Accountant.Link_Reconciliation"
+                                           Href="@($"/businesses/{context.BusinessId}/reconciliation")" />
+                            <MudIconButton Size="Size.Small" Icon="@Icons.Material.Outlined.ShowChart"
+                                           Title="@Roivo.Resources.Accountant.Link_Cashflow"
+                                           Href="@($"/businesses/{context.BusinessId}/cashflow")" />
+                            <MudIconButton Size="Size.Small" Icon="@Icons.Material.Outlined.EventNote"
+                                           Title="@Roivo.Resources.Accountant.Link_TaxCalendar"
+                                           Href="@($"/businesses/{context.BusinessId}/tax-calendar")" />
+                        </MudStack>
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.body2">@Roivo.Resources.Accountant.NoBusinesses</MudText>
+                </NoRecordsContent>
+            </MudTable>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    private bool _loading = true;
+    private bool _forbidden;
+    private DashboardData? _data;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await GetDashboardHandler.Handle(
+            new GetAccountantDashboardQuery(), CancellationToken.None);
+
+        switch (result)
+        {
+            case GetAccountantDashboardResult.Success ok:
+                _data = ok.Dashboard;
+                break;
+            case GetAccountantDashboardResult.Forbidden:
+                _forbidden = true;
+                break;
+        }
+
+        _loading = false;
+    }
+
+    private static string FormatPercent(decimal fraction)
+        => string.Format(CultureInfo.GetCultureInfo("el-GR"), "{0:P1}", fraction);
+
+    private static string HealthLabel(string health) => health switch
+    {
+        CashflowHealth.Green => Roivo.Resources.Accountant.Health_Green,
+        CashflowHealth.Yellow => Roivo.Resources.Accountant.Health_Yellow,
+        CashflowHealth.Red => Roivo.Resources.Accountant.Health_Red,
+        _ => Roivo.Resources.Accountant.Health_Unknown,
+    };
+
+    private static Color HealthColor(string health) => health switch
+    {
+        CashflowHealth.Green => Color.Success,
+        CashflowHealth.Yellow => Color.Warning,
+        CashflowHealth.Red => Color.Error,
+        _ => Color.Default,
+    };
+
+    private static string RunwayLabel(int? daysOfRunway) => daysOfRunway switch
+    {
+        null => Roivo.Resources.Accountant.Runway_Unknown,
+        CashflowSummary.UnlimitedRunway => Roivo.Resources.Accountant.Runway_Unlimited,
+        var days => Roivo.Resources.Accountant.Runway_Days.Format(days),
+    };
+
+    private static string SyncLabel(DateTime? syncedAtUtc)
+        => syncedAtUtc is null
+            ? Roivo.Resources.Accountant.NeverSynced
+            : syncedAtUtc.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture);
+}
