@@ -238,13 +238,20 @@ public sealed class ReconciliationRepository : IReconciliationRepository
             .CountAsync(t => accountIds.Contains(t.BankAccountId)
                 && t.BookingDate >= from && t.BookingDate <= to, cancellationToken);
 
+        // Scoped to matches whose invoice falls in the window, because
+        // TotalInvoices above is. Counting matches over all time against a
+        // windowed denominator lets the rate exceed 100% — glaringly so on the
+        // accountant report, whose window is a single month. The join mirrors
+        // ReconciledAmount below, which already scopes this way.
         var confirmed = await db.ReconciliationMatches.IgnoreQueryFilters()
-            .CountAsync(m => m.BusinessId == businessId
-                && m.Status == ReconciliationMatchStatus.Confirmed, cancellationToken);
+            .Where(m => m.BusinessId == businessId && m.Status == ReconciliationMatchStatus.Confirmed)
+            .Join(db.Invoices.IgnoreQueryFilters(), m => m.InvoiceId, i => i.Id, (_, i) => i)
+            .CountAsync(i => i.IssueDate >= from && i.IssueDate <= to, cancellationToken);
 
         var pending = await db.ReconciliationMatches.IgnoreQueryFilters()
-            .CountAsync(m => m.BusinessId == businessId
-                && m.Status == ReconciliationMatchStatus.Pending, cancellationToken);
+            .Where(m => m.BusinessId == businessId && m.Status == ReconciliationMatchStatus.Pending)
+            .Join(db.Invoices.IgnoreQueryFilters(), m => m.InvoiceId, i => i.Id, (_, i) => i)
+            .CountAsync(i => i.IssueDate >= from && i.IssueDate <= to, cancellationToken);
 
         var unreconciledInvoices = await UnreconciledInvoices(db, businessId)
             .CountAsync(i => i.IssueDate >= from && i.IssueDate <= to, cancellationToken);

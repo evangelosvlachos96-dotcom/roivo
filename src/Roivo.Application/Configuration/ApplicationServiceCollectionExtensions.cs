@@ -1,4 +1,11 @@
 using Microsoft.Extensions.DependencyInjection;
+using Roivo.Application.Abstractions;
+using Roivo.Application.Features.Accountant.Queries.GetAccountantAlerts;
+using Roivo.Application.Features.Accountant.Queries.GetAccountantDashboard;
+using Roivo.Application.Features.Accountant.Queries.GetAccountantReport;
+using Roivo.Application.Features.Notifications.Commands.SendTestNotification;
+using Roivo.Application.Features.Notifications.Commands.UpdateNotificationSettings;
+using Roivo.Application.Features.Notifications.Queries.GetNotificationSettings;
 using Roivo.Application.Features.Businesses.Commands.CreateBusiness;
 using Roivo.Application.Features.Cashflow.Commands.AddRecurringItem;
 using Roivo.Application.Features.Cashflow.Commands.MarkTaxPaid;
@@ -50,6 +57,9 @@ public static class ApplicationServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        // Singleton: stateless, and every layer must agree on what "now" is.
+        services.AddSingleton<IClock, SystemClock>();
+
         services.AddScoped<CreateBusinessHandler>();
         services.AddScoped<UpdateBusinessHandler>();
         services.AddScoped<DeactivateBusinessHandler>();
@@ -96,6 +106,14 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<MarkTaxPaidHandler>();
         services.AddScoped<AddRecurringItemHandler>();
         services.AddScoped<ListCashflowCategoriesHandler>();
+
+        services.AddScoped<GetAccountantDashboardHandler>();
+        services.AddScoped<GetAccountantAlertsHandler>();
+        services.AddScoped<GetAccountantReportHandler>();
+
+        services.AddScoped<GetNotificationSettingsHandler>();
+        services.AddScoped<UpdateNotificationSettingsHandler>();
+        services.AddScoped<SendTestNotificationHandler>();
 
         return services;
     }

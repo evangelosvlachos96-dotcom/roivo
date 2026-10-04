@@ -1,3 +1,4 @@
+using Roivo.Core.Domain.Enums;
 using Roivo.Core.Domain.Exceptions;
 using Roivo.Core.Domain.Interfaces;
 using Roivo.Core.Domain.Validation;
@@ -18,6 +19,20 @@ public class Business : ITenantScoped
     public string? Address { get; private set; }
     public bool IsActive { get; private set; } = true;
     public DateTime CreatedAt { get; private set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// How often this business files ΦΠΑ. Drives which obligations the tax
+    /// calendar generates. Stored rather than derived from turnover: the switch
+    /// takes effect from a tax year the accountant decides.
+    /// </summary>
+    public VatFrequency VatFrequency { get; private set; } = VatFrequency.Quarterly;
+
+    /// <summary>
+    /// Taxable value of property the business owns, for the ΕΝΦΙΑ estimate.
+    /// Null when unknown, in which case no ΕΝΦΙΑ obligation is projected —
+    /// Roivo cannot see the property register, so a guess would be fabrication.
+    /// </summary>
+    public decimal? EstimatedPropertyValue { get; private set; }
 
     // AADE credentials are written exclusively through IAadeCredentialStore,
     // which encrypts before storing. Both columns hold cipher-text — never
@@ -298,4 +313,20 @@ public class Business : ITenantScoped
 
     private static string? NormalizeOptional(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    /// <summary>Changes the ΦΠΑ filing frequency.</summary>
+    public void SetVatFrequency(VatFrequency frequency) => VatFrequency = frequency;
+
+    /// <summary>
+    /// Records the taxable property value used for the ΕΝΦΙΑ estimate. Pass
+    /// null to clear it, which stops ΕΝΦΙΑ being projected at all.
+    /// </summary>
+    /// <exception cref="DomainException">The value is negative.</exception>
+    public void SetEstimatedPropertyValue(decimal? value)
+    {
+        if (value is < 0m)
+            throw new DomainException("Estimated property value cannot be negative.");
+
+        EstimatedPropertyValue = value;
+    }
 }

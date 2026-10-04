@@ -3,7 +3,9 @@ using Polly;
 using Polly.Extensions.Http;
 using Roivo.Application.Abstractions;
 using Roivo.Infrastructure.Auditing;
+using Roivo.Application.Features.Notifications;
 using Roivo.Infrastructure.Email;
+using Roivo.Infrastructure.Email.Templates;
 using Roivo.Infrastructure.MultiTenancy;
 using Roivo.Infrastructure.Persistence;
 using Roivo.Infrastructure.Persistence.Repositories;
@@ -68,6 +70,13 @@ public static class PersistenceExtensions
         services.AddScoped<IBankTransactionRepository, BankTransactionRepository>();
         services.AddScoped<IReconciliationRepository, ReconciliationRepository>();
         services.AddScoped<ICashflowRepository, CashflowRepository>();
+        services.AddScoped<INotificationSettingsRepository, NotificationSettingsRepository>();
+
+        // The dispatcher renders a template and hands it to IEmailSender; the
+        // log is what stops a job re-sending the same notification every run.
+        services.AddScoped<INotificationEmailDispatcher, NotificationEmailDispatcher>();
+        services.AddScoped<INotificationDispatchLog, NotificationDispatchLog>();
+        services.AddScoped<NotificationEmailRenderer>();
         services.AddScoped<IAuditWriter, AuditWriter>();
 
         return services;

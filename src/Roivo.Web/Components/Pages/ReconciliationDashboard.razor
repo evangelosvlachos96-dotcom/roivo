@@ -1,10 +1,12 @@
 @page "/businesses/{Id:guid}/reconciliation"
 @attribute [Authorize]
+@using Roivo.Application.Abstractions
 
 @using Roivo.Application.Features.Businesses.Queries.GetBusinessById
 @using Roivo.Application.Features.Reconciliation.Commands.RunReconciliation
 @using Roivo.Application.Features.Reconciliation.Queries.GetReconciliationDashboard
 @using DashboardData = Roivo.Application.Features.Reconciliation.Queries.GetReconciliationDashboard.ReconciliationDashboard
+@inject IClock Clock
 @inject GetBusinessByIdHandler GetBusinessHandler
 @inject GetReconciliationDashboardHandler GetDashboardHandler
 @inject RunReconciliationHandler RunHandler
@@ -188,8 +190,11 @@
     private bool _running;
     private Business? _business;
     private DashboardData? _data;
-    private DateTime? _from = DateTime.Today.AddDays(-DefaultWindowDays);
-    private DateTime? _to = DateTime.Today;
+    // Initialised in OnInitializedAsync from IClock: DateTime.Today is the
+    // server's local date, and every handler works in UTC. Greece is UTC+2/+3,
+    // so the two disagreed about which day it was for up to three hours.
+    private DateTime? _from;
+    private DateTime? _to;
 
     private bool HasChartData => _data is not null && (_data.ConfirmedMatches + _data.UnreconciledInvoices) > 0;
 
@@ -209,6 +214,10 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var today = Clock.Today.ToDateTime(TimeOnly.MinValue);
+        _to = today;
+        _from = today.AddDays(-DefaultWindowDays);
+
         _business = await GetBusinessHandler.Handle(
             new GetBusinessByIdQuery(Id, ActiveOnly: true), CancellationToken.None);
 

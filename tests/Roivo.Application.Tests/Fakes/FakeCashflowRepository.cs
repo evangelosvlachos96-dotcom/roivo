@@ -14,6 +14,12 @@ public sealed class FakeCashflowRepository : ICashflowRepository
     public VatTotals VatTotals { get; set; } = new(0m, 0m);
     public decimal NetRevenue { get; set; }
 
+    /// <summary>What <see cref="GetTaxProfileAsync"/> returns; null means no such business.</summary>
+    public BusinessTaxProfile? TaxProfile { get; set; } = BusinessTaxProfile.Default;
+
+    /// <summary>Date ranges GetVatTotalsAsync was asked for, in call order.</summary>
+    public List<(DateOnly From, DateOnly To)> VatTotalsRequests { get; } = [];
+
     public Task<IReadOnlyList<DailyCashMovement>> ListDailyMovementsAsync(
         Guid businessId, DateOnly from, DateOnly to, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<DailyCashMovement>>(
@@ -85,11 +91,36 @@ public sealed class FakeCashflowRepository : ICashflowRepository
         return Task.CompletedTask;
     }
 
+    public Task<IReadOnlyList<CashflowForecast>> ListStoredForecastsAsync(
+        IReadOnlyCollection<Guid> businessIds, DateOnly from, DateOnly to,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<CashflowForecast>>(
+            [.. StoredForecasts
+                .Where(f => businessIds.Contains(f.BusinessId)
+                    && f.ForecastDate >= from && f.ForecastDate <= to)
+                .OrderBy(f => f.BusinessId).ThenBy(f => f.ForecastDate)]);
+
+    public Task<IReadOnlyList<TaxObligation>> ListTaxObligationsForBusinessesAsync(
+        IReadOnlyCollection<Guid> businessIds, DateOnly from, DateOnly to,
+        CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<TaxObligation>>(
+            [.. TaxObligations
+                .Where(t => businessIds.Contains(t.BusinessId)
+                    && t.DueDate >= from && t.DueDate <= to)
+                .OrderBy(t => t.DueDate).ThenBy(t => t.TaxType)]);
+
     public Task<VatTotals> GetVatTotalsAsync(
         Guid businessId, DateOnly from, DateOnly to, CancellationToken cancellationToken = default)
-        => Task.FromResult(VatTotals);
+    {
+        VatTotalsRequests.Add((from, to));
+        return Task.FromResult(VatTotals);
+    }
 
     public Task<decimal> GetNetRevenueAsync(
         Guid businessId, DateOnly from, DateOnly to, CancellationToken cancellationToken = default)
         => Task.FromResult(NetRevenue);
+
+    public Task<BusinessTaxProfile?> GetTaxProfileAsync(
+        Guid businessId, CancellationToken cancellationToken = default)
+        => Task.FromResult(TaxProfile);
 }

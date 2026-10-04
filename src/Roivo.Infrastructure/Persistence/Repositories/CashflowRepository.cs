@@ -186,6 +186,46 @@ public sealed class CashflowRepository : ICashflowRepository
         await db.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<CashflowForecast>> ListStoredForecastsAsync(
+        IReadOnlyCollection<Guid> businessIds, DateOnly from, DateOnly to,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(businessIds);
+
+        if (businessIds.Count == 0)
+            return [];
+
+        await using var db = await _factory.CreateDbContextAsync(cancellationToken);
+
+        var ids = businessIds.ToList();
+
+        return await db.CashflowForecasts
+            .IgnoreQueryFilters()
+            .Where(f => ids.Contains(f.BusinessId) && f.ForecastDate >= from && f.ForecastDate <= to)
+            .OrderBy(f => f.BusinessId).ThenBy(f => f.ForecastDate)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<TaxObligation>> ListTaxObligationsForBusinessesAsync(
+        IReadOnlyCollection<Guid> businessIds, DateOnly from, DateOnly to,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(businessIds);
+
+        if (businessIds.Count == 0)
+            return [];
+
+        await using var db = await _factory.CreateDbContextAsync(cancellationToken);
+
+        var ids = businessIds.ToList();
+
+        return await db.TaxObligations
+            .IgnoreQueryFilters()
+            .Where(t => ids.Contains(t.BusinessId) && t.DueDate >= from && t.DueDate <= to)
+            .OrderBy(t => t.DueDate).ThenBy(t => t.TaxType)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<VatTotals> GetVatTotalsAsync(
         Guid businessId, DateOnly from, DateOnly to, CancellationToken cancellationToken = default)
     {
@@ -218,6 +258,18 @@ public sealed class CashflowRepository : ICashflowRepository
                 && i.IssueDate >= from && i.IssueDate <= to
                 && i.CancelledByMark == null)
             .SumAsync(i => (decimal?)i.NetAmount, cancellationToken) ?? 0m;
+    }
+
+    public async Task<BusinessTaxProfile?> GetTaxProfileAsync(
+        Guid businessId, CancellationToken cancellationToken = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(cancellationToken);
+
+        return await db.Businesses
+            .IgnoreQueryFilters()
+            .Where(b => b.Id == businessId)
+            .Select(b => new BusinessTaxProfile(b.VatFrequency, b.EstimatedPropertyValue))
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     private static IQueryable<BankTransaction> TransactionsFor(ApplicationDbContext db, Guid businessId)

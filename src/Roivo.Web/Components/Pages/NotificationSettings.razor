@@ -1,0 +1,319 @@
+@page "/businesses/{Id:guid}/settings/notifications"
+@attribute [Authorize]
+
+@using System.Security.Claims
+@using Roivo.Application.Features.Businesses.Queries.GetBusinessById
+@using Roivo.Application.Features.Notifications
+@using Roivo.Application.Features.Notifications.Commands.SendTestNotification
+@using Roivo.Application.Features.Notifications.Commands.UpdateNotificationSettings
+@using Roivo.Application.Features.Notifications.Queries.GetNotificationSettings
+@inject GetBusinessByIdHandler GetBusinessHandler
+@inject GetNotificationSettingsHandler GetSettingsHandler
+@inject UpdateNotificationSettingsHandler UpdateSettingsHandler
+@inject SendTestNotificationHandler SendTestHandler
+@inject AuthenticationStateProvider AuthState
+@inject ISnackbar Snackbar
+
+<PageTitle>@Roivo.Resources.Notifications.Title</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-6">
+
+    <MudPaper Class="pa-4 mb-4">
+        <MudButton StartIcon="@Icons.Material.Outlined.ArrowBack"
+                   Href="/businesses">
+            @Common.BackButton
+        </MudButton>
+        <MudText Typo="Typo.h5">@Roivo.Resources.Notifications.Title</MudText>
+        <MudText Typo="Typo.body2">@(_business?.Name ?? "")</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">@Roivo.Resources.Notifications.Subtitle</MudText>
+    </MudPaper>
+
+    @if (_loading)
+    {
+        <MudPaper Class="pa-6 text-center">
+            <MudProgressCircular Indeterminate="true" />
+            <MudText Typo="Typo.body2" Class="mt-2">@Common.Loading</MudText>
+        </MudPaper>
+    }
+    else if (_business is null)
+    {
+        <MudAlert Severity="Severity.Warning">@Roivo.Resources.Notifications.Error_NotFound</MudAlert>
+    }
+    else
+    {
+        <MudPaper Class="pa-4 mb-4">
+
+            <MudSwitch T="bool" @bind-Value="_input.DailyDigestEnabled"
+                       Color="Color.Primary"
+                       Label="@Roivo.Resources.Notifications.DailyDigestLabel" />
+            <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-4">
+                @Roivo.Resources.Notifications.DailyDigestHelp
+            </MudText>
+
+            <MudDivider Class="mb-4" />
+
+            <MudSwitch T="bool" @bind-Value="_input.TaxReminderEnabled"
+                       Color="Color.Primary"
+                       Label="@Roivo.Resources.Notifications.TaxReminderLabel" />
+            <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-2">
+                @Roivo.Resources.Notifications.TaxReminderHelp
+            </MudText>
+            <MudNumericField T="int" @bind-Value="_input.TaxReminderDaysBefore"
+                             Label="@Roivo.Resources.Notifications.TaxReminderDaysBeforeLabel"
+                             Min="1"
+                             Max="@MaxTaxReminderDaysBefore"
+                             Disabled="@(!_input.TaxReminderEnabled)"
+                             Immediate="true"
+                             Class="mb-4"
+                             Style="max-width:260px;" />
+
+            <MudDivider Class="mb-4" />
+
+            <MudSwitch T="bool" @bind-Value="_input.CashflowAlertEnabled"
+                       Color="Color.Primary"
+                       Label="@Roivo.Resources.Notifications.CashflowAlertLabel" />
+            <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-2">
+                @Roivo.Resources.Notifications.CashflowAlertHelp
+            </MudText>
+            <MudNumericField T="decimal" @bind-Value="_input.CashflowAlertThreshold"
+                             Label="@Roivo.Resources.Notifications.CashflowAlertThresholdLabel"
+                             Disabled="@(!_input.CashflowAlertEnabled)"
+                             Immediate="true"
+                             Class="mb-4"
+                             Style="max-width:260px;" />
+
+            <MudDivider Class="mb-4" />
+
+            <MudSwitch T="bool" @bind-Value="_input.SyncFailureAlertEnabled"
+                       Color="Color.Primary"
+                       Label="@Roivo.Resources.Notifications.SyncFailureAlertLabel" />
+            <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-4">
+                @Roivo.Resources.Notifications.SyncFailureAlertHelp
+            </MudText>
+
+            <MudDivider Class="mb-4" />
+
+            <MudSwitch T="bool" @bind-Value="_input.WeeklyReconciliationEnabled"
+                       Color="Color.Primary"
+                       Label="@Roivo.Resources.Notifications.WeeklyReconciliationLabel" />
+            <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-4">
+                @Roivo.Resources.Notifications.WeeklyReconciliationHelp
+            </MudText>
+
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4">@_errorMessage</MudAlert>
+            }
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Outlined.Save"
+                       OnClick="HandleSaveAsync"
+                       Disabled="@_saving">
+                @(_saving ? Common.Saving : Roivo.Resources.Notifications.SaveButton)
+            </MudButton>
+        </MudPaper>
+
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.subtitle1" Class="mb-3">@Roivo.Resources.Notifications.SendTestButton</MudText>
+
+            <MudSelect T="NotificationKind" @bind-Value="_testKind"
+                       Label="@Roivo.Resources.Notifications.Title"
+                       Class="mb-4"
+                       Style="max-width:320px;">
+                @foreach (var kind in TestableKinds)
+                {
+                    <MudSelectItem Value="@kind">@KindLabel(kind)</MudSelectItem>
+                }
+            </MudSelect>
+
+            @if (!string.IsNullOrEmpty(_testErrorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4">@_testErrorMessage</MudAlert>
+            }
+
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Outlined.Send"
+                       OnClick="HandleSendTestAsync"
+                       Disabled="@_sendingTest">
+                @(_sendingTest ? Common.Saving : Roivo.Resources.Notifications.SendTestButton)
+            </MudButton>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private static readonly NotificationKind[] TestableKinds =
+    [
+        NotificationKind.DailyDigest,
+        NotificationKind.TaxReminder,
+        NotificationKind.CashflowAlert,
+        NotificationKind.SyncFailure,
+        NotificationKind.WeeklyReconciliation,
+    ];
+
+    private static int MaxTaxReminderDaysBefore => NotificationSettingsView.MaxTaxReminderDaysBefore;
+
+    private bool _loading = true;
+    private bool _saving;
+    private bool _sendingTest;
+
+    private string? _errorMessage;
+    private string? _testErrorMessage;
+    private string? _userId;
+    private Business? _business;
+
+    private NotificationKind _testKind = NotificationKind.DailyDigest;
+
+    private readonly SettingsInput _input = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthState.GetAuthenticationStateAsync();
+        _userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        _business = await GetBusinessHandler.Handle(
+            new GetBusinessByIdQuery(Id, ActiveOnly: true), CancellationToken.None);
+
+        if (_business is not null && !string.IsNullOrEmpty(_userId))
+        {
+            var view = await GetSettingsHandler.Handle(
+                new GetNotificationSettingsQuery(Id, _userId), CancellationToken.None);
+
+            Apply(view);
+        }
+
+        _loading = false;
+    }
+
+    private async Task HandleSaveAsync()
+    {
+        if (string.IsNullOrEmpty(_userId))
+        {
+            _errorMessage = Roivo.Resources.Notifications.Error_Forbidden;
+            return;
+        }
+
+        _saving = true;
+        _errorMessage = null;
+        try
+        {
+            var result = await UpdateSettingsHandler.Handle(
+                new UpdateNotificationSettingsCommand(
+                    Id,
+                    _userId,
+                    _input.DailyDigestEnabled,
+                    _input.TaxReminderEnabled,
+                    _input.TaxReminderDaysBefore,
+                    _input.CashflowAlertEnabled,
+                    _input.CashflowAlertThreshold,
+                    _input.SyncFailureAlertEnabled,
+                    _input.WeeklyReconciliationEnabled),
+                CancellationToken.None);
+
+            switch (result)
+            {
+                case UpdateNotificationSettingsResult.Success success:
+                    // Re-apply from what was stored: the domain clamps and
+                    // normalizes, so the form should show reality.
+                    Apply(success.Settings);
+                    Snackbar.Add(Roivo.Resources.Notifications.Saved, Severity.Success);
+                    return;
+                case UpdateNotificationSettingsResult.Forbidden:
+                    _errorMessage = Roivo.Resources.Notifications.Error_Forbidden;
+                    return;
+                case UpdateNotificationSettingsResult.NotFound:
+                    _errorMessage = Roivo.Resources.Notifications.Error_NotFound;
+                    return;
+                case UpdateNotificationSettingsResult.Invalid:
+                    _errorMessage = Roivo.Resources.Notifications.Error_InvalidLeadTime
+                        .Format(MaxTaxReminderDaysBefore);
+                    return;
+                default:
+                    _errorMessage = Common.Error_Generic;
+                    return;
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task HandleSendTestAsync()
+    {
+        if (string.IsNullOrEmpty(_userId))
+        {
+            _testErrorMessage = Roivo.Resources.Notifications.Error_Forbidden;
+            return;
+        }
+
+        _sendingTest = true;
+        _testErrorMessage = null;
+        try
+        {
+            var result = await SendTestHandler.Handle(
+                new SendTestNotificationCommand(Id, _userId, _testKind), CancellationToken.None);
+
+            switch (result)
+            {
+                case SendTestNotificationResult.Success:
+                    Snackbar.Add(Roivo.Resources.Notifications.TestSent, Severity.Success);
+                    return;
+                case SendTestNotificationResult.Forbidden:
+                    _testErrorMessage = Roivo.Resources.Notifications.Error_Forbidden;
+                    return;
+                case SendTestNotificationResult.NotFound:
+                    _testErrorMessage = Roivo.Resources.Notifications.Error_NotFound;
+                    return;
+                case SendTestNotificationResult.SendFailed failed
+                    when failed.Reason == SendTestNotificationResult.NoConfirmedEmailReason:
+                    _testErrorMessage = Roivo.Resources.Notifications.Error_NoEmail;
+                    return;
+                case SendTestNotificationResult.SendFailed failed:
+                    _testErrorMessage = Roivo.Resources.Notifications.Error_SendFailed.Format(failed.Reason);
+                    return;
+                default:
+                    _testErrorMessage = Common.Error_Generic;
+                    return;
+            }
+        }
+        finally
+        {
+            _sendingTest = false;
+        }
+    }
+
+    private void Apply(NotificationSettingsView view)
+    {
+        _input.DailyDigestEnabled = view.DailyDigestEnabled;
+        _input.TaxReminderEnabled = view.TaxReminderEnabled;
+        _input.TaxReminderDaysBefore = view.TaxReminderDaysBefore;
+        _input.CashflowAlertEnabled = view.CashflowAlertEnabled;
+        _input.CashflowAlertThreshold = view.CashflowAlertThreshold;
+        _input.SyncFailureAlertEnabled = view.SyncFailureAlertEnabled;
+        _input.WeeklyReconciliationEnabled = view.WeeklyReconciliationEnabled;
+    }
+
+    private static string KindLabel(NotificationKind kind) => kind switch
+    {
+        NotificationKind.DailyDigest => Roivo.Resources.Notifications.Kind_DailyDigest,
+        NotificationKind.TaxReminder => Roivo.Resources.Notifications.Kind_TaxReminder,
+        NotificationKind.CashflowAlert => Roivo.Resources.Notifications.Kind_CashflowAlert,
+        NotificationKind.SyncFailure => Roivo.Resources.Notifications.Kind_SyncFailure,
+        NotificationKind.WeeklyReconciliation => Roivo.Resources.Notifications.Kind_WeeklyReconciliation,
+        _ => kind.ToString(),
+    };
+
+    private sealed class SettingsInput
+    {
+        public bool DailyDigestEnabled { get; set; }
+        public bool TaxReminderEnabled { get; set; } = true;
+        public int TaxReminderDaysBefore { get; set; } = 7;
+        public bool CashflowAlertEnabled { get; set; } = true;
+        public decimal CashflowAlertThreshold { get; set; }
+        public bool SyncFailureAlertEnabled { get; set; } = true;
+        public bool WeeklyReconciliationEnabled { get; set; }
+    }
+}

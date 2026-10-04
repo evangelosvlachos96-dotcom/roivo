@@ -678,6 +678,10 @@ namespace Roivo.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<decimal?>("EstimatedPropertyValue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
                     b.Property<bool>("HasAadeFailure")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -709,6 +713,11 @@ namespace Roivo.Infrastructure.Migrations
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("VatFrequency")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.HasKey("Id");
 
@@ -981,6 +990,61 @@ namespace Roivo.Infrastructure.Migrations
                     b.HasIndex("TenantId", "IssueDate");
 
                     b.ToTable("Invoices");
+                });
+
+            modelBuilder.Entity("Roivo.Core.Domain.Entities.NotificationSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BusinessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("CashflowAlertEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("CashflowAlertThreshold")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("DailyDigestEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("SyncFailureAlertEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("TaxReminderDaysBefore")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("TaxReminderEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<bool>("WeeklyReconciliationEnabled")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("BusinessId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("NotificationSettings");
                 });
 
             modelBuilder.Entity("Roivo.Core.Domain.Entities.ReconciliationMatch", b =>
@@ -1305,6 +1369,17 @@ namespace Roivo.Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("Roivo.Core.Domain.Entities.Invoice", b =>
+                {
+                    b.HasOne("Roivo.Core.Domain.Entities.Business", "Business")
+                        .WithMany()
+                        .HasForeignKey("BusinessId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Business");
+                });
+
+            modelBuilder.Entity("Roivo.Core.Domain.Entities.NotificationSettings", b =>
                 {
                     b.HasOne("Roivo.Core.Domain.Entities.Business", "Business")
                         .WithMany()
