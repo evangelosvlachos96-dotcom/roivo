@@ -452,4 +452,35 @@ public class AccountantHandlerTests
         await Assert.ThrowsAsync<ArgumentNullException>(() => sut.Alerts.Handle(null!));
         await Assert.ThrowsAsync<ArgumentNullException>(() => sut.Report.Handle(null!));
     }
+
+    [Fact]
+    public async Task MatchRate_CannotExceedOneHundredPercent_WhenHistoryPredatesTheWindow()
+    {
+        var sut = BuildSut();
+        var business = Seed(sut, "Acme");
+
+        // One invoice inside the window, and three confirmed matches whose
+        // invoices are far older. Counting matches over all time against a
+        // windowed invoice count used to yield 300%.
+        var inWindow = SeedInvoice(sut, business.Id);
+        sut.Reconciliation.Matches.Add(
+            ReconciliationMatch.CreateManual(business.Id, inWindow.Id, Guid.NewGuid(), "u", null));
+
+        for (var i = 0; i < 3; i++)
+        {
+            var old = Invoice.Create(
+                business.Id, Guid.NewGuid().ToString(), InvoiceDirection.Issued, "1.1",
+                Today.AddYears(-1), AnotherValidAfm, "ACME AE",
+                500m, 0m, 500m, Currency.EUR, null);
+            sut.Reconciliation.Invoices.Add(old);
+            sut.Reconciliation.Matches.Add(
+                ReconciliationMatch.CreateManual(business.Id, old.Id, Guid.NewGuid(), "u", null));
+        }
+
+        var result = await sut.Dashboard.Handle(new GetAccountantDashboardQuery());
+
+        var success = result.Should().BeOfType<GetAccountantDashboardResult.Success>().Subject;
+        success.Dashboard.Businesses.Should().ContainSingle()
+            .Which.MatchRate.Should().BeLessThanOrEqualTo(1m);
+    }
 }

@@ -69,6 +69,33 @@ verified in Hangfire's own tables.
   ledger row per send rather than stamping a column. It works and is dedupe-keyed
   per job, but see the gap below.
 
+### Post-build review — four defects found and fixed
+
+Both features were reviewed adversarially after they were built. M10 came back
+with **no blockers**: tenant scope is correct on all four jobs and all seven
+repository calls, writes carry a real `TenantId` rather than `Guid.Empty`, and
+every interpolated value in every template is HTML-escaped. M9 did not, and the
+fixes are in:
+
+- **Match rate could exceed 100%.** `GetCountsAsync` counted confirmed and
+  pending matches over all time against a window-filtered invoice count. Latent
+  since M6 — invisible on a 90-day dashboard with little history, glaring on the
+  accountant report's one-month window, where a long-reconciled client would read
+  several hundred percent. It also voided the "below 50%" alert. Both counts are
+  now scoped to the window's invoices, the fake mirrors the real repository, and
+  a regression test pins it.
+- **Overdue tax obligations were invisible.** Both accountant queries floored
+  their window at today, so an unpaid obligation vanished on the morning it
+  became late — and `TaxObligation.IsOverdue` could never return true, which made
+  the overdue UI unreachable dead code. Both now look back 90 days.
+- **One undeliverable address aborted a whole job run.** Resend throws on any
+  4xx and Polly deliberately does not retry those, so a single rejected recipient
+  starved everyone ordered after it — on that run and identically on every run
+  after. All four jobs now isolate each send and continue.
+- **A doc comment promised tenant filtering that does not exist.** The bulk
+  cashflow reads use `IgnoreQueryFilters()`; confinement comes entirely from the
+  ids passed in. The comment now says so.
+
 ### Known gaps / next steps
 
 - **The dispatch ledger belongs in its own table.** A `NotificationDispatches`
@@ -77,9 +104,22 @@ verified in Hangfire's own tables.
   one atomic insert, closing the race if two Hangfire workers run a job at once.
   A `LastSentAt` column on `NotificationSettings` would *not* do: the tax reminder
   dedupes per obligation per lead-time stage, which needs a row per key.
-- **Reconciliation counts are still N+1 on the accountant dashboard.**
-  `IReconciliationRepository` has no bulk variant, so a 50-client dashboard makes
-  50 `GetCountsAsync` calls. The other two aggregates are already bulk.
+- **Reconciliation counts are still N+1, and it is worse than it looks.**
+  `GetCountsAsync` is eight SQL round trips, not one, and
+  `IReconciliationRepository` has no bulk variant — so a 50-client accountant
+  page issues ~403 statements, doubled to ~806 because `App.razor` prerenders
+  without `prerender: false`. The digest and weekly jobs pay the same cost. The
+  fix is a `GetCountsForBusinessesAsync(IReadOnlyCollection<Guid>, from, to)`
+  returning a dictionary with zeroed entries for businesses that have no rows,
+  mirroring the two bulk cashflow reads.
+- **Two notification jobs ignore bulk reads that already exist.**
+  `CashflowAlertJob` passes a one-element array to a collection-taking API fifty
+  times, and `TaxReminderJob` never uses `ListTaxObligationsForBusinessesAsync`.
+- **No `[DisableConcurrentExecution]` on the notification jobs.** Two Hangfire
+  servers would both pass the "already sent?" check before either stamps the
+  ledger. The attribute needs a Hangfire reference that `Roivo.Infrastructure`
+  deliberately does not have — its jobs are plain classes invoked reflectively —
+  so the unique-index fix above is the right close, not a package dependency.
 - Both migrations are applied to staging; existing businesses defaulted to
   `Quarterly` ΦΠΑ and a null property value, so no ΕΝΦΙΑ is projected for them
   until someone enters a value.

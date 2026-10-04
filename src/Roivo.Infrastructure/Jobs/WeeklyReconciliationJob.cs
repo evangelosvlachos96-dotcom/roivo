@@ -117,13 +117,27 @@ public sealed class WeeklyReconciliationJob
                 counts.UnreconciledInvoices,
                 counts.UnreconciledTransactions));
 
-            await _emailSender
-                .SendEmailAsync(recipient.Email, email.Subject, email.HtmlBody, cancellationToken)
-                .ConfigureAwait(false);
+            // One undeliverable address must not abort the run. Resend throws
+            // on any 4xx and Polly deliberately does not retry those, so without
+            // this a single rejected recipient would starve everyone ordered
+            // after it — on this run and identically on every later one.
+            try
+            {
+                await _emailSender
+                    .SendEmailAsync(recipient.Email, email.Subject, email.HtmlBody, cancellationToken)
+                    .ConfigureAwait(false);
 
-            await _dispatchLog
-                .RecordSentAsync(recipient.TenantId, dispatchKey, cancellationToken)
-                .ConfigureAwait(false);
+                await _dispatchLog
+                    .RecordSentAsync(recipient.TenantId, dispatchKey, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Failed to send the weekly reconciliation to {Recipient} for business {BusinessId}; continuing with the rest",
+                    recipient.Email, recipient.BusinessId);
+                continue;
+            }
 
             _logger.LogInformation(
                 "Sent weekly reconciliation summary to {Recipient} for business {BusinessId} ({From} to {To})",

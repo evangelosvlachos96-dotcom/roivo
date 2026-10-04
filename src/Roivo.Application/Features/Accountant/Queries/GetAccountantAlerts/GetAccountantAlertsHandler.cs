@@ -21,6 +21,14 @@ public sealed class GetAccountantAlertsHandler
     /// <summary>A tax deadline inside this many days raises a warning.</summary>
     public const int TaxDueWithinDays = 7;
 
+    /// <summary>
+    /// How far back to look for obligations that have already fallen due.
+    /// Without this the window starts at today, so an unpaid obligation stops
+    /// being reported on the very morning it becomes late — which is when an
+    /// accountant most needs to see it.
+    /// </summary>
+    public const int OverdueLookbackDays = 90;
+
     /// <summary>Below this match rate the client's paperwork is flagged.</summary>
     public const decimal LowMatchRateThreshold = 0.5m;
 
@@ -76,7 +84,7 @@ public sealed class GetAccountantAlertsHandler
 
         var obligations = await _cashflow
             .ListTaxObligationsForBusinessesAsync(
-                ids, today, today.AddDays(TaxDueWithinDays), cancellationToken)
+                ids, today.AddDays(-OverdueLookbackDays), today.AddDays(TaxDueWithinDays), cancellationToken)
             .ConfigureAwait(false);
 
         var alerts = new List<AccountantAlert>();

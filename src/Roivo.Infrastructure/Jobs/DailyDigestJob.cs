@@ -115,13 +115,27 @@ public sealed class DailyDigestJob
 
             var email = _renderer.Render(new DailyDigestEmail.Model(day, rows));
 
-            await _emailSender
-                .SendEmailAsync(first.Email, email.Subject, email.HtmlBody, cancellationToken)
-                .ConfigureAwait(false);
+            // One undeliverable address must not abort the run. Resend throws
+            // on any 4xx and Polly deliberately does not retry those, so without
+            // this a single rejected recipient would starve everyone ordered
+            // after it — on this run and identically on every later one.
+            try
+            {
+                await _emailSender
+                    .SendEmailAsync(first.Email, email.Subject, email.HtmlBody, cancellationToken)
+                    .ConfigureAwait(false);
 
-            await _dispatchLog
-                .RecordSentAsync(first.TenantId, dispatchKey, cancellationToken)
-                .ConfigureAwait(false);
+                await _dispatchLog
+                    .RecordSentAsync(first.TenantId, dispatchKey, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Failed to send the daily digest to {Recipient} for user {UserId}; continuing with the rest",
+                    first.Email, group.Key);
+                continue;
+            }
 
             _logger.LogInformation(
                 "Sent daily digest for {Day} to {Recipient} covering {Count} businesses",

@@ -66,8 +66,13 @@ public interface ICashflowRepository
     /// Exists for the accountant-wide views: an accountant may manage fifty
     /// businesses, and re-running the 90-day forecast engine per business to
     /// render one dashboard is fifty times the work for figures the nightly job
-    /// has already persisted. Tenant-filtered like every other read here, so it
-    /// only ever returns the caller's own businesses.
+    /// has already persisted.
+    /// </remarks>
+    /// <remarks>
+    /// NOT tenant-filtered — the implementation ignores the query filter so the
+    /// background jobs can use it. Confinement comes entirely from the ids you
+    /// pass: source them from a tenant-scoped read such as
+    /// <see cref="IBusinessRepository.ListActiveAsync"/>, never from user input.
     /// </remarks>
     Task<IReadOnlyList<CashflowForecast>> ListStoredForecastsAsync(
         IReadOnlyCollection<Guid> businessIds,

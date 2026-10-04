@@ -16,6 +16,9 @@ namespace Roivo.Application.Features.Accountant.Queries.GetAccountantReport;
 public sealed class GetAccountantReportHandler
 {
     /// <summary>How far ahead the combined tax calendar looks.</summary>
+    /// <summary>How far back overdue obligations stay visible.</summary>
+    private const int OverdueLookbackDays = 90;
+
     public const int TaxCalendarHorizonDays = 180;
 
     /// <summary>Horizon the stored projection is read over.</summary>
@@ -82,7 +85,11 @@ public sealed class GetAccountantReportHandler
         var names = businesses.ToDictionary(b => b.Id, b => b.Name);
 
         var obligations = await _cashflow
-            .ListTaxObligationsForBusinessesAsync(ids, today, taxCalendarTo, cancellationToken)
+            // Starts before today so an obligation that is already late still
+            // appears. With a floor of today, TaxObligation.IsOverdue below
+            // could never be true and the overdue status was unreachable.
+            .ListTaxObligationsForBusinessesAsync(
+                ids, today.AddDays(-OverdueLookbackDays), taxCalendarTo, cancellationToken)
             .ConfigureAwait(false);
 
         var forecastsByBusiness = (await _cashflow

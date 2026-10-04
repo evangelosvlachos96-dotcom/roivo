@@ -132,11 +132,15 @@ public sealed class FakeReconciliationRepository : IReconciliationRepository
         var transactions = Transactions.Where(t => BusinessOf(t) == businessId
             && t.BookingDate >= from && t.BookingDate <= to).ToList();
 
-        var confirmed = Matches.Count(m => m.BusinessId == businessId
-            && m.Status == ReconciliationMatchStatus.Confirmed);
+        // Scoped to the window's invoices, mirroring the real repository: an
+        // unscoped count over a windowed denominator lets the rate exceed 100%.
+        var confirmed = Matches
+            .Where(m => m.BusinessId == businessId && m.Status == ReconciliationMatchStatus.Confirmed)
+            .Count(m => invoices.Any(i => i.Id == m.InvoiceId));
 
-        var pending = Matches.Count(m => m.BusinessId == businessId
-            && m.Status == ReconciliationMatchStatus.Pending);
+        var pending = Matches
+            .Where(m => m.BusinessId == businessId && m.Status == ReconciliationMatchStatus.Pending)
+            .Count(m => invoices.Any(i => i.Id == m.InvoiceId));
 
         var reconciledAmount = Matches
             .Where(m => m.BusinessId == businessId && m.Status == ReconciliationMatchStatus.Confirmed)
