@@ -5,6 +5,7 @@
 @using Microsoft.AspNetCore.Identity
 @using Roivo.Application.Features.Businesses.Queries.ListActiveBusinesses
 @using Roivo.Application.Features.Tenants.Queries.GetCurrentTenant
+@using Roivo.Web.Components.Shared
 @inject AuthenticationStateProvider AuthState
 @inject UserManager<ApplicationUser> UserManager
 @inject GetCurrentTenantHandler GetTenantHandler
@@ -14,7 +15,24 @@
 
 @if (_loading)
 {
-    <MudProgressCircular Indeterminate="true" />
+    <MudPaper Class="pa-6 mb-4" Elevation="1">
+        <SkeletonText Width="55%" Height="2rem" />
+        <SkeletonText Announce="false" Width="35%" Height="0.9rem" />
+    </MudPaper>
+
+    <MudPaper Class="pa-6 mb-4" Elevation="1">
+        <SkeletonText Announce="false" Width="30%" Height="1.25rem" Class="mb-3" />
+        <MudGrid>
+            <MudItem xs="12" sm="6"><SkeletonCard Announce="false" ValueWidth="80%" /></MudItem>
+            <MudItem xs="12" sm="3"><SkeletonCard Announce="false" ValueWidth="65%" /></MudItem>
+            <MudItem xs="12" sm="3"><SkeletonCard Announce="false" ValueWidth="65%" /></MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <MudPaper Class="pa-6 mb-4" Elevation="1">
+        <SkeletonText Announce="false" Width="25%" Height="1.25rem" Class="mb-2" />
+        <SkeletonText Announce="false" Width="50%" Height="0.9rem" />
+    </MudPaper>
 }
 else if (_error is not null)
 {

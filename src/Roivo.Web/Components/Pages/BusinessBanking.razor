@@ -9,6 +9,7 @@
 @using Roivo.Application.Features.Banking.Queries.ListBankingProviders
 @using Roivo.Application.Features.Businesses.Queries.GetBusinessById
 @using Roivo.Core.Domain.Entities
+@using Roivo.Web.Components.Shared
 @inject GetBusinessByIdHandler GetBusinessHandler
 @inject GetBankingConnectionStatusHandler GetStatusHandler
 @inject ListBankingProvidersHandler ListProvidersHandler
@@ -23,16 +24,25 @@
 
 <MudContainer MaxWidth="MaxWidth.Small" Class="mt-6">
 
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
-        <MudIconButton Icon="@Icons.Material.Outlined.ArrowBack"
-                       OnClick='() => Nav.NavigateTo("/businesses")' />
-        <MudText Typo="Typo.h4">@Roivo.Resources.Banking.PageTitle</MudText>
-    </MudStack>
+    <MudPaper Class="pa-4 mb-4">
+        <BusinessBreadcrumbs BusinessId="Id" BusinessName="@business?.Name"
+                             CurrentPage="@Roivo.Resources.Banking.PageTitle" />
+        <MudText Typo="Typo.h5">@Roivo.Resources.Banking.PageTitle</MudText>
+    </MudPaper>
 
     @if (loading)
     {
-        <MudPaper Class="pa-6 text-center">
-            <MudProgressCircular Indeterminate="true" />
+        <MudPaper Class="pa-6">
+            <SkeletonText Height="2.5rem" Class="mb-4" />
+            <MudGrid Class="mb-4">
+                <MudItem xs="12" sm="6">
+                    <SkeletonText Announce="false" Lines="2" Width="70%" LastLineWidth="90%" Height="0.9rem" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <SkeletonText Announce="false" Lines="2" Width="70%" LastLineWidth="90%" Height="0.9rem" />
+                </MudItem>
+            </MudGrid>
+            <SkeletonText Announce="false" Width="55%" Height="2.5rem" />
         </MudPaper>
     }
     else if (business is null)
@@ -61,11 +71,11 @@
             }
 
             <MudGrid Class="mb-4">
-                <MudItem xs="6">
+                <MudItem xs="12" sm="6">
                     <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Banking.ConnectedBankLabel</MudText>
                     <MudText Typo="Typo.body1">@(status.BankName ?? "—")</MudText>
                 </MudItem>
-                <MudItem xs="6">
+                <MudItem xs="12" sm="6">
                     <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Banking.LastSyncLabel</MudText>
                     <MudText Typo="Typo.body1">
                         @(status.LastSyncAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? Roivo.Resources.Banking.LastSyncNever)
@@ -73,7 +83,7 @@
                 </MudItem>
                 @if (status.ConsentExpiresAt.HasValue)
                 {
-                    <MudItem xs="6">
+                    <MudItem xs="12" sm="6">
                         <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Banking.ConsentExpiresLabel</MudText>
                         <MudText Typo="Typo.body1">@status.ConsentExpiresAt.Value.ToLocalTime().ToString("dd/MM/yyyy")</MudText>
                     </MudItem>
@@ -93,7 +103,7 @@
                 </MudList>
             }
 
-            <MudStack Row="true" Spacing="2">
+            <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
                 @if (status.State == BankingConnectionState.Error)
                 {
                     <MudButton Variant="Variant.Filled" Color="Color.Warning"

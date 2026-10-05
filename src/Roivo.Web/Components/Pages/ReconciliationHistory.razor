@@ -10,6 +10,7 @@
 @using Roivo.Application.Features.Reconciliation.Queries.GetReconciliationDashboard
 @using Roivo.Application.Features.Reconciliation.Queries.ListReconciliationMatches
 @using Roivo.Core.Domain.Enums
+@using Roivo.Web.Components.Shared
 @inject GetBusinessByIdHandler GetBusinessHandler
 @inject ListReconciliationMatchesHandler ListMatchesHandler
 @inject ConfirmSuggestedMatchHandler ConfirmHandler
@@ -23,19 +24,22 @@
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-6">
 
     <MudPaper Class="pa-4 mb-4">
-        <MudButton StartIcon="@Icons.Material.Outlined.ArrowBack"
-                   Href="@($"/businesses/{Id}/reconciliation")">
-            @Common.BackButton
-        </MudButton>
+        <BusinessBreadcrumbs BusinessId="Id" BusinessName="@_business?.Name"
+                             ParentPage="@Reconciliation.Title"
+                             ParentHref="@($"/businesses/{Id}/reconciliation")"
+                             CurrentPage="@Reconciliation.History" />
         <MudText Typo="Typo.h5">@Reconciliation.History</MudText>
         <MudText Typo="Typo.body2" Class="mud-text-secondary">@Reconciliation.Subtitle</MudText>
     </MudPaper>
 
     @if (_loading)
     {
-        <MudPaper Class="pa-6 text-center">
-            <MudProgressCircular Indeterminate="true" />
-            <MudText Typo="Typo.body2" Class="mt-2">@Common.Loading</MudText>
+        <MudPaper Class="pa-4">
+            <MudGrid Class="mb-2">
+                <MudItem xs="12" sm="6" md="4"><SkeletonText Height="2.5rem" /></MudItem>
+                <MudItem xs="12" sm="6" md="8"><SkeletonText Announce="false" Height="2.5rem" Width="60%" /></MudItem>
+            </MudGrid>
+            <SkeletonTable Announce="false" Rows="8" Columns="7" />
         </MudPaper>
     }
     else if (_business is null)
@@ -64,7 +68,8 @@
                 </MudItem>
             </MudGrid>
 
-            <MudTable T="ReconciliationMatchListItem" Items="@FilteredMatches" Dense="true" Hover="true">
+            <MudTable T="ReconciliationMatchListItem" Items="@FilteredMatches" Dense="true" Hover="true"
+                      Breakpoint="Breakpoint.Sm">
                 <HeaderContent>
                     <MudTh>@Reconciliation.Column_Date</MudTh>
                     <MudTh>@Reconciliation.Column_Invoice</MudTh>
@@ -75,26 +80,26 @@
                     <MudTh></MudTh>
                 </HeaderContent>
                 <RowTemplate>
-                    <MudTd>@context.MatchedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
-                    <MudTd>
+                    <MudTd DataLabel="@Reconciliation.Column_Date">@context.MatchedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
+                    <MudTd DataLabel="@Reconciliation.Column_Invoice">
                         @context.InvoiceIssueDate.ToString("dd/MM/yyyy") — @FormatCurrency(context.InvoiceGrossAmount)
                         <br /><MudText Typo="Typo.caption">@context.InvoiceCounterpartyName</MudText>
                     </MudTd>
-                    <MudTd>
+                    <MudTd DataLabel="@Reconciliation.Column_Transaction">
                         @context.TransactionBookingDate.ToString("dd/MM/yyyy") — @FormatCurrency(context.TransactionAmount)
                         <br /><MudText Typo="Typo.caption">@context.TransactionCounterpartyName</MudText>
                     </MudTd>
-                    <MudTd>@MatchTypeLabel(context.MatchType)</MudTd>
-                    <MudTd>
+                    <MudTd DataLabel="@Reconciliation.Column_Type">@MatchTypeLabel(context.MatchType)</MudTd>
+                    <MudTd DataLabel="@Reconciliation.Column_Status">
                         <MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Status)">
                             @StatusLabel(context.Status)
                         </MudChip>
                     </MudTd>
-                    <MudTd>@FormatPercent(context.Confidence)</MudTd>
+                    <MudTd DataLabel="@Reconciliation.Confidence">@FormatPercent(context.Confidence)</MudTd>
                     <MudTd>
                         @if (context.Status == nameof(ReconciliationMatchStatus.Pending))
                         {
-                            <MudStack Row="true" Spacing="1">
+                            <MudStack Row="true" Spacing="1" Wrap="Wrap.Wrap">
                                 <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Success"
                                            Disabled="@_busy"
                                            OnClick="@(() => ConfirmAsync(context.MatchId))">

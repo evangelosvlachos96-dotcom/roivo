@@ -7,6 +7,7 @@
 @using Roivo.Application.Features.Accountant.Queries.GetAccountantReport
 @using Roivo.Application.Features.Accountant.Services
 @using Roivo.Application.Features.Cashflow.Services
+@using Roivo.Web.Components.Shared
 @inject GetAccountantReportHandler GetReportHandler
 @inject IClock Clock
 @inject IJSRuntime JS
@@ -25,9 +26,26 @@
 
     @if (_loading)
     {
-        <MudPaper Class="pa-6 text-center">
-            <MudProgressCircular Indeterminate="true" />
-            <MudText Typo="Typo.body2" Class="mt-2">@Common.Loading</MudText>
+        <MudPaper Class="pa-4 mb-4">
+            <MudGrid>
+                <MudItem xs="12" sm="6" md="4"><SkeletonText Height="2.5rem" /></MudItem>
+                <MudItem xs="12" sm="6" md="4"><SkeletonText Announce="false" Height="2.5rem" Width="70%" /></MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mb-4">
+            <SkeletonText Announce="false" Width="30%" Height="0.9rem" Class="mb-3" />
+            <SkeletonTable Announce="false" Rows="5" Columns="9" />
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mb-4">
+            <SkeletonText Announce="false" Width="30%" Height="0.9rem" Class="mb-3" />
+            <SkeletonTable Announce="false" Rows="4" Columns="6" />
+        </MudPaper>
+
+        <MudPaper Class="pa-4">
+            <SkeletonText Announce="false" Width="30%" Height="0.9rem" Class="mb-3" />
+            <SkeletonTable Announce="false" Rows="4" Columns="8" />
         </MudPaper>
     }
     else if (_forbidden)

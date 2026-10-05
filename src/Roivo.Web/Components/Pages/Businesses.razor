@@ -4,6 +4,7 @@
 @using Roivo.Application.Abstractions.Aade
 @using Roivo.Application.Features.Businesses.Commands.DeactivateBusiness
 @using Roivo.Application.Features.Businesses.Queries.ListActiveBusinesses
+@using Roivo.Web.Components.Shared
 @inject NavigationManager Nav
 @inject ListActiveBusinessesHandler ListHandler
 @inject DeactivateBusinessHandler DeactivateHandler
@@ -21,7 +22,8 @@
     <MudText Typo="Typo.body1" Class="mb-4">
         Διαχείριση των επιχειρήσεων που εκπροσωπείτε.
     </MudText>
-    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center"
+              Wrap="Wrap.Wrap" Class="mb-4">
         <MudText Typo="Typo.h6">Λίστα επιχειρήσεων</MudText>
         @if (!loading && businesses.Count > 0 && BusinessPermissions.CanCreate(TenantContext.CurrentTenantType))
         {
@@ -34,7 +36,9 @@
     </MudStack>
     @if (loading)
     {
-        <MudProgressCircular Indeterminate="true" />
+        <MudPaper Class="pa-4">
+            <SkeletonTable Rows="6" Columns="6" />
+        </MudPaper>
     }
     else if (businesses.Count == 0)
     {
@@ -56,7 +60,7 @@
     }
     else
     {
-        <MudTable Items="businesses" Hover="true" Striped="true">
+        <MudTable Items="businesses" Hover="true" Striped="true" Breakpoint="Breakpoint.Sm">
             <HeaderContent>
                 <MudTh>@Roivo.Resources.Businesses.NameLabel</MudTh>
                 <MudTh>@Roivo.Resources.Businesses.AfmLabel</MudTh>
@@ -85,19 +89,16 @@
                 <MudTd>
                     <MudStack Row="true" Spacing="0">
                         <MudIconButton Icon="@Icons.Material.Outlined.Edit"
-                                       Size="Size.Small"
                                        OnClick="@(() => Nav.NavigateTo($"/businesses/{context.Id}/edit"))" />
                         @if (aadeConnected.Contains(context.Id))
                         {
                             <MudIconButton Icon="@Icons.Material.Outlined.Receipt"
-                                           Size="Size.Small"
                                            aria-label="@Roivo.Resources.Invoices.ViewInvoicesLink"
                                            OnClick="@(() => Nav.NavigateTo($"/businesses/{context.Id}/invoices"))" />
                         }
                         @if (BusinessPermissions.CanDeactivate(TenantContext.CurrentTenantType))
                         {
                             <MudIconButton Icon="@Icons.Material.Outlined.Block"
-                                           Size="Size.Small"
                                            Color="Color.Error"
                                            OnClick="@(() => HandleDeactivate(context))" />
                         }

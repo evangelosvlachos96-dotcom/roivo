@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Roivo.Resources;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -38,11 +39,11 @@ public class LoginModel : PageModel
 
     public class InputModel
     {
-        [Required(ErrorMessage = "Το email είναι υποχρεωτικό")]
-        [EmailAddress(ErrorMessage = "Μη έγκυρο email")]
+        [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.EmailRequired))]
+        [EmailAddress(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.EmailInvalid))]
         public string Email { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Ο κωδικός είναι υποχρεωτικός")]
+        [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordRequired))]
         [DataType(DataType.Password)]
         public string Password { get; set; } = string.Empty;
 

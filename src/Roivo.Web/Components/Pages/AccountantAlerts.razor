@@ -4,6 +4,7 @@
 @using System.Globalization
 @using Roivo.Application.Features.Accountant.Queries.GetAccountantAlerts
 @using Roivo.Application.Features.Accountant.Services
+@using Roivo.Web.Components.Shared
 @inject GetAccountantAlertsHandler GetAlertsHandler
 
 <PageTitle>@Roivo.Resources.Accountant.Alerts_Title</PageTitle>
@@ -20,9 +21,9 @@
 
     @if (_loading)
     {
-        <MudPaper Class="pa-6 text-center">
-            <MudProgressCircular Indeterminate="true" />
-            <MudText Typo="Typo.body2" Class="mt-2">@Common.Loading</MudText>
+        <MudPaper Class="pa-4">
+            <SkeletonText Width="30%" Height="0.9rem" Class="mb-3" />
+            <SkeletonTable Announce="false" Rows="6" Columns="6" />
         </MudPaper>
     }
     else if (_forbidden)

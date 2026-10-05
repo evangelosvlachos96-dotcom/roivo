@@ -1,0 +1,97 @@
+@*
+    The Roivo mark: an "R" whose leg is replaced by three ascending bars, so the
+    letter and the chart are the same shape. Teal -> blue gradient.
+
+    Inline SVG rather than an image file: it scales to any size without an
+    asset pipeline, it inherits the wordmark colour from its surroundings, and
+    it costs no extra request on the landing page's first paint.
+
+    Gradient ids are per-instance (see _gradientId). Two logos on the same page
+    with the same id would make the second one inherit the first one's
+    gradient, which breaks the moment the hero and the footer logos differ.
+*@
+
+<span class="roivo-logo @Class" style="display:inline-flex;align-items:center;gap:@(Gap)px;line-height:1;">
+    <svg width="@(_markWidth.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))"
+         height="@Size"
+         viewBox="0 0 52 48"
+         fill="none"
+         xmlns="http://www.w3.org/2000/svg"
+         role="img"
+         aria-label="@(AriaLabel ?? Marketing.Landing_LogoAlt)"
+         style="display:block;flex:none;">
+        <defs>
+            <linearGradient id="@_gradientId" x1="4" y1="44" x2="48" y2="6" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="#2DD4BF" />
+                <stop offset="1" stop-color="#1E88E5" />
+            </linearGradient>
+        </defs>
+
+        @* Stem and bowl of the R, drawn as one stroked path. *@
+        <path d="M10 41 V7 h11 a7.5 7.5 0 0 1 0 15 H10"
+              stroke="url(#@_gradientId)"
+              stroke-width="7"
+              stroke-linecap="square"
+              stroke-linejoin="round"
+              fill="none" />
+
+        @* The leg: three ascending bars. Bottoms on the baseline, tops rising
+           left to right, which is where an R's leg would have gone. *@
+        <rect x="25" y="33" width="5.5" height="8" rx="2" fill="url(#@_gradientId)" />
+        <rect x="33" y="28" width="5.5" height="13" rx="2" fill="url(#@_gradientId)" />
+        <rect x="41" y="22" width="5.5" height="19" rx="2" fill="url(#@_gradientId)" />
+    </svg>
+
+    @if (ShowWordmark)
+    {
+        <span style="display:inline-flex;flex-direction:column;gap:2px;">
+            <span style="font-family:Inter,-apple-system,'Segoe UI',Roboto,sans-serif;
+                         font-weight:700;
+                         letter-spacing:-0.02em;
+                         font-size:@(_wordmarkPx.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))px;
+                         color:@WordmarkColor;">@Marketing.BrandName</span>
+            @if (ShowTagline)
+            {
+                <span style="font-family:Inter,-apple-system,'Segoe UI',Roboto,sans-serif;
+                             font-weight:500;
+                             letter-spacing:0.08em;
+                             text-transform:uppercase;
+                             font-size:@(_taglinePx.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))px;
+                             color:@TaglineColor;">@Marketing.Tagline</span>
+            }
+        </span>
+    }
+</span>
+
+@code {
+    /// <summary>Height of the mark in CSS pixels. Everything else scales off it.</summary>
+    [Parameter] public int Size { get; set; } = 40;
+
+    /// <summary>Whether the "Roivo" wordmark is rendered beside the mark.</summary>
+    [Parameter] public bool ShowWordmark { get; set; } = true;
+
+    /// <summary>Whether the "Cashflow Intelligence" tagline sits under the wordmark.</summary>
+    [Parameter] public bool ShowTagline { get; set; }
+
+    /// <summary>Wordmark colour. Navy on light grounds, white on the hero.</summary>
+    [Parameter] public string WordmarkColor { get; set; } = "#0B1F3A";
+
+    /// <summary>Tagline colour. Teal reads well on both navy and white.</summary>
+    [Parameter] public string TaglineColor { get; set; } = "#2DD4BF";
+
+    /// <summary>Extra classes on the wrapper, for layout positioning.</summary>
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>Gap between mark and wordmark, in pixels.</summary>
+    [Parameter] public int Gap { get; set; } = 10;
+
+    /// <summary>Accessible name. Defaults to the brand plus tagline.</summary>
+    [Parameter] public string? AriaLabel { get; set; }
+
+    // 52:48 is the viewBox ratio.
+    private double _markWidth => Size * 52d / 48d;
+    private double _wordmarkPx => Size * 0.62;
+    private double _taglinePx => Size * 0.24;
+
+    private readonly string _gradientId = $"roivo-logo-{Guid.NewGuid():N}";
+}

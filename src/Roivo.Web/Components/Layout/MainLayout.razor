@@ -1,3 +1,5 @@
+@using Roivo.Resources
+@using Roivo.Web.Configuration
 @inherits LayoutComponentBase
 @using Microsoft.EntityFrameworkCore
 @using Roivo.Infrastructure.Persistence
@@ -5,7 +7,7 @@
 @inject AuthenticationStateProvider AuthState
 @inject IDbContextFactory<ApplicationDbContext> DbFactory
 
-<MudThemeProvider />
+<MudThemeProvider Theme="@RoivoTheme.Build()" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -46,6 +48,12 @@
                            StartIcon="@Icons.Material.Outlined.Business"
                            OnClick='() => Nav.NavigateTo("/businesses")'>
                     @Common.Nav_Businesses
+                </MudButton>
+
+                <MudButton Variant="Variant.Text" Color="Color.Inherit"
+                           Href="@LanguageToggleHref" ForceLoad="true"
+                           title="@(Strings.IsEnglish ? "Ελληνικά" : "English")">
+                    @(Strings.IsEnglish ? "EL" : "EN")
                 </MudButton>
 
                 <MudMenu Icon="@Icons.Material.Outlined.AccountCircle"
@@ -95,6 +103,15 @@
     /// layout can branch without a per-render query.
     /// </summary>
     private bool isAccountant;
+
+    /// <summary>
+    /// Switches to the other language and returns to the current page. Needs a
+    /// full reload (ForceLoad) because the culture is applied by middleware on
+    /// the next request, not inside the live circuit.
+    /// </summary>
+    private string LanguageToggleHref =>
+        $"/Account/SetLanguage?culture={(Strings.IsEnglish ? Strings.Greek : Strings.English)}"
+        + $"&redirectUri={Uri.EscapeDataString(new Uri(Nav.Uri).PathAndQuery)}";
 
     protected override async Task OnInitializedAsync()
     {

@@ -9,7 +9,20 @@
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="Roivo.Web.styles.css" />
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
+    <!-- SVG first so modern browsers get the crisp mark; the PNG stays as a
+         fallback for clients that ignore SVG favicons. -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link rel="icon" type="image/png" href="favicon.png" />
+
+    <meta name="description" content="Roivo — ταμειακές ροές χωρίς εκπλήξεις για ελληνικές επιχειρήσεις. Αυτόματη αντιστοίχιση τιμολογίων, πρόβλεψη 90 ημερών, φορολογικό ημερολόγιο." />
+    <meta property="og:title" content="Roivo — Cashflow Intelligence" />
+    <meta property="og:description" content="Automatic invoice reconciliation, 90-day cashflow forecasting and the Greek tax calendar, in one place." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Roivo" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 
