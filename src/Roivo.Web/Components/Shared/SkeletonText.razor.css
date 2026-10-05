@@ -1,0 +1,32 @@
+.rv-sk {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+    max-width: 100%;
+}
+
+.rv-sk-line {
+    border-radius: 4px;
+    flex: 0 0 auto;
+    background: linear-gradient(-90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 400% 100%;
+    animation: rv-shimmer-text 1.5s ease-in-out infinite;
+}
+
+@keyframes rv-shimmer-text {
+    0% {
+        background-position: 0% 0;
+    }
+
+    100% {
+        background-position: -135% 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rv-sk-line {
+        animation: none;
+        background: #ececec;
+    }
+}

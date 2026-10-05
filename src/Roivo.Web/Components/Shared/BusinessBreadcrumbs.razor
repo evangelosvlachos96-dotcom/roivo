@@ -1,0 +1,39 @@
+@* Business sub-pages used to carry a back button pointing at /businesses,
+   which dropped the user out of the business they were working in. The trail
+   keeps the parent business one click away instead. *@
+<MudBreadcrumbs Items="@_items" Class="pa-0 mb-2 flex-wrap rv-crumbs" />
+
+@code {
+    [Parameter, EditorRequired] public Guid BusinessId { get; set; }
+
+    /// <summary>Null while the business is still loading; the crumb falls back to a generic label.</summary>
+    [Parameter] public string? BusinessName { get; set; }
+
+    [Parameter, EditorRequired] public string CurrentPage { get; set; } = string.Empty;
+
+    /// <summary>Label of an intermediate crumb, for pages nested under another sub-page.</summary>
+    [Parameter] public string? ParentPage { get; set; }
+
+    /// <summary>Href of the intermediate crumb. Required when <see cref="ParentPage"/> is set.</summary>
+    [Parameter] public string? ParentHref { get; set; }
+
+    private List<BreadcrumbItem> _items = [];
+
+    protected override void OnParametersSet()
+    {
+        _items =
+        [
+            new BreadcrumbItem(Common.Nav_Dashboard, "/dashboard"),
+            new BreadcrumbItem(
+                string.IsNullOrWhiteSpace(BusinessName) ? Common.Nav_Businesses : BusinessName,
+                $"/businesses/{BusinessId}"),
+        ];
+
+        if (!string.IsNullOrWhiteSpace(ParentPage))
+        {
+            _items.Add(new BreadcrumbItem(ParentPage, ParentHref));
+        }
+
+        _items.Add(new BreadcrumbItem(CurrentPage, href: null, disabled: true));
+    }
+}

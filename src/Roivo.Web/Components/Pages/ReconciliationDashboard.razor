@@ -6,11 +6,11 @@
 @using Roivo.Application.Features.Reconciliation.Commands.RunReconciliation
 @using Roivo.Application.Features.Reconciliation.Queries.GetReconciliationDashboard
 @using DashboardData = Roivo.Application.Features.Reconciliation.Queries.GetReconciliationDashboard.ReconciliationDashboard
+@using Roivo.Web.Components.Shared
 @inject IClock Clock
 @inject GetBusinessByIdHandler GetBusinessHandler
 @inject GetReconciliationDashboardHandler GetDashboardHandler
 @inject RunReconciliationHandler RunHandler
-@inject NavigationManager Nav
 @inject ISnackbar Snackbar
 
 <PageTitle>@Reconciliation.Title</PageTitle>
@@ -18,23 +18,49 @@
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-6">
 
     <MudPaper Class="pa-4 mb-4">
-        <MudButton StartIcon="@Icons.Material.Outlined.ArrowBack"
-                   OnClick='() => Nav.NavigateTo("/businesses")'>
-            @Common.BackButton
-        </MudButton>
+        <BusinessBreadcrumbs BusinessId="Id" BusinessName="@_business?.Name" CurrentPage="@Reconciliation.Title" />
         <MudText Typo="Typo.h5">@Reconciliation.Title</MudText>
         <MudText Typo="Typo.body2" Class="mud-text-secondary">@Reconciliation.Subtitle</MudText>
-        @if (_business is not null)
-        {
-            <MudText Typo="Typo.body2">@_business.Name</MudText>
-        }
     </MudPaper>
 
     @if (_loading)
     {
-        <MudPaper Class="pa-6 text-center">
-            <MudProgressCircular Indeterminate="true" />
-            <MudText Typo="Typo.body2" Class="mt-2">@Common.Loading</MudText>
+        <MudPaper Class="pa-4 mb-4">
+            <SkeletonText Lines="1" Width="40%" Height="0.9rem" />
+            <MudGrid Class="mt-2">
+                <MudItem xs="12" sm="6" md="3"><SkeletonText Announce="false" Height="2.5rem" /></MudItem>
+                <MudItem xs="12" sm="6" md="3"><SkeletonText Announce="false" Height="2.5rem" /></MudItem>
+                <MudItem xs="12" md="6"><SkeletonText Announce="false" Height="2.5rem" Width="70%" /></MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <MudGrid Class="mb-4">
+            @for (var i = 0; i < 4; i++)
+            {
+                <MudItem xs="12" sm="6" md="3">
+                    <SkeletonCard Announce="false" Lines="1" />
+                </MudItem>
+            }
+        </MudGrid>
+
+        <MudGrid Class="mb-4">
+            <MudItem xs="12" md="5">
+                <MudPaper Class="pa-4">
+                    <SkeletonChart Announce="false" Height="220px" Bars="8" />
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" md="7">
+                <MudPaper Class="pa-4">
+                    <MudGrid>
+                        <MudItem xs="6"><SkeletonCard Announce="false" /></MudItem>
+                        <MudItem xs="6"><SkeletonCard Announce="false" /></MudItem>
+                    </MudGrid>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudPaper Class="pa-4">
+            <SkeletonTable Announce="false" Rows="5" Columns="6" />
         </MudPaper>
     }
     else if (_business is null)
@@ -55,7 +81,7 @@
                                    @bind-Date:after="LoadDashboardAsync" />
                 </MudItem>
                 <MudItem xs="12" md="6" Class="d-flex align-center">
-                    <MudStack Row="true" Spacing="2">
+                    <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
                         <MudButton Variant="Variant.Filled" Color="Color.Primary"
                                    StartIcon="@Icons.Material.Outlined.Sync"
                                    Disabled="@_running"
@@ -145,7 +171,8 @@
 
             <MudPaper Class="pa-4">
                 <MudText Typo="Typo.subtitle2" Class="mb-2">@Reconciliation.RecentMatches</MudText>
-                <MudTable T="ReconciliationMatchListItem" Items="@_data.RecentMatches" Dense="true" Hover="true">
+                <MudTable T="ReconciliationMatchListItem" Items="@_data.RecentMatches" Dense="true" Hover="true"
+                          Breakpoint="Breakpoint.Sm">
                     <HeaderContent>
                         <MudTh>@Reconciliation.Column_Date</MudTh>
                         <MudTh>@Reconciliation.Column_Invoice</MudTh>
@@ -155,22 +182,22 @@
                         <MudTh>@Reconciliation.Confidence</MudTh>
                     </HeaderContent>
                     <RowTemplate>
-                        <MudTd>@context.MatchedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
-                        <MudTd>
+                        <MudTd DataLabel="@Reconciliation.Column_Date">@context.MatchedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
+                        <MudTd DataLabel="@Reconciliation.Column_Invoice">
                             @context.InvoiceIssueDate.ToString("dd/MM/yyyy") — @FormatCurrency(context.InvoiceGrossAmount)
                             <br /><MudText Typo="Typo.caption">@context.InvoiceCounterpartyName</MudText>
                         </MudTd>
-                        <MudTd>
+                        <MudTd DataLabel="@Reconciliation.Column_Transaction">
                             @context.TransactionBookingDate.ToString("dd/MM/yyyy") — @FormatCurrency(context.TransactionAmount)
                             <br /><MudText Typo="Typo.caption">@context.TransactionCounterpartyName</MudText>
                         </MudTd>
-                        <MudTd>@MatchTypeLabel(context.MatchType)</MudTd>
-                        <MudTd>
+                        <MudTd DataLabel="@Reconciliation.Column_Type">@MatchTypeLabel(context.MatchType)</MudTd>
+                        <MudTd DataLabel="@Reconciliation.Column_Status">
                             <MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Status)">
                                 @StatusLabel(context.Status)
                             </MudChip>
                         </MudTd>
-                        <MudTd>@FormatPercent(context.Confidence)</MudTd>
+                        <MudTd DataLabel="@Reconciliation.Confidence">@FormatPercent(context.Confidence)</MudTd>
                     </RowTemplate>
                     <NoRecordsContent>
                         <MudText Typo="Typo.body2">@Reconciliation.NoMatches</MudText>

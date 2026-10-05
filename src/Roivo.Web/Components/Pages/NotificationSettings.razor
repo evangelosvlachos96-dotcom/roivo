@@ -7,6 +7,7 @@
 @using Roivo.Application.Features.Notifications.Commands.SendTestNotification
 @using Roivo.Application.Features.Notifications.Commands.UpdateNotificationSettings
 @using Roivo.Application.Features.Notifications.Queries.GetNotificationSettings
+@using Roivo.Web.Components.Shared
 @inject GetBusinessByIdHandler GetBusinessHandler
 @inject GetNotificationSettingsHandler GetSettingsHandler
 @inject UpdateNotificationSettingsHandler UpdateSettingsHandler
@@ -19,20 +20,29 @@
 <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-6">
 
     <MudPaper Class="pa-4 mb-4">
-        <MudButton StartIcon="@Icons.Material.Outlined.ArrowBack"
-                   Href="/businesses">
-            @Common.BackButton
-        </MudButton>
+        <BusinessBreadcrumbs BusinessId="Id" BusinessName="@_business?.Name"
+                             CurrentPage="@Roivo.Resources.Notifications.Title" />
         <MudText Typo="Typo.h5">@Roivo.Resources.Notifications.Title</MudText>
-        <MudText Typo="Typo.body2">@(_business?.Name ?? "")</MudText>
         <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">@Roivo.Resources.Notifications.Subtitle</MudText>
     </MudPaper>
 
     @if (_loading)
     {
-        <MudPaper Class="pa-6 text-center">
-            <MudProgressCircular Indeterminate="true" />
-            <MudText Typo="Typo.body2" Class="mt-2">@Common.Loading</MudText>
+        @* One block per toggle group: switch label, then its helper copy. *@
+        <MudPaper Class="pa-4 mb-4">
+            @for (var i = 0; i < 5; i++)
+            {
+                <SkeletonText Announce="@(i == 0)" Width="55%" Height="1.5rem" Class="mb-2" />
+                <SkeletonText Announce="false" Lines="2" Width="95%" LastLineWidth="60%"
+                              Height="0.7rem" Class="mb-4" />
+            }
+            <SkeletonText Announce="false" Width="45%" Height="2.5rem" />
+        </MudPaper>
+
+        <MudPaper Class="pa-4">
+            <SkeletonText Announce="false" Width="35%" Height="1.25rem" Class="mb-3" />
+            <SkeletonText Announce="false" Width="80%" Height="2.5rem" Class="mb-4" />
+            <SkeletonText Announce="false" Width="45%" Height="2.5rem" />
         </MudPaper>
     }
     else if (_business is null)

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net;
+using Roivo.Resources;
 
 namespace Roivo.Infrastructure.Email.Templates;
 
@@ -17,8 +18,19 @@ namespace Roivo.Infrastructure.Email.Templates;
 /// </remarks>
 internal static class EmailHtml
 {
-    /// <summary>Formatting culture for money and dates. Recipients are Greek businesses.</summary>
-    internal static readonly CultureInfo Culture = CultureInfo.GetCultureInfo("el-GR");
+    /// <summary>
+    /// Formatting culture for money and dates, following the language the
+    /// current render is scoped to by <see cref="EmailCulture"/>.
+    /// </summary>
+    /// <remarks>
+    /// This used to be a fixed <c>el-GR</c> field. It has to vary now: an
+    /// English recipient reading "1.240,55 €" would misread the amount by three
+    /// orders of magnitude. Dates stay <c>dd/MM/yyyy</c> in both languages —
+    /// a Greek business reads day-first whichever language the product is in —
+    /// which is why <see cref="Date"/> passes an explicit pattern rather than
+    /// letting the culture choose.
+    /// </remarks>
+    internal static CultureInfo Culture => Strings.FormatCulture;
 
     /// <summary>HTML-escapes a value for use in element content or a quoted attribute.</summary>
     internal static string Escape(string? value)
@@ -47,11 +59,15 @@ internal static class EmailHtml
         => string.IsNullOrWhiteSpace(configured) ? "https://roivo.gr" : configured.TrimEnd('/');
 
     /// <summary>A label/value line, as used in every template's detail block.</summary>
+    /// <remarks>
+    /// Percentage widths rather than fixed pixels, so the pair keeps its
+    /// proportions on a 320px phone without depending on a media query.
+    /// </remarks>
     internal static string DetailRow(string label, string escapedValue) =>
         $"""
         <tr>
-          <td style="padding:6px 0;font-size:14px;color:#5b6472;">{Escape(label)}</td>
-          <td style="padding:6px 0;font-size:14px;color:#111827;font-weight:600;text-align:right;">{escapedValue}</td>
+          <td width="55%" style="width:55%;padding:9px 12px 9px 0;font-family:{EmailBrand.FontStack};font-size:14px;line-height:1.45;color:{EmailBrand.Muted};border-bottom:1px solid {EmailBrand.Line};">{Escape(label)}</td>
+          <td width="45%" style="width:45%;padding:9px 0;font-family:{EmailBrand.FontStack};font-size:14px;line-height:1.45;color:{EmailBrand.Ink};font-weight:700;text-align:right;border-bottom:1px solid {EmailBrand.Line};">{escapedValue}</td>
         </tr>
         """;
 
@@ -62,19 +78,34 @@ internal static class EmailHtml
     internal static string FullWidthRow(string escapedValue) =>
         $"""
         <tr>
-          <td colspan="2" style="padding:6px 0;font-size:14px;line-height:1.5;color:#111827;">{escapedValue}</td>
+          <td colspan="2" style="padding:9px 0;font-family:{EmailBrand.FontStack};font-size:14px;line-height:1.5;color:{EmailBrand.Ink};border-bottom:1px solid {EmailBrand.Line};">{escapedValue}</td>
         </tr>
         """;
 
     /// <summary>A paragraph of body copy.</summary>
     internal static string Paragraph(string escapedText) =>
-        $"""<p style="margin:0 0 14px 0;font-size:15px;line-height:1.55;color:#374151;">{escapedText}</p>""";
+        $"""<p style="margin:0 0 16px 0;font-family:{EmailBrand.FontStack};font-size:15px;line-height:1.6;color:{EmailBrand.Body};">{escapedText}</p>""";
+
+    /// <summary>
+    /// The copy-me-instead fallback under a CTA, for clients that mangle the
+    /// button and for users forwarding the mail to a different device.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not an anchor. The CTA must be the only clickable link in
+    /// the message body so that link-tracking rewrites and "exactly one CTA"
+    /// cannot disagree about which URL the recipient is meant to follow.
+    /// </remarks>
+    internal static string PlainUrlFallback(string label, string url) =>
+        $"""
+        <p style="margin:18px 0 0 0;font-family:{EmailBrand.FontStack};font-size:12px;line-height:1.55;color:{EmailBrand.Muted};">{Escape(label)}</p>
+        <p style="margin:6px 0 0 0;font-family:{EmailBrand.FontStack};font-size:12px;line-height:1.6;color:{EmailBrand.Blue};word-break:break-all;">{Escape(url)}</p>
+        """;
 
     /// <summary>Wraps detail rows in the bordered table the templates share.</summary>
     internal static string DetailTable(IEnumerable<string> rows) =>
         $"""
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
-               style="width:100%;border-collapse:collapse;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;margin:0 0 20px 0;">
+               style="width:100%;border-collapse:collapse;border-top:1px solid {EmailBrand.Line};margin:0 0 20px 0;">
           {string.Concat(rows)}
         </table>
         """;

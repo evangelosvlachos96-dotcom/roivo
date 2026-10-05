@@ -1,36 +1,56 @@
 @page
 @model Roivo.Web.Areas.Account.Pages.RegisterModel
+@using Roivo.Resources
 @{
-    ViewData["Title"] = "Εγγραφή";
+    ViewData["Title"] = Auth.Register_PageTitle;
 }
+<link rel="stylesheet" href="~/css/roivo-auth.css" />
 
-<h2 class="h4 mb-3">Δημιουργία λογαριασμού</h2>
-<p class="text-muted small mb-4">Ξεκίνα με Roivo σε λιγότερο από ένα λεπτό.</p>
+@* Minimal inline copy of the Roivo mark. Razor Pages cannot consume the
+   canonical RoivoLogo.razor Blazor component, so the four auth pages carry
+   their own copy of the gradient "R". Keep it in sync with that component. *@
+<div class="roivo-auth-brand">
+    <svg class="roivo-auth-logo" viewBox="0 0 56 56" role="img" aria-label="Roivo" focusable="false">
+        <defs>
+            <linearGradient id="roivoAuthMark" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#2DD4BF" />
+                <stop offset="100%" stop-color="#1E88E5" />
+            </linearGradient>
+        </defs>
+        <rect width="56" height="56" rx="14" fill="url(#roivoAuthMark)" />
+        <path fill="#fff" d="M19 41V15h10.2c5.6 0 9.1 2.9 9.1 7.8 0 3.6-1.9 6.1-5.2 7.2L39.5 41h-6.3l-5.5-9.6h-3.2V41H19zm5.5-14.3h4.2c2.6 0 4.1-1.3 4.1-3.6s-1.5-3.6-4.1-3.6h-4.2v7.2z" />
+    </svg>
+    <span class="roivo-auth-wordmark">Roivo</span>
+</div>
+
+
+<h2 class="h4 mb-3">@Auth.Register_Heading</h2>
+<p class="text-muted small mb-4">@Auth.Register_Subtitle</p>
 
 <form method="post">
     <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert" style="display:@(ViewData.ModelState.IsValid ? "none" : "block")"></div>
 
     <div class="mb-3">
-        <label class="form-label fw-semibold d-block">Τύπος λογαριασμού</label>
+        <label class="form-label fw-semibold d-block">@Auth.Register_TenantTypeLabel</label>
         <div class="form-check form-check-inline">
             <input class="form-check-input" type="radio" asp-for="Input.Type" id="type-accountant" value="Accountant" />
-            <label class="form-check-label" for="type-accountant">Λογιστικό γραφείο</label>
+            <label class="form-check-label" for="type-accountant">@Auth.Register_TenantType_Accountant</label>
         </div>
         <div class="form-check form-check-inline">
             <input class="form-check-input" type="radio" asp-for="Input.Type" id="type-business" value="Business" />
-            <label class="form-check-label" for="type-business">Επιχείρηση</label>
+            <label class="form-check-label" for="type-business">@Auth.Register_TenantType_BusinessOwner</label>
         </div>
         <span asp-validation-for="Input.Type" class="text-danger d-block small"></span>
     </div>
 
     <div class="mb-3">
-        <label asp-for="Input.FullName" class="form-label">Ονοματεπώνυμο</label>
+        <label asp-for="Input.FullName" class="form-label">@Auth.Register_FullNameLabel</label>
         <input asp-for="Input.FullName" class="form-control" autocomplete="name" />
         <span asp-validation-for="Input.FullName" class="text-danger small"></span>
     </div>
 
     <div class="mb-3">
-        <label asp-for="Input.Email" class="form-label">Email</label>
+        <label asp-for="Input.Email" class="form-label">@Auth.Login_EmailLabel</label>
         <input asp-for="Input.Email" class="form-control" autocomplete="email" />
         <span asp-validation-for="Input.Email" class="text-danger small"></span>
     </div>
@@ -40,26 +60,26 @@
        This is a recognized UX tradeoff — the password lives briefly in the
        form's HTML during re-render but never leaves the user's browser context. *@
     <div class="mb-3">
-        <label asp-for="Input.Password" class="form-label">Κωδικός</label>
+        <label asp-for="Input.Password" class="form-label">@Auth.Login_PasswordLabel</label>
         <input asp-for="Input.Password" class="form-control" autocomplete="new-password" value="@Model.Input.Password" />
         <span asp-validation-for="Input.Password" class="text-danger small"></span>
-        <div class="form-text">Τουλάχιστον 12 χαρακτήρες, με κεφαλαίο, αριθμό και σύμβολο.</div>
+        <div class="form-text">@Auth.PasswordRequirementsHint</div>
     </div>
 
     <div class="mb-3">
-        <label asp-for="Input.ConfirmPassword" class="form-label">Επιβεβαίωση κωδικού</label>
+        <label asp-for="Input.ConfirmPassword" class="form-label">@Auth.Register_ConfirmPasswordLabel</label>
         <input asp-for="Input.ConfirmPassword" class="form-control" autocomplete="new-password" value="@Model.Input.ConfirmPassword" />
         <span asp-validation-for="Input.ConfirmPassword" class="text-danger small"></span>
     </div>
 
     <div class="mb-3">
-        <label asp-for="Input.OrganizationName" class="form-label">Επωνυμία οργανισμού</label>
-        <input asp-for="Input.OrganizationName" class="form-control" placeholder="π.χ. Παπαδόπουλος Λογ. Γραφείο" />
+        <label asp-for="Input.OrganizationName" class="form-label">@Auth.Register_OrganizationNameLabel</label>
+        <input asp-for="Input.OrganizationName" class="form-control" placeholder=Auth.Register_OrganizationNamePlaceholder />
         <span asp-validation-for="Input.OrganizationName" class="text-danger small"></span>
     </div>
 
     <div class="mb-3">
-        <label asp-for="Input.Afm" class="form-label">ΑΦΜ</label>
+        <label asp-for="Input.Afm" class="form-label">@Auth.Register_AfmLabel</label>
         <input asp-for="Input.Afm" class="form-control" inputmode="numeric" maxlength="9" />
         <span asp-validation-for="Input.Afm" class="text-danger small"></span>
     </div>
@@ -67,7 +87,7 @@
     <div class="form-check mb-4">
         <input asp-for="Input.AcceptTerms" class="form-check-input" />
         <label asp-for="Input.AcceptTerms" class="form-check-label small">
-            Συμφωνώ με τους όρους χρήσης και την πολιτική απορρήτου.
+            @Auth.Register_AcceptTerms
         </label>
         <span asp-validation-for="Input.AcceptTerms" class="text-danger d-block small"></span>
     </div>
@@ -75,23 +95,23 @@
     @if (Model.ShowConfirmDuplicate)
     {
         <div class="alert alert-warning">
-            <p>Υπάρχει ήδη λογαριασμός με αυτό το ΑΦΜ.</p>
+            <p>@Auth.Register_DuplicateAfmWarning</p>
             <p class="mb-2">
-                <a asp-page="./Login" asp-route-email="@Model.Input.Email">Σύνδεση</a> |
-                <a asp-page="./ForgotPassword">Επαναφορά κωδικού</a>
+                <a asp-page="./Login" asp-route-email="@Model.Input.Email">@Auth.Login_PageTitle</a> |
+                <a asp-page="./ForgotPassword">@Auth.ResetPassword_PageTitle</a>
             </p>
             <div class="form-check">
                 <input class="form-check-input" type="checkbox" asp-for="Input.ConfirmDuplicate" id="confirmDuplicate" />
                 <label class="form-check-label" for="confirmDuplicate">
-                    Καταλαβαίνω και θέλω να συνεχίσω με νέο λογαριασμό.
+                    @Auth.Register_ContinueAnyway
                 </label>
             </div>
         </div>
     }
 
-    <button type="submit" class="btn btn-primary w-100">Εγγραφή</button>
+    <button type="submit" class="btn btn-primary w-100">@Auth.Register_PageTitle</button>
 </form>
 
-<p class="text-center mt-4 mb-0 small">
-    Έχεις ήδη λογαριασμό? <a asp-page="/Login">Σύνδεση</a>
+<p class="text-center mt-4 mb-0 small roivo-auth-footnote">
+    @Auth.Register_HaveAccountPrompt <a asp-page="/Login">@Auth.Login_PageTitle</a>
 </p>

@@ -1,0 +1,30 @@
+.rv-sk-table {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.rv-sk-tr {
+    display: grid;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid rgba(11, 31, 58, 0.08);
+}
+
+.rv-sk-th {
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(11, 31, 58, 0.16);
+}
+
+@media (max-width: 599px) {
+    /* Below sm the real table becomes stacked cards, so the placeholder
+       collapses to one column per row instead of squeezing N cells in. */
+    .rv-sk-tr {
+        grid-template-columns: 1fr 1fr !important;
+    }
+
+    .rv-sk-th {
+        display: none;
+    }
+}

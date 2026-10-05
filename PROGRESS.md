@@ -4,6 +4,86 @@ A running log of what's been built, when, and any notes worth keeping. Newest en
 
 ---
 
+## M11 + M12 — Bilingual, brand system, landing page ✅ Code complete 2026-10-04
+
+### M11 — Bilingual (Greek / English)
+
+**The crux was that `public const string` can never be bilingual.** A const is
+inlined at compile time, so the whole product was Greek by construction. The
+resource classes now expose `public static string X => Strings.Get("Key",
+"greek")` — which means all **558 call sites** (`@Common.SaveButton`) kept
+working untouched. Greek is the fallback, not English: this is a product for
+Greek businesses, and a missing translation must degrade to the language users
+actually read.
+
+**473 strings translated, 0 untranslated**, across 11 resource classes.
+
+**Validation messages needed a second mechanism.** DataAnnotations resolves
+`ErrorMessageResourceName` by reflecting for a public static property on
+`ErrorMessageResourceType`, and an attribute argument must be a compile-time
+constant — so a culture-switching property physically cannot be passed to
+`[Required(ErrorMessage = …)]`. Those 20 attributes now point at a
+`ValidationMessages.resx` / `.en.resx` pair with a hand-written accessor (the
+designer generator depends on a Visual Studio build step and is unreliable
+under the plain `dotnet build` the container image uses).
+
+**Verified on a running server, both directions:** page labels *and* server-side
+validation render in English with the culture cookie set ("Email is required",
+"Invalid email address") and in Greek without it. The toggle writes the cookie
+through `/Account/SetLanguage`, which uses `LocalRedirect` + `Url.IsLocalUrl` —
+taking an arbitrary `redirectUri` would have made the language switch an open
+redirect.
+
+### M12 — Landing page and brand
+
+Public `/`, `/privacy` and `/terms`, all anonymous, all rendering bilingually.
+Brand applied as a real `MudTheme` (Navy #0B1F3A, Blue #1E88E5, Teal #2DD4BF,
+Inter) rather than hex codes restated per page. SVG favicon, Inter webfont,
+SEO/OG meta.
+
+**A route collision would have crashed the app:** `Home.razor` and the new
+`Landing.razor` both claimed `@page "/"`. `Home.razor` was an untouched
+template placeholder referenced nowhere, so it was retired, and `Landing` now
+redirects authenticated visitors — accountants to their workspace, owners to
+their dashboard.
+
+**`/businesses/{id}` had no route at all.** Every breadcrumb pointing at a
+specific business was 404ing, including on pages already shipped. `BusinessEdit`
+now answers it, which is what makes the back-navigation fix work.
+
+### Polish
+
+Loading skeletons (shimmer, `prefers-reduced-motion` respected, screen-reader
+live region) on all 15 data pages, shaped to each page's real content.
+Breadcrumbs replacing back buttons that went to the business *list* instead of
+the business. Tax-calendar columns pinned to fixed widths so they align across
+date groups, collapsing to cards under 600px. Mobile fixes: tables that never
+collapsed now set `Breakpoint.Sm`, 30px tap targets raised past 44px.
+
+### Tests
+
+**407 → 506 passed**, 1 skipped. The most valuable are reflection-driven:
+placeholder parity (a translation that drops `{0}` fails the build rather than
+throwing `FormatException` at a user), format arity, no-empty-regression, and
+per-culture resolution across every resource property — so a class added later
+is covered without new tests.
+
+### Known gaps / next steps
+
+- **Four older pages still carry hardcoded Greek in markup** — `Dashboard`,
+  `Businesses`, `BusinessEdit`, `BusinessAade`. Pre-existing, outside what this
+  epic touched, and the reason "fully bilingual" is true of the auth flow and
+  the newer pages but not yet of the whole app.
+- **Legal pages are templates, not legal text.** Both carry a visible
+  pending-review notice and `[PLACEHOLDER]` markers for company address and
+  contact details. They must not ship as-is.
+- **Email templates were redesigned but the account emails are not fully
+  wired.** `EmailConfirmationEmail` and `PasswordResetEmail` exist; the
+  Register/ForgotPassword page models still build their bodies inline.
+- Pricing is display-only. No payment processing exists.
+
+---
+
 ## M9 + M10 — Accountant workspace and email notifications ✅ Code complete 2026-10-04
 
 ### M9 — Accountant dashboard

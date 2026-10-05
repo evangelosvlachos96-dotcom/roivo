@@ -5,11 +5,11 @@
 @using Roivo.Application.Features.Businesses.Queries.GetBusinessById
 @using Roivo.Application.Features.Reconciliation.Commands.ManualMatch
 @using Roivo.Application.Features.Reconciliation.Queries.GetUnreconciledItems
+@using Roivo.Web.Components.Shared
 @inject GetBusinessByIdHandler GetBusinessHandler
 @inject GetUnreconciledItemsHandler GetUnreconciledHandler
 @inject ManualMatchHandler ManualMatchCommandHandler
 @inject AuthenticationStateProvider AuthState
-@inject NavigationManager Nav
 @inject ISnackbar Snackbar
 
 <PageTitle>@Reconciliation.ManualMatching</PageTitle>
@@ -17,20 +17,34 @@
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-6">
 
     <MudPaper Class="pa-4 mb-4">
-        <MudButton StartIcon="@Icons.Material.Outlined.ArrowBack"
-                   Href="@($"/businesses/{Id}/reconciliation")">
-            @Common.BackButton
-        </MudButton>
+        <BusinessBreadcrumbs BusinessId="Id" BusinessName="@_business?.Name"
+                             ParentPage="@Reconciliation.Title"
+                             ParentHref="@($"/businesses/{Id}/reconciliation")"
+                             CurrentPage="@Reconciliation.ManualMatching" />
         <MudText Typo="Typo.h5">@Reconciliation.ManualMatching</MudText>
         <MudText Typo="Typo.body2" Class="mud-text-secondary">@Reconciliation.Subtitle</MudText>
     </MudPaper>
 
     @if (_loading)
     {
-        <MudPaper Class="pa-6 text-center">
-            <MudProgressCircular Indeterminate="true" />
-            <MudText Typo="Typo.body2" Class="mt-2">@Common.Loading</MudText>
+        <MudPaper Class="pa-4 mb-4">
+            <SkeletonText Height="2.5rem" Width="40%" />
         </MudPaper>
+
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudPaper Class="pa-4">
+                    <SkeletonText Announce="false" Width="35%" Height="0.8rem" Class="mb-3" />
+                    <SkeletonTable Announce="false" Rows="6" Columns="4" />
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudPaper Class="pa-4">
+                    <SkeletonText Announce="false" Width="35%" Height="0.8rem" Class="mb-3" />
+                    <SkeletonTable Announce="false" Rows="6" Columns="4" />
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
     }
     else if (_business is null)
     {
@@ -39,7 +53,7 @@
     else
     {
         <MudPaper Class="pa-4 mb-4">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Wrap="Wrap.Wrap">
                 <MudButton Variant="Variant.Filled" Color="Color.Primary"
                            StartIcon="@Icons.Material.Outlined.Link"
                            Disabled="@_matching"
@@ -59,6 +73,7 @@
                     <MudText Typo="Typo.subtitle2" Class="mb-2">@Reconciliation.UnmatchedInvoices</MudText>
 
                     <MudTable T="UnreconciledItem" Items="@_invoices" Dense="true" Hover="true"
+                              Breakpoint="Breakpoint.Sm"
                               Loading="@_invoicesLoading"
                               OnRowClick="@OnInvoiceRowClick"
                               RowClassFunc="@InvoiceRowClass">
@@ -69,10 +84,10 @@
                             <MudTh>@Reconciliation.Column_Description</MudTh>
                         </HeaderContent>
                         <RowTemplate>
-                            <MudTd>@context.Date.ToString("dd/MM/yyyy")</MudTd>
-                            <MudTd>@FormatCurrency(context.Amount)</MudTd>
-                            <MudTd>@context.CounterpartyName</MudTd>
-                            <MudTd>@context.Description</MudTd>
+                            <MudTd DataLabel="@Reconciliation.Column_Date">@context.Date.ToString("dd/MM/yyyy")</MudTd>
+                            <MudTd DataLabel="@Reconciliation.Column_Amount">@FormatCurrency(context.Amount)</MudTd>
+                            <MudTd DataLabel="@Reconciliation.Column_Counterparty">@context.CounterpartyName</MudTd>
+                            <MudTd DataLabel="@Reconciliation.Column_Description">@context.Description</MudTd>
                         </RowTemplate>
                         <NoRecordsContent>
                             <MudText Typo="Typo.body2">@Reconciliation.NoUnmatchedInvoices</MudText>
@@ -96,6 +111,7 @@
                     <MudText Typo="Typo.subtitle2" Class="mb-2">@Reconciliation.UnmatchedTransactions</MudText>
 
                     <MudTable T="UnreconciledItem" Items="@_transactions" Dense="true" Hover="true"
+                              Breakpoint="Breakpoint.Sm"
                               Loading="@_transactionsLoading"
                               OnRowClick="@OnTransactionRowClick"
                               RowClassFunc="@TransactionRowClass">
@@ -106,10 +122,10 @@
                             <MudTh>@Reconciliation.Column_Description</MudTh>
                         </HeaderContent>
                         <RowTemplate>
-                            <MudTd>@context.Date.ToString("dd/MM/yyyy")</MudTd>
-                            <MudTd>@FormatCurrency(context.Amount)</MudTd>
-                            <MudTd>@context.CounterpartyName</MudTd>
-                            <MudTd>@context.Description</MudTd>
+                            <MudTd DataLabel="@Reconciliation.Column_Date">@context.Date.ToString("dd/MM/yyyy")</MudTd>
+                            <MudTd DataLabel="@Reconciliation.Column_Amount">@FormatCurrency(context.Amount)</MudTd>
+                            <MudTd DataLabel="@Reconciliation.Column_Counterparty">@context.CounterpartyName</MudTd>
+                            <MudTd DataLabel="@Reconciliation.Column_Description">@context.Description</MudTd>
                         </RowTemplate>
                         <NoRecordsContent>
                             <MudText Typo="Typo.body2">@Reconciliation.NoUnmatchedTransactions</MudText>

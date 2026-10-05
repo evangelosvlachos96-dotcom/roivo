@@ -8,6 +8,7 @@
 @* The query's result record is also called TaxCalendar, which both the page
    class and the resource class name would shadow; the alias keeps it nameable. *@
 @using TaxCalendarData = Roivo.Application.Features.Cashflow.Queries.GetTaxCalendar.TaxCalendar
+@using Roivo.Web.Components.Shared
 @inject GetBusinessByIdHandler GetBusinessHandler
 @inject GetTaxCalendarHandler GetCalendarHandler
 @inject MarkTaxPaidHandler MarkPaidHandler
@@ -16,15 +17,38 @@
 
 <PageTitle>@Roivo.Resources.Cashflow.TaxCalendar</PageTitle>
 
+@* MudSimpleTable exposes Style on its wrapper div, not on the inner <table>,
+   so table-layout cannot be set from a parameter and this page owns no
+   isolated stylesheet. A page-local <style> is the narrowest way to pin the
+   layout algorithm the <colgroup> widths depend on. *@
+<style>
+    .rv-tax-table table {
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    .rv-tax-table th,
+    .rv-tax-table td {
+        overflow-wrap: anywhere;
+    }
+
+    /* Status chips differ in text length; a full-width chip keeps the column
+       reading as one aligned band down the page. */
+    .rv-tax-table td.rv-tax-status .mud-chip {
+        width: 100%;
+        margin: 0;
+        justify-content: center;
+    }
+</style>
+
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-6">
 
     <MudPaper Class="pa-4 mb-4">
-        <MudButton StartIcon="@Icons.Material.Outlined.ArrowBack"
-                   OnClick="@(() => Nav.NavigateTo($"/businesses/{Id}/cashflow"))">
-            @Common.BackButton
-        </MudButton>
+        <BusinessBreadcrumbs BusinessId="Id" BusinessName="@business?.Name"
+                             ParentPage="@Roivo.Resources.Cashflow.Title"
+                             ParentHref="@($"/businesses/{Id}/cashflow")"
+                             CurrentPage="@Roivo.Resources.Cashflow.TaxCalendar" />
         <MudText Typo="Typo.h5">@Roivo.Resources.Cashflow.TaxCalendar</MudText>
-        <MudText Typo="Typo.body2">@(business?.Name ?? "")</MudText>
     </MudPaper>
 
     <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
@@ -33,10 +57,20 @@
 
     @if (loading)
     {
-        <MudPaper Class="pa-6 text-center">
-            <MudProgressCircular Indeterminate="true" />
-            <MudText Typo="Typo.body2" Class="mt-2">@Common.Loading</MudText>
+        <MudPaper Class="pa-4 mb-4">
+            <MudGrid>
+                <MudItem xs="12" sm="6" md="4"><SkeletonText Height="2.5rem" /></MudItem>
+                <MudItem xs="12" sm="6" md="4"><SkeletonText Announce="false" Height="2.5rem" Width="60%" /></MudItem>
+            </MudGrid>
         </MudPaper>
+
+        @for (var g = 0; g < 2; g++)
+        {
+            <MudPaper Class="pa-4 mb-4">
+                <SkeletonText Announce="false" Width="35%" Height="0.9rem" Class="mb-3" />
+                <SkeletonTable Announce="false" Rows="3" Columns="6" />
+            </MudPaper>
+        }
     }
     else if (business is null)
     {
@@ -91,45 +125,96 @@
                         </MudText>
                     </MudStack>
 
-                    <MudSimpleTable Dense="true" Hover="true">
-                        <thead>
-                            <tr>
-                                <th>@Roivo.Resources.Cashflow.CategoryType</th>
-                                <th>@Roivo.Resources.Cashflow.Period</th>
-                                <th>@Roivo.Resources.Cashflow.EstimatedAmount</th>
-                                <th>@Roivo.Resources.Cashflow.ActualAmount</th>
-                                <th></th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var obligation in group.OrderBy(o => o.TaxType))
-                            {
-                                <tr>
-                                    <td>@TaxTypeLabel(obligation.TaxType)</td>
-                                    <td>@obligation.Period</td>
-                                    <td>@FormatCurrency(obligation.EstimatedAmount)</td>
-                                    <td>@(obligation.ActualAmount is { } actual ? FormatCurrency(actual) : "—")</td>
-                                    <td>
-                                        <MudChip T="string" Size="Size.Small" Color="@StatusColor(obligation)">
-                                            @StatusLabel(obligation)
-                                        </MudChip>
-                                    </td>
-                                    <td>
-                                        @if (!obligation.IsPaid)
-                                        {
-                                            <MudButton Size="Size.Small"
-                                                       Variant="Variant.Outlined"
-                                                       StartIcon="@Icons.Material.Outlined.Done"
-                                                       OnClick="@(() => OpenMarkPaid(obligation))">
-                                                @Roivo.Resources.Cashflow.MarkAsPaid
-                                            </MudButton>
-                                        }
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </MudSimpleTable>
+                    @* One table per due-date group meant the browser sized each
+                       one independently and the columns drifted between groups.
+                       Fixed widths make the groups scan as a single table. *@
+                    <MudHidden Breakpoint="Breakpoint.Xs">
+                        <div class="rv-tax-table">
+                            <MudSimpleTable Dense="true" Hover="true">
+                                <colgroup>
+                                    <col style="width:30%" />
+                                    <col style="width:12%" />
+                                    <col style="width:15%" />
+                                    <col style="width:15%" />
+                                    <col style="width:13%" />
+                                    <col style="width:15%" />
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        <th>@Roivo.Resources.Cashflow.CategoryType</th>
+                                        <th>@Roivo.Resources.Cashflow.Period</th>
+                                        <th>@Roivo.Resources.Cashflow.EstimatedAmount</th>
+                                        <th>@Roivo.Resources.Cashflow.ActualAmount</th>
+                                        <th>@Reconciliation.Column_Status</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var obligation in group.OrderBy(o => o.TaxType))
+                                    {
+                                        <tr>
+                                            <td>@TaxTypeLabel(obligation.TaxType)</td>
+                                            <td>@obligation.Period</td>
+                                            <td>@FormatCurrency(obligation.EstimatedAmount)</td>
+                                            <td>@(obligation.ActualAmount is { } actual ? FormatCurrency(actual) : "—")</td>
+                                            <td class="rv-tax-status">
+                                                <MudChip T="string" Size="Size.Small" Color="@StatusColor(obligation)">
+                                                    @StatusLabel(obligation)
+                                                </MudChip>
+                                            </td>
+                                            <td>
+                                                @if (!obligation.IsPaid)
+                                                {
+                                                    <MudButton Size="Size.Small"
+                                                               FullWidth="true"
+                                                               Variant="Variant.Outlined"
+                                                               StartIcon="@Icons.Material.Outlined.Done"
+                                                               OnClick="@(() => OpenMarkPaid(obligation))">
+                                                        @Roivo.Resources.Cashflow.MarkAsPaid
+                                                    </MudButton>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </MudSimpleTable>
+                        </div>
+                    </MudHidden>
+
+                    @* Below sm the six columns cannot fit a phone, so each
+                       obligation becomes a card led by its status. *@
+                    <MudHidden Breakpoint="Breakpoint.Xs" Invert="true">
+                        @foreach (var obligation in group.OrderBy(o => o.TaxType))
+                        {
+                            <MudPaper Outlined="true" Class="pa-3 mb-2">
+                                <MudChip T="string" Size="Size.Small" Class="mb-2"
+                                         Color="@StatusColor(obligation)">
+                                    @StatusLabel(obligation)
+                                </MudChip>
+                                <MudText Typo="Typo.subtitle2">@TaxTypeLabel(obligation.TaxType)</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-2">
+                                    @Roivo.Resources.Cashflow.Period: @obligation.Period
+                                </MudText>
+                                <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mb-1">
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Cashflow.EstimatedAmount</MudText>
+                                    <MudText Typo="Typo.body2">@FormatCurrency(obligation.EstimatedAmount)</MudText>
+                                </MudStack>
+                                <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mb-2">
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Cashflow.ActualAmount</MudText>
+                                    <MudText Typo="Typo.body2">@(obligation.ActualAmount is { } cardActual ? FormatCurrency(cardActual) : "—")</MudText>
+                                </MudStack>
+                                @if (!obligation.IsPaid)
+                                {
+                                    <MudButton FullWidth="true"
+                                               Variant="Variant.Outlined"
+                                               StartIcon="@Icons.Material.Outlined.Done"
+                                               OnClick="@(() => OpenMarkPaid(obligation))">
+                                        @Roivo.Resources.Cashflow.MarkAsPaid
+                                    </MudButton>
+                                }
+                            </MudPaper>
+                        }
+                    </MudHidden>
                 </MudPaper>
             }
         }

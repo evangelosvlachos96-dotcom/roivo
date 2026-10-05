@@ -8,6 +8,7 @@
 @using Roivo.Application.Features.Aade.Queries.GetAadeConnectionStatus
 @using Roivo.Application.Features.Businesses.Queries.GetBusinessById
 @using Roivo.Core.Domain.Entities
+@using Roivo.Web.Components.Shared
 @inject GetBusinessByIdHandler GetBusinessHandler
 @inject GetAadeConnectionStatusHandler GetStatusHandler
 @inject ConnectAadeHandler ConnectHandler
@@ -22,16 +23,25 @@
 
 <MudContainer MaxWidth="MaxWidth.Small" Class="mt-6">
 
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
-        <MudIconButton Icon="@Icons.Material.Outlined.ArrowBack"
-                       OnClick='() => Nav.NavigateTo("/businesses")' />
-        <MudText Typo="Typo.h4">AADE myDATA</MudText>
-    </MudStack>
+    <MudPaper Class="pa-4 mb-4">
+        <BusinessBreadcrumbs BusinessId="Id" BusinessName="@business?.Name"
+                             CurrentPage="@Roivo.Resources.Accountant.Aade" />
+        <MudText Typo="Typo.h5">AADE myDATA</MudText>
+    </MudPaper>
 
     @if (loading)
     {
-        <MudPaper Class="pa-6 text-center">
-            <MudProgressCircular Indeterminate="true" />
+        <MudPaper Class="pa-6">
+            <SkeletonText Height="2.5rem" Class="mb-4" />
+            <MudGrid Class="mb-4">
+                <MudItem xs="12" sm="6">
+                    <SkeletonText Announce="false" Lines="2" Width="70%" LastLineWidth="90%" Height="0.9rem" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <SkeletonText Announce="false" Lines="2" Width="70%" LastLineWidth="90%" Height="0.9rem" />
+                </MudItem>
+            </MudGrid>
+            <SkeletonText Announce="false" Width="55%" Height="2.5rem" />
         </MudPaper>
     }
     else if (business is null)
@@ -61,17 +71,17 @@
             </MudAlert>
 
             <MudGrid Class="mb-4">
-                <MudItem xs="6">
+                <MudItem xs="12" sm="6">
                     <MudText Typo="Typo.caption" Class="mud-text-secondary">@Aade.UserIdLabel</MudText>
                     <MudText Typo="Typo.body1">@status.MaskedUserId</MudText>
                 </MudItem>
-                <MudItem xs="6">
+                <MudItem xs="12" sm="6">
                     <MudText Typo="Typo.caption" Class="mud-text-secondary">Τελευταίος συγχρονισμός</MudText>
                     <MudText Typo="Typo.body1">@(status.LastSyncAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")</MudText>
                 </MudItem>
             </MudGrid>
 
-            <MudStack Row="true" Spacing="2">
+            <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
                 <MudButton Variant="Variant.Filled" Color="Color.Primary"
                            StartIcon="@Icons.Material.Outlined.Sync"
                            OnClick="HandleSyncNow"
@@ -119,7 +129,7 @@
 
                 <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
                     <MudButton Variant="Variant.Text"
-                               OnClick='() => Nav.NavigateTo("/businesses")'>
+                               OnClick="@(() => Nav.NavigateTo($"/businesses/{Id}"))">
                         @Common.CancelButton
                     </MudButton>
                     <MudButton Variant="Variant.Filled" Color="Color.Primary"

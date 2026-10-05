@@ -8,6 +8,7 @@
 @* The query's result record is also called CashflowDashboard, which the page
    class name would shadow; the alias keeps both nameable. *@
 @using DashboardData = Roivo.Application.Features.Cashflow.Queries.GetCashflowDashboard.CashflowDashboard
+@using Roivo.Web.Components.Shared
 @inject GetBusinessByIdHandler GetBusinessHandler
 @inject GetCashflowDashboardHandler GetDashboardHandler
 @inject NavigationManager Nav
@@ -17,21 +18,45 @@
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-6">
 
     <MudPaper Class="pa-4 mb-4">
-        <MudButton StartIcon="@Icons.Material.Outlined.ArrowBack"
-                   OnClick='() => Nav.NavigateTo("/businesses")'>
-            @Common.BackButton
-        </MudButton>
+        <BusinessBreadcrumbs BusinessId="Id" BusinessName="@business?.Name"
+                             CurrentPage="@Roivo.Resources.Cashflow.Title" />
         <MudText Typo="Typo.h5">@Roivo.Resources.Cashflow.Title</MudText>
-        <MudText Typo="Typo.body2">@(business?.Name ?? "")</MudText>
         <MudText Typo="Typo.caption">@Roivo.Resources.Cashflow.Subtitle</MudText>
     </MudPaper>
 
     @if (loading)
     {
-        <MudPaper Class="pa-6 text-center">
-            <MudProgressCircular Indeterminate="true" />
-            <MudText Typo="Typo.body2" Class="mt-2">@Common.Loading</MudText>
+        <MudGrid Class="mb-4">
+            @for (var i = 0; i < 4; i++)
+            {
+                <MudItem xs="12" sm="6" md="3">
+                    <SkeletonCard Announce="@(i == 0)" />
+                </MudItem>
+            }
+        </MudGrid>
+
+        <MudPaper Class="pa-4 mb-4">
+            <SkeletonText Announce="false" Width="35%" Height="0.9rem" Class="mb-3" />
+            <SkeletonChart Announce="false" Height="300px" Bars="14" />
+            <SkeletonTable Announce="false" Rows="6" Columns="5" Class="mt-4" />
         </MudPaper>
+
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudPaper Class="pa-4">
+                    <SkeletonText Announce="false" Width="30%" Height="0.9rem" Class="mb-3" />
+                    <SkeletonCard Announce="false" Lines="1" Class="mb-3" />
+                    <SkeletonCard Announce="false" Lines="1" />
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudPaper Class="pa-4">
+                    <SkeletonText Announce="false" Width="30%" Height="0.9rem" Class="mb-3" />
+                    <SkeletonCard Announce="false" Lines="1" Class="mb-3" />
+                    <SkeletonCard Announce="false" Lines="1" />
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
     }
     else if (business is null)
     {
@@ -97,7 +122,8 @@
         </MudGrid>
 
         <MudPaper Class="pa-4 mb-4">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween"
+                      Wrap="Wrap.Wrap" Spacing="2" Class="mb-3">
                 <MudText Typo="Typo.subtitle1">@Roivo.Resources.Cashflow.PredictedBalance</MudText>
                 <MudButtonGroup Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small">
                     <MudButton Variant="@(view == ForecastView.Daily ? Variant.Filled : Variant.Outlined)"
@@ -134,7 +160,10 @@
                           Width="100%"
                           Height="340px" />
 
-                <MudSimpleTable Dense="true" Hover="true" Striped="true" Class="mt-4">
+                @* The five money columns cannot fit a 380px viewport; the table
+                   scrolls inside this box so the page body never does. *@
+                <div class="mt-4" style="overflow-x:auto;">
+                <MudSimpleTable Dense="true" Hover="true" Striped="true">
                     <thead>
                         <tr>
                             <th>@Roivo.Resources.Cashflow.DueDate</th>
@@ -157,6 +186,7 @@
                         }
                     </tbody>
                 </MudSimpleTable>
+                </div>
 
                 <MudGrid Class="mt-2">
                     <MudItem xs="12" sm="6" md="3">

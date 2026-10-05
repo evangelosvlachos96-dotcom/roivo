@@ -1,0 +1,38 @@
+.rv-sk-chart {
+    width: 100%;
+    max-width: 100%;
+}
+
+.rv-sk-chart-plot {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.4rem;
+    width: 100%;
+}
+
+/* The bars are SkeletonText roots, so they carry that component's scope
+   attribute rather than this one's. */
+.rv-sk-chart-plot > ::deep .rv-sk {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 100%;
+    justify-content: flex-end;
+}
+
+.rv-sk-chart-axis {
+    height: 1px;
+    margin-top: 0.5rem;
+    background: rgba(11, 31, 58, 0.16);
+}
+
+.rv-sk-chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 0.75rem;
+}
+
+.rv-sk-chart-legend > ::deep .rv-sk {
+    width: auto;
+    flex: 0 0 auto;
+}

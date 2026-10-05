@@ -1,0 +1,43 @@
+@* Shimmer primitive. SkeletonCard/Table/Chart compose this rather than
+   redeclaring the gradient, so the animation is defined in one place. *@
+@if (Announce)
+{
+    <SkeletonAnnouncer />
+}
+<div class="rv-sk @Class" aria-hidden="true">
+    @for (var i = 0; i < Lines; i++)
+    {
+        <div class="rv-sk-line" style="@LineStyle(i)"></div>
+    }
+</div>
+
+@code {
+    /// <summary>Number of shimmer lines to stack.</summary>
+    [Parameter] public int Lines { get; set; } = 1;
+
+    /// <summary>CSS width of every line (the last one can differ, see <see cref="LastLineWidth"/>).</summary>
+    [Parameter] public string Width { get; set; } = "100%";
+
+    /// <summary>CSS width of the final line, so multi-line blocks read as a ragged paragraph.</summary>
+    [Parameter] public string? LastLineWidth { get; set; }
+
+    /// <summary>CSS height of each line.</summary>
+    [Parameter] public string Height { get; set; } = "1rem";
+
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>
+    /// Renders the single visually-hidden live region for this loading area.
+    /// Set false on every skeleton after the first one in the same region.
+    /// </summary>
+    [Parameter] public bool Announce { get; set; } = true;
+
+    private string LineStyle(int index)
+    {
+        var width = LastLineWidth is not null && Lines > 1 && index == Lines - 1
+            ? LastLineWidth
+            : Width;
+
+        return $"width:{width};height:{Height};";
+    }
+}

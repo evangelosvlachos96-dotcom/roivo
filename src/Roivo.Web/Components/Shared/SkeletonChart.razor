@@ -1,0 +1,42 @@
+@* Stand-in for a chart: a bar field over a baseline, so the loading state
+   occupies the same box the real chart will. *@
+@if (Announce)
+{
+    <SkeletonAnnouncer />
+}
+<div class="rv-sk-chart @Class" aria-hidden="true">
+    <div class="rv-sk-chart-plot" style="@PlotStyle">
+        @for (var i = 0; i < BarCount; i++)
+        {
+            <SkeletonText Announce="false" Height="@BarHeight(i)" />
+        }
+    </div>
+    <div class="rv-sk-chart-axis"></div>
+    <div class="rv-sk-chart-legend">
+        <SkeletonText Announce="false" Width="90px" Height="0.6rem" />
+        <SkeletonText Announce="false" Width="70px" Height="0.6rem" />
+        <SkeletonText Announce="false" Width="110px" Height="0.6rem" />
+    </div>
+</div>
+
+@code {
+    /// <summary>CSS height of the plot area, excluding axis and legend.</summary>
+    [Parameter] public string Height { get; set; } = "260px";
+
+    [Parameter] public int Bars { get; set; } = 12;
+
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>See <see cref="SkeletonText.Announce"/>.</summary>
+    [Parameter] public bool Announce { get; set; } = true;
+
+    private int BarCount => Math.Clamp(Bars, 1, 48);
+
+    private string PlotStyle => $"height:{Height};";
+
+    // A fixed, non-random ripple: a random pattern would change on every
+    // re-render of the loading state and make the placeholder jitter.
+    private static readonly int[] Pattern = [45, 70, 55, 85, 62, 40, 78, 92, 58, 66, 48, 80];
+
+    private string BarHeight(int index) => $"{Pattern[index % Pattern.Length]}%";
+}

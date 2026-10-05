@@ -11,7 +11,9 @@ using Roivo.Core.Domain.Entities;
 using Roivo.Core.Domain.Enums;
 using Roivo.Core.Domain.Validation;
 using Roivo.Infrastructure.Email;
+using Roivo.Infrastructure.Email.Templates;
 using Roivo.Infrastructure.Persistence;
+using Roivo.Resources;
 
 namespace Roivo.Web.Areas.Account.Pages;
 
@@ -50,36 +52,36 @@ public class RegisterModel : PageModel
 
     public class InputModel
     {
-        [Required(ErrorMessage = "Επίλεξε τύπο λογαριασμού")]
+        [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.AccountTypeRequired))]
         public TenantType Type { get; set; }
 
-        [Required(ErrorMessage = "Το ονοματεπώνυμο είναι υποχρεωτικό")]
-        [StringLength(200, MinimumLength = 2, ErrorMessage = "Το ονοματεπώνυμο πρέπει να έχει τουλάχιστον 2 χαρακτήρες")]
+        [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.FullNameRequired))]
+        [StringLength(200, MinimumLength = 2, ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.FullNameTooShort))]
         public string FullName { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Το email είναι υποχρεωτικό")]
-        [EmailAddress(ErrorMessage = "Μη έγκυρο email")]
+        [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.EmailRequired))]
+        [EmailAddress(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.EmailInvalid))]
         public string Email { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Ο κωδικός είναι υποχρεωτικός")]
+        [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordRequired))]
         [DataType(DataType.Password)]
         public string Password { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Επιβεβαίωσε τον κωδικό")]
+        [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.ConfirmPasswordRequired))]
         [DataType(DataType.Password)]
-        [Compare(nameof(Password), ErrorMessage = "Οι κωδικοί δεν ταιριάζουν")]
+        [Compare(nameof(Password), ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordsDoNotMatch))]
         public string ConfirmPassword { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Η επωνυμία είναι υποχρεωτική")]
+        [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.OrganisationNameRequired))]
         [StringLength(200)]
         public string OrganizationName { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Ο ΑΦΜ είναι υποχρεωτικός")]
-        [RegularExpression("^[0-9]{9}$", ErrorMessage = "Ο ΑΦΜ πρέπει να είναι 9 ψηφία")]
+        [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.AfmRequired))]
+        [RegularExpression("^[0-9]{9}$", ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.AfmLength))]
         [ValidAfm]
         public string Afm { get; set; } = string.Empty;
 
-        [Range(typeof(bool), "true", "true", ErrorMessage = "Πρέπει να αποδεχτείς τους όρους")]
+        [Range(typeof(bool), "true", "true", ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.TermsMustBeAccepted))]
         public bool AcceptTerms { get; set; }
 
         // Set to true when the user re-submits after seeing the AFM-already-exists
@@ -196,25 +198,19 @@ public class RegisterModel : PageModel
                 ["token"] = token,
             });
 
-        var html = $$"""
-            <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#222;">
-              <h2 style="color:#1565c0;">Καλωσήρθες στο Roivo</h2>
-              <p>Γεια σου {{System.Net.WebUtility.HtmlEncode(Input.FullName)}},</p>
-              <p>Πάτησε το παρακάτω κουμπί για να επιβεβαιώσεις το email σου και να ενεργοποιήσεις τον λογαριασμό σου.</p>
-              <p style="text-align:center;margin:32px 0;">
-                <a href="{{encodedToken}}" style="background:#1565c0;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;">Επιβεβαίωση email</a>
-              </p>
-              <p style="font-size:13px;color:#666;">Αν το κουμπί δεν λειτουργεί, αντίγραψε αυτό το link στον browser σου:</p>
-              <p style="font-size:12px;color:#666;word-break:break-all;">{{encodedToken}}</p>
-              <hr style="border:none;border-top:1px solid #eee;margin:24px 0;" />
-              <p style="font-size:12px;color:#888;">Αν δεν εγγράφηκες στο Roivo, μπορείς να αγνοήσεις αυτό το μήνυμα.</p>
-            </div>
-            """;
+        // Rendered while still on the request thread, so the branded template
+        // picks up the culture the visitor registered in. The Hangfire worker
+        // that sends it has no culture of its own.
+        var confirmation = EmailConfirmationEmail.Render(
+            new EmailConfirmationEmail.Model(Input.FullName, encodedToken),
+            baseUrl: $"{Request.Scheme}://{Request.Host}",
+            english: Strings.IsEnglish);
 
         // Enqueue the email send. Hangfire runs it in the background and retries
         // on failure; the user gets the confirmation-pending page immediately
         // without waiting for SMTP.
-        _backgroundJobs.Enqueue<EmailJob>(job => job.SendAsync(Input.Email, "Επιβεβαίωση email - Roivo", html));
+        _backgroundJobs.Enqueue<EmailJob>(job =>
+            job.SendAsync(Input.Email, confirmation.Subject, confirmation.HtmlBody));
 
         await _audit.WriteAsync(
             action: AuditAction.UserRegistered,

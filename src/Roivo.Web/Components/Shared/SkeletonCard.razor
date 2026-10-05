@@ -1,0 +1,37 @@
+@* Stand-in for a summary card: caption line, headline value, optional body. *@
+@if (Announce)
+{
+    <SkeletonAnnouncer />
+}
+<div class="rv-sk-card @Class" style="@RootStyle" aria-hidden="true">
+    @if (ShowCaption)
+    {
+        <SkeletonText Announce="false" Width="@CaptionWidth" Height="0.7rem" />
+    }
+    <SkeletonText Announce="false" Width="@ValueWidth" Height="2rem" Class="rv-sk-card-value" />
+    @if (Lines > 0)
+    {
+        <SkeletonText Announce="false" Lines="@Lines" Width="100%" LastLineWidth="60%" Height="0.7rem" />
+    }
+</div>
+
+@code {
+    /// <summary>CSS height of the card block. Null lets the content size it.</summary>
+    [Parameter] public string? Height { get; set; }
+
+    [Parameter] public bool ShowCaption { get; set; } = true;
+
+    [Parameter] public string CaptionWidth { get; set; } = "45%";
+
+    [Parameter] public string ValueWidth { get; set; } = "70%";
+
+    /// <summary>Extra body lines below the headline value.</summary>
+    [Parameter] public int Lines { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>See <see cref="SkeletonText.Announce"/>.</summary>
+    [Parameter] public bool Announce { get; set; } = true;
+
+    private string? RootStyle => Height is null ? null : $"height:{Height};";
+}

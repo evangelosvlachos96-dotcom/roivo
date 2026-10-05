@@ -18,10 +18,20 @@ public static class DailyDigestEmail
     public sealed record Model(DateOnly Date, IReadOnlyList<Row> Rows);
 
     /// <param name="notice">Optional banner text, used by the test send.</param>
-    public static RenderedEmail Render(Model model, string baseUrl, string? notice = null)
+    /// <param name="english">
+    /// The recipient's language, Greek by default. See <see cref="EmailCulture"/>
+    /// for why this is an argument rather than an ambient culture read.
+    /// </param>
+    public static RenderedEmail Render(
+        Model model,
+        string baseUrl,
+        string? notice = null,
+        bool english = false)
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentException.ThrowIfNullOrWhiteSpace(baseUrl);
+
+        using var culture = EmailCulture.For(english);
 
         var dateText = model.Date.ToString("dd/MM/yyyy", EmailHtml.Culture);
         var subject = string.Format(EmailHtml.Culture, Notifications.Digest_Subject, dateText);

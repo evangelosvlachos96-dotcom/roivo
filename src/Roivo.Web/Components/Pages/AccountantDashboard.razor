@@ -6,6 +6,7 @@
 @using Roivo.Application.Features.Accountant.Services
 @using Roivo.Application.Features.Cashflow.Services
 @using DashboardData = Roivo.Application.Features.Accountant.Queries.GetAccountantDashboard.AccountantDashboard
+@using Roivo.Web.Components.Shared
 @inject GetAccountantDashboardHandler GetDashboardHandler
 
 <PageTitle>@Roivo.Resources.Accountant.Title</PageTitle>
@@ -19,9 +20,17 @@
 
     @if (_loading)
     {
-        <MudPaper Class="pa-6 text-center">
-            <MudProgressCircular Indeterminate="true" />
-            <MudText Typo="Typo.body2" Class="mt-2">@Common.Loading</MudText>
+        <MudGrid Class="mb-4">
+            @for (var i = 0; i < 4; i++)
+            {
+                <MudItem xs="12" sm="6" md="3">
+                    <SkeletonCard Announce="@(i == 0)" />
+                </MudItem>
+            }
+        </MudGrid>
+
+        <MudPaper Class="pa-4">
+            <SkeletonTable Announce="false" Rows="6" Columns="9" />
         </MudPaper>
     }
     else if (_forbidden)

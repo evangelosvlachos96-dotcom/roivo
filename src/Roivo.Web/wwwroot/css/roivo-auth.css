@@ -1,0 +1,368 @@
+/* Roivo brand styling for the Account area (Login / Register / ForgotPassword
+   / ResetPassword).
+
+   These four pages are Razor Pages served by Areas/Account/Pages/Shared/_Layout
+   .cshtml, which is Bootstrap-based and shared with other account screens. This
+   stylesheet is linked from the four auth pages only, so plain element and
+   Bootstrap class selectors are effectively scoped to them and no :has() or
+   wrapper gymnastics are needed to retheme the layout chrome. */
+
+:root {
+    --roivo-navy: #0B1F3A;
+    --roivo-blue: #1E88E5;
+    --roivo-teal: #2DD4BF;
+    --roivo-light: #F8FAFC;
+    --roivo-gradient: linear-gradient(135deg, #1E88E5, #2DD4BF);
+    --roivo-border: #DCE3EC;
+    --roivo-error: #D32F2F;
+}
+
+body {
+    min-height: 100vh;
+    background: var(--roivo-light) !important;
+    color: var(--roivo-navy);
+    font-family: Inter, "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* The layout hard-codes max-width:540px inline; !important is the only way to
+   narrow it from a stylesheet. */
+body > .container {
+    max-width: 440px !important;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+/* The layout renders a plain "Roivo" wordmark above the card; the pages supply
+   the real mark inside the card instead. */
+body > .container > .text-center {
+    display: none;
+}
+
+.card {
+    border: 1px solid var(--roivo-border);
+    border-radius: 18px;
+    box-shadow: 0 12px 32px rgba(11, 31, 58, 0.08), 0 2px 6px rgba(11, 31, 58, 0.04);
+}
+
+.card-body {
+    padding: 2.25rem 2rem !important;
+}
+
+/* ---- Brand mark ------------------------------------------------------- */
+
+.roivo-auth-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.75rem;
+}
+
+.roivo-auth-logo {
+    display: block;
+    width: 52px;
+    height: 52px;
+}
+
+.roivo-auth-wordmark {
+    font-size: 1.0625rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--roivo-navy);
+}
+
+/* ---- Typography ------------------------------------------------------- */
+
+h2 {
+    font-weight: 700;
+    color: var(--roivo-navy);
+    text-align: center;
+}
+
+h2 + p,
+.text-muted {
+    color: #5A6B82 !important;
+}
+
+h2 + p {
+    text-align: center;
+}
+
+/* ---- Fields ----------------------------------------------------------- */
+
+.form-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--roivo-navy);
+    margin-bottom: 0.35rem;
+}
+
+.form-control {
+    display: block;
+    width: 100%;
+    min-height: 46px;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid var(--roivo-border);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--roivo-navy);
+    font-size: 0.9375rem;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.form-control:hover {
+    border-color: #BFCBDA;
+}
+
+.form-control:focus {
+    border-color: var(--roivo-blue);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(30, 136, 229, 0.22);
+}
+
+.form-text {
+    font-size: 0.75rem;
+    color: #5A6B82;
+}
+
+/* Checkboxes and radios: 20px box inside a 44px tap row. */
+.form-check {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-left: 0;
+    flex-wrap: wrap;
+}
+
+.form-check-inline {
+    display: inline-flex;
+    margin-right: 1.25rem;
+}
+
+.form-check-input {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    flex: 0 0 auto;
+    border: 1px solid #9AAABF;
+    cursor: pointer;
+}
+
+.form-check-input:checked {
+    background-color: var(--roivo-blue);
+    border-color: var(--roivo-blue);
+}
+
+.form-check-input:focus {
+    border-color: var(--roivo-blue);
+    box-shadow: 0 0 0 3px rgba(30, 136, 229, 0.22);
+}
+
+.form-check-label {
+    margin: 0;
+    cursor: pointer;
+    color: var(--roivo-navy);
+}
+
+/* The radio group label is a block heading, not part of a tap row. */
+.form-label.d-block {
+    display: block;
+}
+
+/* ---- Submit ----------------------------------------------------------- */
+
+.btn-primary,
+.btn-primary:active {
+    display: block;
+    width: 100%;
+    min-height: 48px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--roivo-gradient);
+    color: #fff;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    box-shadow: 0 6px 16px rgba(30, 136, 229, 0.28);
+    transition: filter 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+}
+
+.btn-primary:hover {
+    color: #fff;
+    filter: brightness(1.06);
+    box-shadow: 0 8px 22px rgba(30, 136, 229, 0.34);
+}
+
+.btn-primary:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(30, 136, 229, 0.3), 0 6px 16px rgba(30, 136, 229, 0.28);
+}
+
+.btn-outline-secondary {
+    display: block;
+    width: 100%;
+    min-height: 48px;
+    border: 1px solid var(--roivo-border);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--roivo-navy);
+    font-weight: 600;
+}
+
+.btn-outline-secondary:hover {
+    background: #EEF3F9;
+    border-color: #BFCBDA;
+    color: var(--roivo-navy);
+}
+
+/* ---- Links ------------------------------------------------------------ */
+
+a {
+    color: #14A89A;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+a:hover,
+a:focus {
+    color: var(--roivo-blue);
+    text-decoration: underline;
+}
+
+a:focus-visible {
+    outline: 2px solid var(--roivo-blue);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+.roivo-auth-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 1.75rem;
+    font-size: 0.875rem;
+}
+
+.roivo-auth-links a {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* ---- Errors ----------------------------------------------------------- */
+
+/* Shared leading icon for anything that reports a problem. Empty validation
+   spans must stay invisible, hence :not(:empty). */
+.alert-danger,
+.alert-warning,
+span.text-danger:not(:empty) {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.alert-danger::before,
+.alert-warning::before,
+span.text-danger:not(:empty)::before {
+    content: "";
+    flex: 0 0 auto;
+    width: 1em;
+    height: 1em;
+    margin-top: 0.15em;
+    background-color: currentColor;
+    /* Material "error_outline". */
+    -webkit-mask: var(--roivo-alert-icon) center / contain no-repeat;
+    mask: var(--roivo-alert-icon) center / contain no-repeat;
+}
+
+:root {
+    --roivo-alert-icon: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M11 15h2v2h-2v-2zm0-8h2v6h-2V7zm1-5C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z'/%3E%3C/svg%3E");
+}
+
+span.text-danger:not(:empty) {
+    margin-top: 0.35rem;
+    color: var(--roivo-error) !important;
+    font-size: 0.8125rem;
+    font-weight: 500;
+}
+
+.alert-danger {
+    border: 1px solid rgba(211, 47, 47, 0.3);
+    border-radius: 10px;
+    background: #FDECEC;
+    color: var(--roivo-error);
+    font-size: 0.875rem;
+    padding: 0.75rem 0.875rem;
+}
+
+.alert-danger ul {
+    margin: 0;
+    padding-left: 1.1rem;
+}
+
+.alert-warning {
+    border: 1px solid rgba(217, 119, 6, 0.3);
+    border-radius: 10px;
+    background: #FFF7E6;
+    color: #8A5300;
+    font-size: 0.875rem;
+    padding: 0.75rem 0.875rem;
+    flex-wrap: wrap;
+}
+
+.alert-success {
+    border: 1px solid rgba(45, 212, 191, 0.4);
+    border-radius: 10px;
+    background: #E6FBF7;
+    color: #0F766E;
+    font-size: 0.875rem;
+    padding: 0.75rem 0.875rem;
+}
+
+/* The inner block of the warning must not be squeezed by the icon flex row. */
+.alert-warning > *:not(:first-child) {
+    flex: 1 1 100%;
+}
+
+/* ---- Mobile ----------------------------------------------------------- */
+
+@media (max-width: 575.98px) {
+    body > .container {
+        padding-top: 1.5rem !important;
+        padding-bottom: 2rem !important;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .card {
+        border-radius: 14px;
+    }
+
+    .card-body {
+        padding: 1.5rem 1.125rem !important;
+    }
+
+    .roivo-auth-links {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+    }
+
+    .roivo-auth-links a {
+        justify-content: center;
+    }
+
+    .form-check-inline {
+        display: flex;
+        margin-right: 0;
+    }
+}
+
+.roivo-auth-footnote {
+    margin-top: 1.75rem !important;
+    color: #5A6B82;
+}

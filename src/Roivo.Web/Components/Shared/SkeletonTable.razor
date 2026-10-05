@@ -1,0 +1,50 @@
+@* Stand-in for a data table: a header strip plus N shimmer rows of N cells.
+   Rendered as a grid rather than a <table> so it cannot be mistaken for
+   tabular content by assistive tech. *@
+@if (Announce)
+{
+    <SkeletonAnnouncer />
+}
+<div class="rv-sk-table @Class" aria-hidden="true">
+    @if (ShowHeader)
+    {
+        <div class="rv-sk-tr rv-sk-th" style="@GridStyle">
+            @for (var c = 0; c < Columns; c++)
+            {
+                <SkeletonText Announce="false" Width="75%" Height="0.7rem" />
+            }
+        </div>
+    }
+    @for (var r = 0; r < Rows; r++)
+    {
+        <div class="rv-sk-tr" style="@GridStyle">
+            @for (var c = 0; c < Columns; c++)
+            {
+                <SkeletonText Announce="false" Width="@CellWidth(c)" Height="0.9rem" />
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int Rows { get; set; } = 5;
+
+    [Parameter] public int Columns { get; set; } = 4;
+
+    [Parameter] public bool ShowHeader { get; set; } = true;
+
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>See <see cref="SkeletonText.Announce"/>.</summary>
+    [Parameter] public bool Announce { get; set; } = true;
+
+    private string GridStyle => $"grid-template-columns:repeat({Math.Max(Columns, 1)},minmax(0,1fr));";
+
+    // Varying the cell widths keeps the block from reading as a solid slab.
+    private string CellWidth(int column) => (column % 3) switch
+    {
+        0 => "85%",
+        1 => "65%",
+        _ => "75%",
+    };
+}

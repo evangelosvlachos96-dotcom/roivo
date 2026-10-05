@@ -11,6 +11,7 @@ using Roivo.Web.Configuration;
 using Roivo.Web.Configuration.Settings;
 using Roivo.Web.Hangfire;
 using Roivo.Infrastructure.Jobs;
+using Roivo.Resources;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -109,6 +110,23 @@ if (builder.Environment.IsDevelopment() || builder.Environment.IsStaging())
     builder.Services.AddSwaggerGen();
 }
 
+// Greek first: it is the default for a Greek product, and the first entry is
+// what an unrecognised or absent cookie falls back to.
+var supportedCultures = new[] { Strings.Greek, Strings.English };
+
+builder.Services.Configure<RequestLocalizationOptions>(options =>
+{
+    options.SetDefaultCulture(Strings.Greek)
+        .AddSupportedCultures(supportedCultures)
+        .AddSupportedUICultures(supportedCultures);
+
+    // Cookie only. Honouring Accept-Language would flip a Greek accountant's
+    // interface to English just because their browser is, which is not the
+    // signal we want — the toggle is explicit.
+    options.RequestCultureProviders =
+        [new Microsoft.AspNetCore.Localization.CookieRequestCultureProvider()];
+});
+
 var app = builder.Build();
 
 // Render terminates TLS and forwards plain HTTP to the container, so without
@@ -127,6 +145,11 @@ forwardedHeaders.KnownNetworks.Clear();
 forwardedHeaders.KnownProxies.Clear();
 
 app.UseForwardedHeaders(forwardedHeaders);
+
+// Before anything that renders: the culture has to be set for the request
+// before a component reads a resource string.
+app.UseRequestLocalization(app.Services.GetRequiredService<
+    Microsoft.Extensions.Options.IOptions<RequestLocalizationOptions>>().Value);
 
 app.UseSerilogRequestLogging();
 app.UseSecurityHeaders();

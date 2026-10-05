@@ -1,3 +1,4 @@
+@page "/businesses/{Id:guid}"
 @page "/businesses/{Id:guid}/edit"
 @attribute [Authorize]
 
@@ -7,6 +8,7 @@
 @using Roivo.Application.Features.Banking.Queries.GetBankingConnectionStatus
 @using Roivo.Application.Features.Businesses.Commands.UpdateBusiness
 @using Roivo.Application.Features.Businesses.Queries.GetBusinessById
+@using Roivo.Web.Components.Shared
 @inject GetBusinessByIdHandler GetHandler
 @inject UpdateBusinessHandler UpdateHandler
 @inject GetAadeConnectionStatusHandler AadeStatusHandler
@@ -18,17 +20,32 @@
 
 <MudContainer MaxWidth="MaxWidth.Small" Class="mt-6">
 
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
-        <MudIconButton Icon="@Icons.Material.Outlined.ArrowBack"
-                       OnClick='() => Nav.NavigateTo("/businesses")' />
-        <MudText Typo="Typo.h4">@Roivo.Resources.Businesses.PageTitle_Edit</MudText>
-    </MudStack>
+    <MudPaper Class="pa-4 mb-4">
+        <MudBreadcrumbs Items="@Crumbs" Class="pa-0 mb-2 flex-wrap rv-crumbs" />
+        <MudText Typo="Typo.h5">@Roivo.Resources.Businesses.PageTitle_Edit</MudText>
+    </MudPaper>
 
     @if (loading)
     {
-        <MudPaper Class="pa-6 text-center">
-            <MudProgressCircular Indeterminate="true" />
+        <MudPaper Class="pa-6">
+            @* Four editable fields, then the cancel/save pair. *@
+            @for (var i = 0; i < 4; i++)
+            {
+                <SkeletonText Announce="@(i == 0)" Height="2.5rem" Class="mb-4" />
+            }
+            <SkeletonText Announce="false" Width="55%" Height="2.5rem" />
         </MudPaper>
+
+        @* One panel per linked area: AADE, banking, reconciliation, cashflow, notifications. *@
+        @for (var i = 0; i < 5; i++)
+        {
+            <MudPaper Class="pa-6 mt-4">
+                <SkeletonText Announce="false" Width="35%" Height="1.25rem" Class="mb-2" />
+                <SkeletonText Announce="false" Lines="2" Width="90%" LastLineWidth="60%"
+                              Height="0.7rem" Class="mb-3" />
+                <SkeletonText Announce="false" Width="60%" Height="2.5rem" />
+            </MudPaper>
+        }
     }
     else
     {
@@ -97,7 +114,7 @@
                     ? $"Συνδεδεμένη. Τελευταίος συγχρονισμός: {(aadeStatus.LastSyncAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")}"
                     : "Δεν έχει συνδεθεί ακόμα.")
             </MudText>
-            <MudStack Row="true" Spacing="2">
+            <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
                 <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                            StartIcon="@Icons.Material.Outlined.SyncAlt"
                            OnClick='() => Nav.NavigateTo($"/businesses/{Id}/aade")'>
@@ -143,7 +160,7 @@
             <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
                 @Roivo.Resources.Cashflow.Subtitle
             </MudText>
-            <MudStack Row="true" Spacing="2">
+            <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
                 <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                            StartIcon="@Icons.Material.Outlined.ShowChart"
                            OnClick='() => Nav.NavigateTo($"/businesses/{Id}/cashflow")'>
@@ -189,6 +206,20 @@
         (model.Afm?.Trim() ?? "") != (originalSnapshot.Afm?.Trim() ?? "") ||
         (model.Kad?.Trim() ?? "") != (originalSnapshot.Kad?.Trim() ?? "") ||
         (model.Address?.Trim() ?? "") != (originalSnapshot.Address?.Trim() ?? "");
+
+    // This page is the business itself, so the trail ends on the business name
+    // rather than adding a crumb that would link back to where we already are.
+    private List<BreadcrumbItem> Crumbs =>
+    [
+        new BreadcrumbItem(Common.Nav_Dashboard, "/dashboard"),
+        new BreadcrumbItem(Common.Nav_Businesses, "/businesses"),
+        new BreadcrumbItem(
+            string.IsNullOrWhiteSpace(existingBusiness?.Name)
+                ? Roivo.Resources.Businesses.PageTitle_Edit
+                : existingBusiness.Name,
+            href: null,
+            disabled: true),
+    ];
 
     protected override async Task OnInitializedAsync()
     {
