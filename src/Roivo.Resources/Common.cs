@@ -39,6 +39,14 @@ public static class Common
     // Home page
     public static string Home_HeroSubtitle => Strings.Get("Common.Home_HeroSubtitle", "Έλεγχος ταμειακής ροής. Χωρίς λογιστικό φύλλο.");
 
+    public static string RequiredShort => Strings.Get("Common.RequiredShort", "Υποχρεωτικό");
+    // Endonyms: the language switcher labels the *target* language in that
+    // language, so these stay pinned (_El/_En) rather than being translated.
+    public static string LanguageName_El => Strings.Get("Common.LanguageName_El", "Ελληνικά");
+    public static string LanguageName_En => Strings.Get("Common.LanguageName_En", "English");
+
+    public static string Nav_Menu => Strings.Get("Common.Nav_Menu", "Μενού πλοήγησης");
+
     /// <summary>English overrides. Keys absent here fall back to Greek.</summary>
     static Common() => Strings.RegisterEnglish(new Dictionary<string, string>(StringComparer.Ordinal)
     {
@@ -65,5 +73,7 @@ public static class Common
         ["Common.Nav_Register"] = "Sign up",
         ["Common.Nav_BrandName"] = "Roivo",
         ["Common.Home_HeroSubtitle"] = "Cashflow control. Without a spreadsheet.",
+        ["Common.RequiredShort"] = "Required",
+        ["Common.Nav_Menu"] = "Navigation menu",
     });
 }

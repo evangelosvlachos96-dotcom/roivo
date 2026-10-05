@@ -26,7 +26,7 @@ public static class Marketing
     // ------------------------------------------------------- landing / SEO
 
     public static string Landing_PageTitle =>
-        Strings.Get("Marketing.Landing_PageTitle", "Roivo — Ταμειακές ροές χωρίς εκπλήξεις");
+        Strings.Get("Marketing.Landing_PageTitle", "Ταμειακές ροές χωρίς εκπλήξεις");
 
     public static string Landing_MetaDescription => Strings.Get("Marketing.Landing_MetaDescription",
         "Το Roivo συνδέει τους τραπεζικούς λογαριασμούς με το myDATA, συμφωνεί αυτόματα κινήσεις και παραστατικά και προβλέπει την ταμειακή ροή 90 ημερών μπροστά.");
@@ -272,7 +272,7 @@ public static class Marketing
     // -------------------------------------------------------------- privacy
 
     public static string Privacy_PageTitle =>
-        Strings.Get("Marketing.Privacy_PageTitle", "Πολιτική απορρήτου — Roivo");
+        Strings.Get("Marketing.Privacy_PageTitle", "Πολιτική απορρήτου");
 
     public static string Privacy_MetaDescription => Strings.Get("Marketing.Privacy_MetaDescription",
         "Πώς το Roivo συλλέγει, χρησιμοποιεί και προστατεύει τα δεδομένα σας, σύμφωνα με τον GDPR.");
@@ -412,7 +412,7 @@ public static class Marketing
 
     // ---------------------------------------------------------------- terms
 
-    public static string Terms_PageTitle => Strings.Get("Marketing.Terms_PageTitle", "Όροι χρήσης — Roivo");
+    public static string Terms_PageTitle => Strings.Get("Marketing.Terms_PageTitle", "Όροι χρήσης");
 
     public static string Terms_MetaDescription => Strings.Get("Marketing.Terms_MetaDescription",
         "Οι όροι υπό τους οποίους παρέχεται και χρησιμοποιείται η πλατφόρμα Roivo.");
@@ -487,13 +487,15 @@ public static class Marketing
     public static string Terms_S10_Body => Strings.Get("Marketing.Terms_S10_Body",
         "[COMPANY_LEGAL_NAME], [COMPANY_ADDRESS]. Email: [SUPPORT_CONTACT_EMAIL].");
 
+    public static string MetaDescription => Strings.Get("Marketing.MetaDescription", "Roivo — ταμειακές ροές χωρίς εκπλήξεις για ελληνικές επιχειρήσεις. Αυτόματη αντιστοίχιση τιμολογίων, πρόβλεψη 90 ημερών, φορολογικό ημερολόγιο.");
+
     /// <summary>English overrides. Keys absent here fall back to Greek.</summary>
     static Marketing() => Strings.RegisterEnglish(new Dictionary<string, string>(StringComparer.Ordinal)
     {
         ["Marketing.BrandName"] = "Roivo",
         ["Marketing.Tagline"] = "Cashflow Intelligence",
 
-        ["Marketing.Landing_PageTitle"] = "Roivo — Cashflow without surprises",
+        ["Marketing.Landing_PageTitle"] = "Cashflow without surprises",
         ["Marketing.Landing_MetaDescription"] =
             "Roivo connects your bank accounts with AADE myDATA, reconciles transactions against invoices automatically and forecasts your cashflow 90 days ahead.",
         ["Marketing.Landing_SkipToContent"] = "Skip to content",
@@ -606,7 +608,7 @@ public static class Marketing
         ["Marketing.Legal_BackToHome"] = "Back to home",
         ["Marketing.Legal_TableOfContents"] = "Contents",
 
-        ["Marketing.Privacy_PageTitle"] = "Privacy policy — Roivo",
+        ["Marketing.Privacy_PageTitle"] = "Privacy policy",
         ["Marketing.Privacy_MetaDescription"] =
             "How Roivo collects, uses and protects your data, in line with the GDPR.",
         ["Marketing.Privacy_Title"] = "Privacy policy",
@@ -682,7 +684,7 @@ public static class Marketing
         ["Marketing.Privacy_S11_Body"] =
             "[COMPANY_LEGAL_NAME], [COMPANY_ADDRESS]. Email: [PRIVACY_CONTACT_EMAIL]. Data Protection Officer (DPO): [DPO_CONTACT].",
 
-        ["Marketing.Terms_PageTitle"] = "Terms of use — Roivo",
+        ["Marketing.Terms_PageTitle"] = "Terms of use",
         ["Marketing.Terms_MetaDescription"] = "The terms on which the Roivo platform is provided and used.",
         ["Marketing.Terms_Title"] = "Terms of use",
         ["Marketing.Terms_Intro"] =
@@ -723,5 +725,6 @@ public static class Marketing
             "These terms are governed by Greek law. The courts of [JURISDICTION_CITY], Greece have exclusive jurisdiction over any dispute arising from them. Consumer rights under mandatory law are not restricted.",
         ["Marketing.Terms_S10_Title"] = "10. Contact",
         ["Marketing.Terms_S10_Body"] = "[COMPANY_LEGAL_NAME], [COMPANY_ADDRESS]. Email: [SUPPORT_CONTACT_EMAIL].",
+        ["Marketing.MetaDescription"] = "Roivo — cashflow without surprises for Greek businesses. Automatic invoice reconciliation, 90-day forecasting and the Greek tax calendar.",
     });
 }

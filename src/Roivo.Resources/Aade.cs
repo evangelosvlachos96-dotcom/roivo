@@ -38,13 +38,24 @@ public static class Aade
     public static string FailureReasonAfmMismatch => Strings.Get("Aade.FailureReasonAfmMismatch", "Τα διαπιστευτήρια AADE ανήκουν σε διαφορετικό ΑΦΜ. Πρέπει να ελέγξετε τη σύνδεση.");
     public static string FailureReasonGeneric => Strings.Get("Aade.FailureReasonGeneric", "Ο συγχρονισμός AADE απέτυχε. Επικοινωνήστε με την υποστήριξη αν το πρόβλημα παραμένει.");
 
-    // 24-hour failure notification email (sent by AadeFailureNotificationJob).
-    // Body placeholders: {0} business name, {1} AFM, {2} failure start (local),
-    // {3} translated reason, {4} reconnect URL.
-    public static string FailureEmailSubject => Strings.Get("Aade.FailureEmailSubject", "Πρόβλημα σύνδεσης AADE - Roivo");
-    public static string FailureEmailGreeting => Strings.Get("Aade.FailureEmailGreeting", "Γεια σας {0},");
-    public static string FailureEmailBody => Strings.Get("Aade.FailureEmailBody", "Η σύνδεση AADE για την επιχείρηση \"{0}\" (ΑΦΜ {1}) δεν λειτουργεί από τις {2:dd/MM/yyyy HH:mm}.\n\nΛόγος: {3}\n\nΕίσοδος στο Roivo για να επανασυνδέσετε:\n{4}");
-    public static string FailureEmailSignature => Strings.Get("Aade.FailureEmailSignature", "Η ομάδα του Roivo");
+    public static string Connected_Description => Strings.Get("Aade.Connected_Description", "Συνδεδεμένη επιχείρηση με myDATA.");
+    public static string LastSyncHeading => Strings.Get("Aade.LastSyncHeading", "Τελευταίος συγχρονισμός");
+    public static string SyncingMessage => Strings.Get("Aade.SyncingMessage", "Συγχρονισμός...");
+    public static string ConnectingMessage => Strings.Get("Aade.ConnectingMessage", "Σύνδεση...");
+    public static string CredentialsIntro => Strings.Get("Aade.CredentialsIntro", "Εισαγάγετε τα AADE myDATA credentials σας. Αποθηκεύονται κρυπτογραφημένα στη βάση μας και χρησιμοποιούνται μόνο για τη λήψη παραστατικών.");
+    public static string NotConnected_Description => Strings.Get("Aade.NotConnected_Description", "Συνδέστε αυτή την επιχείρηση με την AADE myDATA για να λαμβάνουμε αυτόματα τα παραστατικά της.");
+    public static string NotConnected_Hint => Strings.Get("Aade.NotConnected_Hint", "Θα χρειαστείτε το AADE User ID και το Subscription Key που σας έχει χορηγηθεί από την AADE.");
+    public static string ConnectSuccess => Strings.Get("Aade.ConnectSuccess", "Επιτυχής σύνδεση με AADE.");
+    public static string Confirm_Disconnect_Title => Strings.Get("Aade.Confirm_Disconnect_Title", "Αποσύνδεση AADE");
+    public static string Confirm_Disconnect_Message => Strings.Get("Aade.Confirm_Disconnect_Message", "Σίγουρα θέλετε να αποσυνδέσετε αυτή την επιχείρηση από την AADE myDATA; Δεν θα διαγραφούν τα ήδη ληφθέντα παραστατικά.");
+    public static string Disconnected_Message => Strings.Get("Aade.Disconnected_Message", "Η σύνδεση αποσυνδέθηκε.");
+    public static string SyncComplete => Strings.Get("Aade.SyncComplete", "Συγχρονισμός ολοκληρώθηκε: {0} νέα, {1} ενημερωμένα.");
+    public static string Error_ConnectionInactive => Strings.Get("Aade.Error_ConnectionInactive", "Η σύνδεση AADE δεν είναι ενεργή.");
+    public static string Error_CredentialsRejected => Strings.Get("Aade.Error_CredentialsRejected", "Τα AADE credentials απορρίφθηκαν. Συνδεθείτε ξανά.");
+    public static string Error_Network => Strings.Get("Aade.Error_Network", "Σφάλμα δικτύου AADE: {0}");
+    public static string Error_HttpStatus => Strings.Get("Aade.Error_HttpStatus", "Το AADE επέστρεψε {0}.");
+    public static string Status_NotConnectedSentence => Strings.Get("Aade.Status_NotConnectedSentence", "Δεν έχει συνδεθεί ακόμα.");
+    public static string Status_ConnectedWithLastSync => Strings.Get("Aade.Status_ConnectedWithLastSync", "Συνδεδεμένη. Τελευταίος συγχρονισμός: {0}");
 
     /// <summary>English overrides. Keys absent here fall back to Greek.</summary>
     static Aade() => Strings.RegisterEnglish(new Dictionary<string, string>(StringComparer.Ordinal)
@@ -72,9 +83,23 @@ public static class Aade
         ["Aade.FailureReasonInvalidCredentials"] = "The AADE credentials are no longer valid. You need to connect again.",
         ["Aade.FailureReasonAfmMismatch"] = "The AADE credentials belong to a different VAT number. Please check the connection.",
         ["Aade.FailureReasonGeneric"] = "AADE sync failed. Contact support if the problem persists.",
-        ["Aade.FailureEmailSubject"] = "AADE connection problem - Roivo",
-        ["Aade.FailureEmailGreeting"] = "Hello {0},",
-        ["Aade.FailureEmailBody"] = "The AADE connection for \"{0}\" (VAT number {1}) has not been working since {2:dd/MM/yyyy HH:mm}.\n\nReason: {3}\n\nSign in to Roivo to reconnect:\n{4}",
-        ["Aade.FailureEmailSignature"] = "The Roivo team",
+        ["Aade.Connected_Description"] = "This business is connected to myDATA.",
+        ["Aade.LastSyncHeading"] = "Last sync",
+        ["Aade.SyncingMessage"] = "Syncing…",
+        ["Aade.ConnectingMessage"] = "Connecting…",
+        ["Aade.CredentialsIntro"] = "Enter your AADE myDATA credentials. They are stored encrypted in our database and used only to fetch invoices.",
+        ["Aade.NotConnected_Description"] = "Connect this business to AADE myDATA so that we fetch its invoices automatically.",
+        ["Aade.NotConnected_Hint"] = "You will need the AADE User ID and Subscription Key issued to you by AADE.",
+        ["Aade.ConnectSuccess"] = "Connected to AADE successfully.",
+        ["Aade.Confirm_Disconnect_Title"] = "Disconnect AADE",
+        ["Aade.Confirm_Disconnect_Message"] = "Are you sure you want to disconnect this business from AADE myDATA? Invoices already fetched are not deleted.",
+        ["Aade.Disconnected_Message"] = "The connection was removed.",
+        ["Aade.SyncComplete"] = "Sync complete: {0} new, {1} updated.",
+        ["Aade.Error_ConnectionInactive"] = "The AADE connection is not active.",
+        ["Aade.Error_CredentialsRejected"] = "The AADE credentials were rejected. Please connect again.",
+        ["Aade.Error_Network"] = "AADE network error: {0}",
+        ["Aade.Error_HttpStatus"] = "AADE returned {0}.",
+        ["Aade.Status_NotConnectedSentence"] = "Not connected yet.",
+        ["Aade.Status_ConnectedWithLastSync"] = "Connected. Last sync: {0}",
     });
 }

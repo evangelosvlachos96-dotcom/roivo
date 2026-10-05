@@ -101,6 +101,8 @@ public static class Notifications
     public static string Sample_BusinessName => Strings.Get("Notifications.Sample_BusinessName", "Δείγμα Επιχείρησης");
     public static string Sample_Notice => Strings.Get("Notifications.Sample_Notice", "Αυτό είναι δοκιμαστικό μήνυμα με πλασματικά στοιχεία.");
 
+    public static string Sync_RowAttempts => Strings.Get("Notifications.Sync_RowAttempts", "Αποτυχημένες προσπάθειες");
+
     /// <summary>English overrides. Keys absent here fall back to Greek.</summary>
     static Notifications() => Strings.RegisterEnglish(new Dictionary<string, string>(StringComparer.Ordinal)
     {
@@ -178,5 +180,6 @@ public static class Notifications
         ["Notifications.TaxLabel_PropertyTax"] = "ENFIA (property tax)",
         ["Notifications.Sample_BusinessName"] = "Sample Business",
         ["Notifications.Sample_Notice"] = "This is a test message with fictitious data.",
+        ["Notifications.Sync_RowAttempts"] = "Failed attempts",
     });
 }

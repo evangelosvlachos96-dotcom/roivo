@@ -11,7 +11,7 @@
 @inject GetCurrentTenantHandler GetTenantHandler
 @inject ListActiveBusinessesHandler ListBusinessesHandler
 
-<PageTitle>Dashboard — Roivo</PageTitle>
+<RoivoPageTitle Title="@(Common.Nav_Dashboard)" />
 
 @if (_loading)
 {
@@ -41,39 +41,39 @@ else if (_error is not null)
 else if (_tenant is not null)
 {
     <MudPaper Class="pa-6 mb-4" Elevation="1">
-        <MudText Typo="Typo.h4" Class="mb-2">Καλωσήρθες, @_fullName</MudText>
+        <MudText Typo="Typo.h4" Class="mb-2">@string.Format(Roivo.Resources.Dashboard.Welcome, _fullName)</MudText>
         <MudText Typo="Typo.body2" Class="mud-text-secondary">@_email</MudText>
     </MudPaper>
 
     <MudPaper Class="pa-6 mb-4" Elevation="1">
-        <MudText Typo="Typo.h6" Class="mb-3">Ο οργανισμός σου</MudText>
+        <MudText Typo="Typo.h6" Class="mb-3">@Roivo.Resources.Dashboard.YourOrganization</MudText>
         <MudGrid>
             <MudItem xs="12" sm="6">
-                <MudText Typo="Typo.caption" Class="mud-text-secondary">Tenant</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Dashboard.TenantLabel</MudText>
                 <MudText Typo="Typo.body1">@_tenant.Name</MudText>
             </MudItem>
             <MudItem xs="12" sm="3">
-                <MudText Typo="Typo.caption" Class="mud-text-secondary">Τύπος</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Dashboard.TypeLabel</MudText>
                 <MudText Typo="Typo.body1">@GetTenantTypeLabel(_tenant.Type)</MudText>
             </MudItem>
             <MudItem xs="12" sm="3">
-                <MudText Typo="Typo.caption" Class="mud-text-secondary">ΑΦΜ</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">@Roivo.Resources.Dashboard.AfmLabel</MudText>
                 <MudText Typo="Typo.body1">@_tenant.Afm</MudText>
             </MudItem>
         </MudGrid>
     </MudPaper>
 
     <MudPaper Class="pa-6 mb-4" Elevation="1">
-        <MudText Typo="Typo.h6" Class="mb-2">Επιχειρήσεις</MudText>
+        <MudText Typo="Typo.h6" Class="mb-2">@Roivo.Resources.Dashboard.BusinessesHeading</MudText>
         <MudText Typo="Typo.body2" Class="mud-text-secondary">
-            Κάτω από αυτό το tenant: <strong>@_businessCount</strong>
+            @Roivo.Resources.Dashboard.BusinessCountLabel <strong>@_businessCount</strong>
         </MudText>
     </MudPaper>
 
     <form action="/Account/Logout" method="post" class="d-inline">
         <AntiforgeryToken />
         <button type="submit" class="mud-button-root mud-button mud-button-outlined mud-button-outlined-secondary mud-button-outlined-size-medium mud-ripple">
-            <span class="mud-button-label">Αποσύνδεση</span>
+            <span class="mud-button-label">@Roivo.Resources.Dashboard.LogoutButton</span>
         </button>
     </form>
 }
@@ -95,7 +95,7 @@ else if (_tenant is not null)
 
             if (currentUser is null)
             {
-                _error = "Δεν βρέθηκε ο χρήστης.";
+                _error = Roivo.Resources.Dashboard.Error_UserNotFound;
                 return;
             }
 
@@ -105,7 +105,7 @@ else if (_tenant is not null)
             _tenant = await GetTenantHandler.Handle(new GetCurrentTenantQuery(), CancellationToken.None);
             if (_tenant is null)
             {
-                _error = "Δεν βρέθηκε tenant_id στο token σου.";
+                _error = Roivo.Resources.Dashboard.Error_NoTenantClaim;
                 return;
             }
 
@@ -124,8 +124,8 @@ else if (_tenant is not null)
 
     private static string GetTenantTypeLabel(Roivo.Core.Domain.Enums.TenantType type) => type switch
     {
-        Roivo.Core.Domain.Enums.TenantType.Accountant => "Λογιστής",
-        Roivo.Core.Domain.Enums.TenantType.Business => "Ιδιοκτήτης επιχείρησης",
-        _ => "Άγνωστος τύπος"
+        Roivo.Core.Domain.Enums.TenantType.Accountant => Roivo.Resources.Dashboard.TenantType_Accountant,
+        Roivo.Core.Domain.Enums.TenantType.Business => Roivo.Resources.Dashboard.TenantType_Business,
+        _ => Roivo.Resources.Dashboard.TenantType_Unknown
     };
 }

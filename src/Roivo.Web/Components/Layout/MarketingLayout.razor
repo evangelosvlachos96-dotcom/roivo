@@ -1,0 +1,17 @@
+@*
+    Layout for the public pages: landing, privacy, terms.
+
+    Deliberately bare. Each of those pages carries its own chrome — top bar,
+    hero, footer — and rendering them inside MainLayout stacked a second
+    navigation above their own, which became unmistakable once the app bar took
+    the brand navy.
+
+    No MudBlazor providers here, which is why the three pages using this layout
+    are MudBlazor-free: a Mud component rendered under this layout would have no
+    MudThemeProvider, MudPopoverProvider or MudSnackbarProvider above it. If a
+    marketing page ever needs one, the providers belong here first.
+*@
+
+@inherits LayoutComponentBase
+
+@Body

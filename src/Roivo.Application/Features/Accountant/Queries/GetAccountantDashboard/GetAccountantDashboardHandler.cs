@@ -89,13 +89,15 @@ public sealed class GetAccountantDashboardHandler
             .ToDictionary(g => g.Key, g => g.Count());
 
         var from = today.AddDays(-query.ReconciliationWindowDays);
+        var countsByBusiness = await _reconciliation
+            .GetCountsForBusinessesAsync(ids, from, today, cancellationToken)
+            .ConfigureAwait(false);
+
         var rows = new List<AccountantBusinessRow>(businesses.Count);
 
         foreach (var business in businesses)
         {
-            var counts = await _reconciliation
-                .GetCountsAsync(business.Id, from, today, cancellationToken)
-                .ConfigureAwait(false);
+            var counts = countsByBusiness[business.Id];
 
             var runway = forecastsByBusiness.TryGetValue(business.Id, out var forecasts)
                 ? CashflowHealth.RunwayFromStoredForecasts(forecasts, today)

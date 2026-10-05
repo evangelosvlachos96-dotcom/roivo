@@ -1,5 +1,6 @@
+@using Roivo.Web.Configuration
 <!DOCTYPE html>
-<html lang="en">
+<html lang="@(Strings.IsEnglish ? "en" : "el")">
 
 <head>
     <meta charset="utf-8" />
@@ -9,16 +10,25 @@
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="Roivo.Web.styles.css" />
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
-    <!-- SVG first so modern browsers get the crisp mark; the PNG stays as a
-         fallback for clients that ignore SVG favicons. -->
-    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-    <link rel="icon" type="image/png" href="favicon.png" />
+    <!-- Rasterised from the brand mark by tools/make_icons.py. Several sizes
+         rather than one, so hi-DPI tabs and the install prompt each pick the
+         one they need instead of upscaling the 32px. -->
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
 
-    <meta name="description" content="Roivo — ταμειακές ροές χωρίς εκπλήξεις για ελληνικές επιχειρήσεις. Αυτόματη αντιστοίχιση τιμολογίων, πρόβλεψη 90 ημερών, φορολογικό ημερολόγιο." />
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="@RoivoTheme.Navy" />
+    <meta name="application-name" content="Roivo" />
+    <meta name="apple-mobile-web-app-title" content="Roivo" />
+
+    <meta name="description" content="@Marketing.MetaDescription" />
     <meta property="og:title" content="Roivo — Cashflow Intelligence" />
-    <meta property="og:description" content="Automatic invoice reconciliation, 90-day cashflow forecasting and the Greek tax calendar, in one place." />
+    <meta property="og:description" content="@Marketing.MetaDescription" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Roivo" />
+    <meta property="og:image" content="icon-512.png" />
+    <meta name="twitter:card" content="summary" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

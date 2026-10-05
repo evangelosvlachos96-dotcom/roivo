@@ -39,7 +39,20 @@ public sealed class FakeNotificationSettingsRepository : INotificationSettingsRe
         return Task.FromResult(list);
     }
 
+    /// <summary>
+    /// Users this fake knows about, keyed by id. A user absent from
+    /// <see cref="UserTenants"/> belongs to no tenant and so resolves to null
+    /// for every caller, which is how the real lookup treats a user outside the
+    /// requesting tenant.
+    /// </summary>
+    public Dictionary<string, Guid> UserTenants { get; } = [];
+
     public Task<string?> GetConfirmedEmailAsync(
-        string userId, CancellationToken cancellationToken = default)
-        => Task.FromResult(Emails.TryGetValue(userId, out var email) ? email : null);
+        string userId, Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        if (!UserTenants.TryGetValue(userId, out var owner) || owner != tenantId)
+            return Task.FromResult<string?>(null);
+
+        return Task.FromResult(Emails.TryGetValue(userId, out var email) ? email : null);
+    }
 }

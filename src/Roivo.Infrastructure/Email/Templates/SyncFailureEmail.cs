@@ -6,9 +6,8 @@ namespace Roivo.Infrastructure.Email.Templates;
 /// Notice that an AADE or bank connection has stopped working.
 /// </summary>
 /// <remarks>
-/// The AADE and banking failure jobs predate this template and keep their own
-/// plain-text bodies; this is the branded version used by the test send and by
-/// any future consolidation of those two jobs.
+/// Shared by the AADE job, the banking job and the test send, so the one
+/// branded layout covers every "a connection broke" message.
 /// </remarks>
 public static class SyncFailureEmail
 {
@@ -16,13 +15,19 @@ public static class SyncFailureEmail
     /// <param name="ReasonText">Why it broke, already in Greek.</param>
     /// <param name="SinceUtc">When the failure streak began.</param>
     /// <param name="CheckPath">Path under the business the CTA opens, e.g. <c>aade</c> or <c>banking</c>.</param>
+    /// <param name="FailedAttempts">
+    /// Consecutive failures, when the caller counts them. Banking does; AADE
+    /// records only the first failure time, so it leaves this null and the row
+    /// is omitted rather than rendered as a misleading zero.
+    /// </param>
     public sealed record Model(
         Guid BusinessId,
         string BusinessName,
         string ConnectionLabel,
         string ReasonText,
         DateTime SinceUtc,
-        string CheckPath);
+        string CheckPath,
+        int? FailedAttempts = null);
 
     /// <param name="notice">Optional banner text, used by the test send.</param>
     /// <param name="english">
@@ -44,12 +49,20 @@ public static class SyncFailureEmail
         var intro = EmailHtml.Escape(string.Format(
             EmailHtml.Culture, Notifications.Sync_Intro, model.BusinessName));
 
-        var rows = new[]
+        var rows = new List<string>
         {
             EmailHtml.DetailRow(Notifications.Sync_RowConnection, EmailHtml.Escape(model.ConnectionLabel)),
             EmailHtml.DetailRow(Notifications.Sync_RowSince, EmailHtml.DateTimeLocal(model.SinceUtc)),
-            EmailHtml.DetailRow(Notifications.Sync_RowReason, EmailHtml.Escape(model.ReasonText)),
         };
+
+        if (model.FailedAttempts is int attempts)
+        {
+            rows.Add(EmailHtml.DetailRow(
+                Notifications.Sync_RowAttempts,
+                attempts.ToString(EmailHtml.Culture)));
+        }
+
+        rows.Add(EmailHtml.DetailRow(Notifications.Sync_RowReason, EmailHtml.Escape(model.ReasonText)));
 
         var html = EmailLayout.Render(
             heading: Notifications.Sync_Heading,

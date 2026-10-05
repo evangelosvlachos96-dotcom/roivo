@@ -1,6 +1,7 @@
 @*
-    The Roivo mark: an "R" whose leg is replaced by three ascending bars, so the
-    letter and the chart are the same shape. Teal -> blue gradient.
+    The Roivo mark: an "R" whose stem is three ascending bars, so the letter and
+    the chart are the same shape. Teal -> blue gradient. Traced from the brand
+    app icon in wwwroot/images/app-icon.jpeg — keep the two in step.
 
     Inline SVG rather than an image file: it scales to any size without an
     asset pipeline, it inherits the wordmark colour from its surroundings, and
@@ -14,7 +15,7 @@
 <span class="roivo-logo @Class" style="display:inline-flex;align-items:center;gap:@(Gap)px;line-height:1;">
     <svg width="@(_markWidth.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture))"
          height="@Size"
-         viewBox="0 0 52 48"
+         viewBox="0 0 48 48"
          fill="none"
          xmlns="http://www.w3.org/2000/svg"
          role="img"
@@ -27,19 +28,26 @@
             </linearGradient>
         </defs>
 
-        @* Stem and bowl of the R, drawn as one stroked path. *@
-        <path d="M10 41 V7 h11 a7.5 7.5 0 0 1 0 15 H10"
+        @* Three ascending bars on the baseline. The tallest is also the R's
+           stem, which is the whole idea of the mark: the letter and the chart
+           are one shape. *@
+        <rect x="4" y="31" width="6" height="11" rx="2" fill="url(#@_gradientId)" />
+        <rect x="12" y="24" width="6" height="18" rx="2" fill="url(#@_gradientId)" />
+        <rect x="20" y="6" width="7" height="36" rx="2.5" fill="url(#@_gradientId)" />
+
+        @* Bowl of the R, springing from the stem. *@
+        <path d="M25 9.5 H33 a8.5 8.5 0 0 1 0 17 H25"
               stroke="url(#@_gradientId)"
               stroke-width="7"
-              stroke-linecap="square"
-              stroke-linejoin="round"
+              stroke-linecap="butt"
               fill="none" />
 
-        @* The leg: three ascending bars. Bottoms on the baseline, tops rising
-           left to right, which is where an R's leg would have gone. *@
-        <rect x="25" y="33" width="5.5" height="8" rx="2" fill="url(#@_gradientId)" />
-        <rect x="33" y="28" width="5.5" height="13" rx="2" fill="url(#@_gradientId)" />
-        <rect x="41" y="22" width="5.5" height="19" rx="2" fill="url(#@_gradientId)" />
+        @* Leg, sweeping down-right out of the bowl. *@
+        <path d="M28 26 L41 42"
+              stroke="url(#@_gradientId)"
+              stroke-width="7"
+              stroke-linecap="round"
+              fill="none" />
     </svg>
 
     @if (ShowWordmark)
@@ -88,8 +96,8 @@
     /// <summary>Accessible name. Defaults to the brand plus tagline.</summary>
     [Parameter] public string? AriaLabel { get; set; }
 
-    // 52:48 is the viewBox ratio.
-    private double _markWidth => Size * 52d / 48d;
+    // The viewBox is square.
+    private double _markWidth => Size;
     private double _wordmarkPx => Size * 0.62;
     private double _taglinePx => Size * 0.24;
 

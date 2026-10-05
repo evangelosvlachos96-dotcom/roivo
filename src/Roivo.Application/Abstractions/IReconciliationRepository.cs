@@ -92,6 +92,23 @@ public interface IReconciliationRepository
         ReconciliationMatchStatus? status,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// The same counts as <see cref="GetCountsAsync"/> for many businesses at
+    /// once, in a fixed number of round-trips rather than one set per business.
+    /// </summary>
+    /// <remarks>
+    /// The accountant pages render a row per client, and calling the single
+    /// version in that loop made the query count scale with the size of the
+    /// client book. Businesses with nothing in the window are present in the
+    /// result with zeroed counts, so callers never have to distinguish "no
+    /// rows" from "not asked for".
+    /// </remarks>
+    Task<IReadOnlyDictionary<Guid, ReconciliationCounts>> GetCountsForBusinessesAsync(
+        IReadOnlyCollection<Guid> businessIds,
+        DateOnly from,
+        DateOnly to,
+        CancellationToken cancellationToken = default);
+
     Task<ReconciliationCounts> GetCountsAsync(
         Guid businessId,
         DateOnly from,
@@ -123,7 +140,11 @@ public sealed record ReconciliationCounts(
     int PendingMatches,
     int UnreconciledInvoices,
     int UnreconciledTransactions,
-    decimal ReconciledAmount);
+    decimal ReconciledAmount)
+{
+    /// <summary>A business with nothing in the requested window.</summary>
+    public static ReconciliationCounts Empty { get; } = new(0, 0, 0, 0, 0, 0, 0m);
+}
 
 /// <summary>A match with the invoice and transaction fields a list view needs.</summary>
 public sealed record ReconciliationMatchDetail(

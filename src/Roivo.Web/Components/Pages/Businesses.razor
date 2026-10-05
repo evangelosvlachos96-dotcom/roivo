@@ -15,16 +15,16 @@
 @page "/businesses"
 @attribute [Authorize]
 
-<PageTitle>@Roivo.Resources.Businesses.PageTitle_List</PageTitle>
+<RoivoPageTitle Title="@(Roivo.Resources.Businesses.PageTitle_List)" />
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-6">
     <MudText Typo="Typo.h4" GutterBottom="true">@Roivo.Resources.Businesses.PageTitle_List</MudText>
     <MudText Typo="Typo.body1" Class="mb-4">
-        Διαχείριση των επιχειρήσεων που εκπροσωπείτε.
+        @Roivo.Resources.Businesses.List_Subtitle
     </MudText>
     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center"
               Wrap="Wrap.Wrap" Class="mb-4">
-        <MudText Typo="Typo.h6">Λίστα επιχειρήσεων</MudText>
+        <MudText Typo="Typo.h6">@Roivo.Resources.Businesses.List_CardHeading</MudText>
         @if (!loading && businesses.Count > 0 && BusinessPermissions.CanCreate(TenantContext.CurrentTenantType))
         {
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
@@ -44,9 +44,9 @@
     {
         <MudPaper Class="pa-8 text-center">
             <MudIcon Icon="@Icons.Material.Outlined.Business" Size="Size.Large" Class="mb-3" />
-            <MudText Typo="Typo.h6" GutterBottom="true">Δεν έχετε προσθέσει επιχειρήσεις ακόμα</MudText>
+            <MudText Typo="Typo.h6" GutterBottom="true">@Roivo.Resources.Businesses.EmptyState_Heading</MudText>
             <MudText Typo="Typo.body2" Class="mb-4">
-                Ξεκινήστε προσθέτοντας την πρώτη επιχείρηση που εκπροσωπείτε.
+                @Roivo.Resources.Businesses.EmptyState_Description
             </MudText>
             @if (BusinessPermissions.CanCreate(TenantContext.CurrentTenantType))
             {
@@ -66,7 +66,7 @@
                 <MudTh>@Roivo.Resources.Businesses.AfmLabel</MudTh>
                 <MudTh>@Roivo.Resources.Businesses.KadLabel</MudTh>
                 <MudTh>AADE</MudTh>
-                <MudTh>Κατάσταση</MudTh>
+                <MudTh>@Roivo.Resources.Businesses.StatusLabel</MudTh>
                 <MudTh></MudTh>
             </HeaderContent>
             <RowTemplate>
@@ -83,7 +83,7 @@
                         <MudText Typo="Typo.body2" Class="mud-text-secondary">—</MudText>
                     }
                 </MudTd>
-                <MudTd DataLabel="Κατάσταση">
+                <MudTd DataLabel="@Roivo.Resources.Businesses.StatusLabel">
                     <MudChip T="string" Size="Size.Small" Color="Color.Success">@Roivo.Resources.Businesses.Status_Active</MudChip>
                 </MudTd>
                 <MudTd>
@@ -141,8 +141,8 @@
         var parameters = new DialogParameters<MudMessageBox>
         {
             { x => x.Title, Roivo.Resources.Businesses.DeactivateButton },
-            { x => x.Message, $"Σίγουρα θέλετε να απενεργοποιήσετε την επιχείρηση «{business.Name}»; Δεν θα διαγραφούν δεδομένα — απλώς θα αποκρυφτεί από τη λίστα." },
-            { x => x.YesText, "Απενεργοποίηση" },
+            { x => x.Message, string.Format(Roivo.Resources.Businesses.Confirm_Deactivate_Message, business.Name) },
+            { x => x.YesText, Roivo.Resources.Businesses.DeactivateButton },
             { x => x.CancelText, Common.CancelButton }
         };
 
@@ -159,7 +159,7 @@
                 await LoadBusinesses();
                 break;
             case DeactivateBusinessResult.NotFound:
-                Snackbar.Add("Η επιχείρηση δεν βρέθηκε.", Severity.Warning);
+                Snackbar.Add(Roivo.Resources.Businesses.NotFound_Error, Severity.Warning);
                 await LoadBusinesses();
                 break;
             case DeactivateBusinessResult.AlreadyInactive:

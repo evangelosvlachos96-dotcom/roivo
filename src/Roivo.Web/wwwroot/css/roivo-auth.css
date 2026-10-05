@@ -25,18 +25,10 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
-/* The layout hard-codes max-width:540px inline; !important is the only way to
-   narrow it from a stylesheet. */
 body > .container {
-    max-width: 440px !important;
+    max-width: 440px;
     padding-left: 1rem;
     padding-right: 1rem;
-}
-
-/* The layout renders a plain "Roivo" wordmark above the card; the pages supply
-   the real mark inside the card instead. */
-body > .container > .text-center {
-    display: none;
 }
 
 .card {
@@ -55,8 +47,22 @@ body > .container > .text-center {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
     margin-bottom: 1.75rem;
+    text-decoration: none;
+}
+
+.roivo-auth-brand:hover,
+.roivo-auth-brand:focus-visible {
+    text-decoration: none;
+}
+
+.roivo-auth-tagline {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--roivo-teal);
 }
 
 .roivo-auth-logo {

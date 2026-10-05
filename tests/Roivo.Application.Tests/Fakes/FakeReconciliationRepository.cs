@@ -157,6 +157,23 @@ public sealed class FakeReconciliationRepository : IReconciliationRepository
             reconciledAmount));
     }
 
+    /// <summary>
+    /// Delegates to the single-business version. That is the inverse of the
+    /// real repository, which derives the single from the batch, but it keeps
+    /// the fake's windowing rules defined exactly once either way.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<Guid, ReconciliationCounts>> GetCountsForBusinessesAsync(
+        IReadOnlyCollection<Guid> businessIds, DateOnly from, DateOnly to,
+        CancellationToken cancellationToken = default)
+    {
+        var result = new Dictionary<Guid, ReconciliationCounts>();
+
+        foreach (var id in businessIds.Distinct())
+            result[id] = await GetCountsAsync(id, from, to, cancellationToken);
+
+        return result;
+    }
+
     public Task<IReadOnlyList<Invoice>> ListUnreconciledInvoicesPagedAsync(
         Guid businessId, int skip, int take, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<Invoice>>(

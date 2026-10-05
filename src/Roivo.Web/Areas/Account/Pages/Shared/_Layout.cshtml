@@ -1,22 +1,37 @@
+@using Roivo.Resources
 @{
-    var title = ViewData["Title"] as string ?? "Roivo";
+    var title = ViewData["Title"] as string ?? Marketing.BrandName;
 }
 <!DOCTYPE html>
-<html lang="el">
+<html lang="@(Strings.IsEnglish ? "en" : "el")">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@title — Roivo</title>
+    <title>@Marketing.BrandName — @title</title>
+
+    @* The account pages are the first screen a new user ever sees, so they get
+       the same icons, manifest and chrome colour as the app itself. *@
+    <link rel="icon" type="image/png" sizes="32x32" href="~/favicon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="~/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="~/apple-touch-icon.png" />
+    <link rel="manifest" href="~/manifest.json" />
+    <meta name="theme-color" content="#0B1F3A" />
+    <meta name="robots" content="noindex, nofollow" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/app.css" />
+    @* Linked here rather than per page, so every account screen — AccessDenied
+       and the confirmation pages included — gets the brand, not just the four
+       that remembered to ask for it. *@
+    <link rel="stylesheet" href="~/css/roivo-auth.css" />
 </head>
 <body class="bg-light">
-    <div class="container py-5" style="max-width: 540px;">
-        <div class="text-center mb-4">
-            <a href="/" class="text-decoration-none">
-                <h1 class="h3 fw-bold text-primary">Roivo</h1>
-            </a>
-        </div>
+    <div class="container py-5">
+        <partial name="_RoivoBrand" />
         <div class="card shadow-sm">
             <div class="card-body p-4">
                 @RenderBody()

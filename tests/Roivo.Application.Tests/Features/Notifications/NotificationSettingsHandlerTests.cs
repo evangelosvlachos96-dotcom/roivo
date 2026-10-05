@@ -37,6 +37,7 @@ public class NotificationSettingsHandlerTests
         var business = Business.Create("Acme", ValidAfm, null, null);
         businesses.Store[business.Id] = business;
         settings.Emails[UserId] = "owner@example.com";
+        settings.UserTenants[UserId] = tenant.CurrentTenantId;
 
         return new Sut(
             new GetNotificationSettingsHandler(settings, tenant),
@@ -294,5 +295,30 @@ public class NotificationSettingsHandlerTests
         result.Should().BeOfType<SendTestNotificationResult.SendFailed>()
             .Which.Reason.Should().Contain("Resend rejected the API key");
         sut.Audit.Calls.Should().BeEmpty("nothing was sent, so nothing is audited");
+    }
+
+    /// <summary>
+    /// ApplicationUser carries no global tenant filter — it cannot, or sign-in
+    /// would not find the account before a tenant claim exists — so the address
+    /// lookup has to apply the tenant itself. Without that, a user id from
+    /// another tenant would resolve, send that person a message, and report
+    /// their address back to the caller.
+    /// </summary>
+    [Fact]
+    public async Task SendTestRefusesAUserIdBelongingToAnotherTenant()
+    {
+        var sut = BuildSut();
+
+        const string outsider = "99999999-9999-9999-9999-999999999999";
+        sut.Settings.Emails[outsider] = "someone@other-tenant.example";
+        sut.Settings.UserTenants[outsider] = Guid.NewGuid();
+
+        var result = await sut.SendTest.Handle(
+            new SendTestNotificationCommand(sut.Business.Id, outsider, NotificationKind.DailyDigest));
+
+        result.Should().BeOfType<SendTestNotificationResult.SendFailed>()
+            .Which.Reason.Should().Be(SendTestNotificationResult.NoConfirmedEmailReason);
+
+        sut.Dispatcher.Sends.Should().BeEmpty("nothing may be sent to an address outside the tenant");
     }
 }

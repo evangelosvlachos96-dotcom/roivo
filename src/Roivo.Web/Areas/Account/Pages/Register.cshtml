@@ -4,25 +4,6 @@
 @{
     ViewData["Title"] = Auth.Register_PageTitle;
 }
-<link rel="stylesheet" href="~/css/roivo-auth.css" />
-
-@* Minimal inline copy of the Roivo mark. Razor Pages cannot consume the
-   canonical RoivoLogo.razor Blazor component, so the four auth pages carry
-   their own copy of the gradient "R". Keep it in sync with that component. *@
-<div class="roivo-auth-brand">
-    <svg class="roivo-auth-logo" viewBox="0 0 56 56" role="img" aria-label="Roivo" focusable="false">
-        <defs>
-            <linearGradient id="roivoAuthMark" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#2DD4BF" />
-                <stop offset="100%" stop-color="#1E88E5" />
-            </linearGradient>
-        </defs>
-        <rect width="56" height="56" rx="14" fill="url(#roivoAuthMark)" />
-        <path fill="#fff" d="M19 41V15h10.2c5.6 0 9.1 2.9 9.1 7.8 0 3.6-1.9 6.1-5.2 7.2L39.5 41h-6.3l-5.5-9.6h-3.2V41H19zm5.5-14.3h4.2c2.6 0 4.1-1.3 4.1-3.6s-1.5-3.6-4.1-3.6h-4.2v7.2z" />
-    </svg>
-    <span class="roivo-auth-wordmark">Roivo</span>
-</div>
-
 
 <h2 class="h4 mb-3">@Auth.Register_Heading</h2>
 <p class="text-muted small mb-4">@Auth.Register_Subtitle</p>

@@ -60,12 +60,7 @@ public static class Banking
     public static string FailureReasonNetwork => Strings.Get("Banking.FailureReasonNetwork", "Δεν ήταν δυνατή η επικοινωνία με την τράπεζα. Συνήθως αποκαθίσταται μόνο του.");
     public static string FailureReasonGeneric => Strings.Get("Banking.FailureReasonGeneric", "Ο τραπεζικός συγχρονισμός απέτυχε. Επικοινωνήστε με την υποστήριξη αν το πρόβλημα παραμένει.");
 
-    // 24-hour failure notification email (sent by BankingFailureNotificationJob).
-    // Body placeholders: {0} business name, {1} AFM, {2} failure start (local),
-    // {3} consecutive failure count, {4} translated reason, {5} reconnect URL.
-    public static string FailureEmailSubject => Strings.Get("Banking.FailureEmailSubject", "Πρόβλημα τραπεζικής σύνδεσης - Roivo");
-    public static string FailureEmailBody => Strings.Get("Banking.FailureEmailBody", "Η τραπεζική σύνδεση για την επιχείρηση \"{0}\" (ΑΦΜ {1}) δεν λειτουργεί από τις {2:dd/MM/yyyy HH:mm}.\n\nΑποτυχημένες προσπάθειες: {3}\nΛόγος: {4}\n\nΕίσοδος στο Roivo για να επανασυνδέσετε:\n{5}");
-    public static string FailureEmailSignature => Strings.Get("Banking.FailureEmailSignature", "Η ομάδα του Roivo");
+    public static string ConnectionLabel => Strings.Get("Banking.ConnectionLabel", "Τραπεζική σύνδεση");
 
     /// <summary>English overrides. Keys absent here fall back to Greek.</summary>
     static Banking() => Strings.RegisterEnglish(new Dictionary<string, string>(StringComparer.Ordinal)
@@ -110,8 +105,6 @@ public static class Banking
         ["Banking.FailureReasonUnauthorized"] = "The bank refused access. You need to connect again.",
         ["Banking.FailureReasonNetwork"] = "We could not reach the bank. This usually resolves on its own.",
         ["Banking.FailureReasonGeneric"] = "Bank sync failed. Contact support if the problem persists.",
-        ["Banking.FailureEmailSubject"] = "Bank connection problem - Roivo",
-        ["Banking.FailureEmailBody"] = "The bank connection for \"{0}\" (VAT number {1}) has not been working since {2:dd/MM/yyyy HH:mm}.\n\nFailed attempts: {3}\nReason: {4}\n\nSign in to Roivo to reconnect:\n{5}",
-        ["Banking.FailureEmailSignature"] = "The Roivo team",
+        ["Banking.ConnectionLabel"] = "Bank connection",
     });
 }

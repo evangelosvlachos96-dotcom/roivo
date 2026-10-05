@@ -1,6 +1,9 @@
+@using Microsoft.AspNetCore.Components.Routing
 @using Roivo.Resources
+@using Roivo.Web.Components.Shared
 @using Roivo.Web.Configuration
 @inherits LayoutComponentBase
+@implements IDisposable
 @using Microsoft.EntityFrameworkCore
 @using Roivo.Infrastructure.Persistence
 @inject NavigationManager Nav
@@ -13,46 +16,88 @@
 <MudSnackbarProvider />
 
 <MudLayout>
-    <MudAppBar Elevation="1" Color="Color.Default">
-        <MudText Typo="Typo.h6" Class="cursor-pointer"
-                 @onclick='() => Nav.NavigateTo("/")'>
-            Roivo
-        </MudText>
+    <MudAppBar Elevation="1">
+        @* The same mark the landing page uses, in white-on-navy. The tagline
+           is the first thing to go when the bar gets tight: it is reassurance,
+           not navigation. *@
+        <div class="cursor-pointer d-none d-sm-flex" @onclick='() => Nav.NavigateTo("/")'>
+            <RoivoLogo Size="30" ShowTagline="true" WordmarkColor="#FFFFFF" />
+        </div>
+        <div class="cursor-pointer d-flex d-sm-none" @onclick='() => Nav.NavigateTo("/")'>
+            <RoivoLogo Size="28" WordmarkColor="#FFFFFF" />
+        </div>
 
         <MudSpacer />
 
         <AuthorizeView>
             <Authorized>
-                @* An accountant's home is the consolidated workspace; a
-                   business owner's is their own single business. *@
-                <MudButton Variant="Variant.Text"
-                           StartIcon="@Icons.Material.Outlined.Dashboard"
-                           OnClick='() => Nav.NavigateTo(isAccountant ? "/accountant/dashboard" : "/dashboard")'>
-                    @Common.Nav_Dashboard
-                </MudButton>
+                @* Wide screens get the sections inline. Below md they do not
+                   fit — four Greek labels in a 380px bar clip into each other —
+                   so the same destinations move behind one menu button. *@
+                <div class="d-none d-md-flex align-center">
+                    @* An accountant's home is the consolidated workspace; a
+                       business owner's is their own single business. *@
+                    <MudButton Variant="Variant.Text" Color="Color.Inherit"
+                               StartIcon="@Icons.Material.Outlined.Dashboard"
+                               Style="@NavStyle(HomePath)"
+                               OnClick="@(() => Nav.NavigateTo("/" + HomePath))">
+                        @Common.Nav_Dashboard
+                    </MudButton>
 
-                @if (isAccountant)
-                {
-                    <MudButton Variant="Variant.Text"
-                               StartIcon="@Icons.Material.Outlined.NotificationsActive"
-                               OnClick='() => Nav.NavigateTo("/accountant/alerts")'>
-                        @Roivo.Resources.Accountant.Nav_Alerts
+                    @if (isAccountant)
+                    {
+                        <MudButton Variant="Variant.Text" Color="Color.Inherit"
+                                   StartIcon="@Icons.Material.Outlined.NotificationsActive"
+                                   Style="@NavStyle("accountant/alerts")"
+                                   OnClick='() => Nav.NavigateTo("/accountant/alerts")'>
+                            @Roivo.Resources.Accountant.Nav_Alerts
+                        </MudButton>
+                        <MudButton Variant="Variant.Text" Color="Color.Inherit"
+                                   StartIcon="@Icons.Material.Outlined.Assessment"
+                                   Style="@NavStyle("accountant/reports")"
+                                   OnClick='() => Nav.NavigateTo("/accountant/reports")'>
+                            @Roivo.Resources.Accountant.Nav_Reports
+                        </MudButton>
+                    }
+
+                    <MudButton Variant="Variant.Text" Color="Color.Inherit"
+                               StartIcon="@Icons.Material.Outlined.Business"
+                               Style="@NavStyle("businesses")"
+                               OnClick='() => Nav.NavigateTo("/businesses")'>
+                        @Common.Nav_Businesses
                     </MudButton>
-                    <MudButton Variant="Variant.Text"
-                               StartIcon="@Icons.Material.Outlined.Assessment"
-                               OnClick='() => Nav.NavigateTo("/accountant/reports")'>
-                        @Roivo.Resources.Accountant.Nav_Reports
-                    </MudButton>
-                }
-                <MudButton Variant="Variant.Text"
-                           StartIcon="@Icons.Material.Outlined.Business"
-                           OnClick='() => Nav.NavigateTo("/businesses")'>
-                    @Common.Nav_Businesses
-                </MudButton>
+                </div>
+
+                <MudMenu Icon="@Icons.Material.Outlined.Menu"
+                         Color="Color.Inherit"
+                         Class="d-flex d-md-none"
+                         AriaLabel="@Common.Nav_Menu"
+                         AnchorOrigin="Origin.BottomRight"
+                         TransformOrigin="Origin.TopRight">
+                    <MudMenuItem Icon="@Icons.Material.Outlined.Dashboard"
+                                 OnClick="@(() => Nav.NavigateTo("/" + HomePath))">
+                        @Common.Nav_Dashboard
+                    </MudMenuItem>
+                    @if (isAccountant)
+                    {
+                        <MudMenuItem Icon="@Icons.Material.Outlined.NotificationsActive"
+                                     OnClick='() => Nav.NavigateTo("/accountant/alerts")'>
+                            @Roivo.Resources.Accountant.Nav_Alerts
+                        </MudMenuItem>
+                        <MudMenuItem Icon="@Icons.Material.Outlined.Assessment"
+                                     OnClick='() => Nav.NavigateTo("/accountant/reports")'>
+                            @Roivo.Resources.Accountant.Nav_Reports
+                        </MudMenuItem>
+                    }
+                    <MudMenuItem Icon="@Icons.Material.Outlined.Business"
+                                 OnClick='() => Nav.NavigateTo("/businesses")'>
+                        @Common.Nav_Businesses
+                    </MudMenuItem>
+                </MudMenu>
 
                 <MudButton Variant="Variant.Text" Color="Color.Inherit"
                            Href="@LanguageToggleHref" ForceLoad="true"
-                           title="@(Strings.IsEnglish ? "Ελληνικά" : "English")">
+                           title="@(Strings.IsEnglish ? Common.LanguageName_El : Common.LanguageName_En)">
                     @(Strings.IsEnglish ? "EL" : "EN")
                 </MudButton>
 
@@ -75,11 +120,11 @@
                 </MudMenu>
             </Authorized>
             <NotAuthorized>
-                <MudButton Variant="Variant.Text"
+                <MudButton Variant="Variant.Text" Color="Color.Inherit"
                            OnClick='() => Nav.NavigateTo("/Account/Login", forceLoad: true)'>
                     @Common.Nav_Login
                 </MudButton>
-                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                <MudButton Variant="Variant.Filled" Color="Color.Secondary"
                            OnClick='() => Nav.NavigateTo("/Account/Register", forceLoad: true)'>
                     @Common.Nav_Register
                 </MudButton>
@@ -96,6 +141,46 @@
 
 @code {
     private string displayName = "";
+
+    /// <summary>
+    /// Teal underline on the section you are in. A background tint would fight
+    /// the navy bar; the rule reads at a glance without changing the hit area.
+    /// </summary>
+    private const string ActiveNavStyle =
+        "border-bottom:2px solid " + RoivoTheme.Teal + ";border-radius:4px 4px 0 0;";
+
+    /// <summary>
+    /// Where the brand's "dashboard" entry goes. An accountant lands on the
+    /// consolidated workspace, a business owner on their own single business.
+    /// </summary>
+    private string HomePath => isAccountant ? "accountant/dashboard" : "dashboard";
+
+    private string? NavStyle(string segment) => IsActive(segment) ? ActiveNavStyle : null;
+
+    /// <summary>
+    /// True when the current path is <paramref name="segment"/> or sits beneath
+    /// it, so /businesses stays lit while a business detail page is open.
+    /// Compared segment-wise: a prefix match alone would light /businesses for
+    /// a hypothetical /businesses-archive.
+    /// </summary>
+    private bool IsActive(string segment)
+    {
+        var path = Nav.ToBaseRelativePath(Nav.Uri);
+        var query = path.IndexOfAny(['?', '#']);
+        if (query >= 0) path = path[..query];
+        path = path.Trim('/');
+
+        return path.Equals(segment, StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith(segment + "/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// The bar is rendered once per circuit, so without this the underline
+    /// would stay on whichever page the user first landed on.
+    /// </summary>
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) => StateHasChanged();
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
 
     /// <summary>
     /// Read from the tenant_type claim rather than the database: the claim is
@@ -115,6 +200,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        Nav.LocationChanged += OnLocationChanged;
+
         var authState = await AuthState.GetAuthenticationStateAsync();
         if (authState.User.Identity?.IsAuthenticated != true) return;
 

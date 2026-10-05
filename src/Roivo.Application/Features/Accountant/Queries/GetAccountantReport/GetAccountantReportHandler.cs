@@ -98,13 +98,15 @@ public sealed class GetAccountantReportHandler
             .GroupBy(f => f.BusinessId)
             .ToDictionary(g => g.Key, g => (IReadOnlyList<CashflowForecast>)[.. g]);
 
+        var countsByBusiness = await _reconciliation
+            .GetCountsForBusinessesAsync(ids, from, to, cancellationToken)
+            .ConfigureAwait(false);
+
         var reconciliation = new List<AccountantReconciliationRow>(businesses.Count);
 
         foreach (var business in businesses)
         {
-            var counts = await _reconciliation
-                .GetCountsAsync(business.Id, from, to, cancellationToken)
-                .ConfigureAwait(false);
+            var counts = countsByBusiness[business.Id];
 
             reconciliation.Add(new AccountantReconciliationRow(
                 BusinessId: business.Id,

@@ -190,7 +190,7 @@ public class RegisterModel : PageModel
         await transaction.CommitAsync(cancellationToken);
 
         var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-        var encodedToken = QueryHelpers.AddQueryString(
+        var confirmUrl = QueryHelpers.AddQueryString(
             $"{Request.Scheme}://{Request.Host}/Account/ConfirmEmail",
             new Dictionary<string, string?>
             {
@@ -202,7 +202,7 @@ public class RegisterModel : PageModel
         // picks up the culture the visitor registered in. The Hangfire worker
         // that sends it has no culture of its own.
         var confirmation = EmailConfirmationEmail.Render(
-            new EmailConfirmationEmail.Model(Input.FullName, encodedToken),
+            new EmailConfirmationEmail.Model(Input.FullName, confirmUrl),
             baseUrl: $"{Request.Scheme}://{Request.Host}",
             english: Strings.IsEnglish);
 

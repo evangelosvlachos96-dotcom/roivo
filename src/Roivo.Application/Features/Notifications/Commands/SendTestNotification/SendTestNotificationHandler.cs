@@ -53,7 +53,7 @@ public sealed class SendTestNotificationHandler
             return new SendTestNotificationResult.NotFound();
 
         var email = await _repository
-            .GetConfirmedEmailAsync(command.UserId, cancellationToken)
+            .GetConfirmedEmailAsync(command.UserId, _tenant.CurrentTenantId, cancellationToken)
             .ConfigureAwait(false);
 
         if (string.IsNullOrWhiteSpace(email))

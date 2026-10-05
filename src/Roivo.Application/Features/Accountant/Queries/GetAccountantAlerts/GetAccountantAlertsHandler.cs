@@ -153,11 +153,13 @@ public sealed class GetAccountantAlertsHandler
 
         var from = today.AddDays(-query.ReconciliationWindowDays);
 
+        var countsByBusiness = await _reconciliation
+            .GetCountsForBusinessesAsync(ids, from, today, cancellationToken)
+            .ConfigureAwait(false);
+
         foreach (var business in businesses)
         {
-            var counts = await _reconciliation
-                .GetCountsAsync(business.Id, from, today, cancellationToken)
-                .ConfigureAwait(false);
+            var counts = countsByBusiness[business.Id];
 
             // A client with no invoices in the window scores 0%, which is not
             // a backlog — it is an absence of work. Only flag real paperwork.

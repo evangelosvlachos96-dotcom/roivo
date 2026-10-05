@@ -114,6 +114,59 @@ public class NotificationEmailTemplateTests
             resetUrl);
     }
 
+    // -------------------------------------------------- sync-failure details
+
+    private static SyncFailureEmail.Model SyncModel(int? failedAttempts) =>
+        new(BusinessId, "Acme", "AADE myDATA", "Invalid credentials",
+            new DateTime(2026, 10, 1, 8, 0, 0, DateTimeKind.Utc), "aade",
+            failedAttempts);
+
+    /// <summary>
+    /// Asserted against the literal Greek label rather than a resource read:
+    /// the render pins its own culture, so reading the property here would
+    /// resolve against the test host's culture and compare the wrong string.
+    /// </summary>
+    private const string AttemptsLabel = "Αποτυχημένες προσπάθειες";
+
+    private const string ReasonLabel = "Αιτία";
+
+    /// <summary>
+    /// Banking counts consecutive failures and AADE does not, so the row is
+    /// optional. A null count must omit the row rather than render "0", which
+    /// would read as "it has never failed" in the one email that exists to say
+    /// the opposite.
+    /// </summary>
+    [Fact]
+    public void SyncFailureEmail_OmitsTheAttemptsRow_WhenTheCountIsUnknown()
+    {
+        var html = SyncFailureEmail.Render(SyncModel(null), BaseUrl).HtmlBody;
+
+        html.Should().NotContain(AttemptsLabel);
+        html.Should().Contain(ReasonLabel,
+            "the rows that do not depend on the count must still render");
+    }
+
+    [Fact]
+    public void SyncFailureEmail_RendersTheAttemptsRow_WhenTheCountIsKnown()
+    {
+        var html = SyncFailureEmail.Render(SyncModel(7), BaseUrl).HtmlBody;
+
+        html.Should().Contain(AttemptsLabel);
+        html.Should().Contain(">7<");
+    }
+
+    /// <summary>
+    /// Zero is a real reading the caller can produce, and it must not be
+    /// mistaken for "unknown" and dropped.
+    /// </summary>
+    [Fact]
+    public void SyncFailureEmail_RendersTheAttemptsRow_WhenTheCountIsZero()
+    {
+        var html = SyncFailureEmail.Render(SyncModel(0), BaseUrl).HtmlBody;
+
+        html.Should().Contain(AttemptsLabel);
+    }
+
     // ------------------------------------------------------------- bilingual
 
     [Fact]

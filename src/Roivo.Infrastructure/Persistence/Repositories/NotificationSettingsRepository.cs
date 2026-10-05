@@ -126,18 +126,21 @@ public sealed class NotificationSettingsRepository : INotificationSettingsReposi
     }
 
     public async Task<string?> GetConfirmedEmailAsync(
-        string userId, CancellationToken cancellationToken = default)
+        string userId, Guid tenantId, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
 
-        if (!Guid.TryParse(userId, out var id))
+        if (!Guid.TryParse(userId, out var id) || tenantId == Guid.Empty)
             return null;
 
         await using var db = await _factory.CreateDbContextAsync(cancellationToken);
 
+        // The tenant predicate is explicit because db.Users carries no global
+        // query filter: ApplicationUser cannot be ITenantScoped without the
+        // filter hiding the account at sign-in, before any tenant claim exists.
         return await db.Users
             .AsNoTracking()
-            .Where(u => u.Id == id && u.EmailConfirmed && u.Email != null)
+            .Where(u => u.Id == id && u.TenantId == tenantId && u.EmailConfirmed && u.Email != null)
             .Select(u => u.Email)
             .FirstOrDefaultAsync(cancellationToken);
     }

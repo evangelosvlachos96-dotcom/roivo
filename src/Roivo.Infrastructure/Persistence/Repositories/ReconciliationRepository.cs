@@ -221,54 +221,127 @@ public sealed class ReconciliationRepository : IReconciliationRepository
         return await query.CountAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Single-business counts, expressed through the batched query so the two
+    /// can never drift apart in their windowing rules.
+    /// </summary>
     public async Task<ReconciliationCounts> GetCountsAsync(
         Guid businessId, DateOnly from, DateOnly to, CancellationToken cancellationToken = default)
     {
+        var counts = await GetCountsForBusinessesAsync([businessId], from, to, cancellationToken);
+        return counts.TryGetValue(businessId, out var found) ? found : ReconciliationCounts.Empty;
+    }
+
+    /// <remarks>
+    /// Six grouped queries whatever the number of businesses, instead of eight
+    /// per business.
+    /// <para>
+    /// Every count is scoped to the window by the invoice's issue date (or the
+    /// transaction's booking date), including the match counts: counting
+    /// matches over all time against a windowed invoice total lets the match
+    /// rate exceed 100%, glaringly so on the accountant report, whose window is
+    /// a single month.
+    /// </para>
+    /// <para>
+    /// Query filters are ignored throughout because this also serves the
+    /// notification crons, which run with no tenant claim. Callers are
+    /// responsible for only passing business ids the caller may read — the
+    /// accountant handlers derive theirs from a tenant-filtered list.
+    /// </para>
+    /// </remarks>
+    public async Task<IReadOnlyDictionary<Guid, ReconciliationCounts>> GetCountsForBusinessesAsync(
+        IReadOnlyCollection<Guid> businessIds, DateOnly from, DateOnly to,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(businessIds);
+
+        if (businessIds.Count == 0)
+            return new Dictionary<Guid, ReconciliationCounts>();
+
         await using var db = await _factory.CreateDbContextAsync(cancellationToken);
 
+        var ids = businessIds.Distinct().ToList();
+
         var totalInvoices = await db.Invoices.IgnoreQueryFilters()
-            .CountAsync(i => i.BusinessId == businessId && i.IssueDate >= from && i.IssueDate <= to, cancellationToken);
+            .Where(i => ids.Contains(i.BusinessId) && i.IssueDate >= from && i.IssueDate <= to)
+            .GroupBy(i => i.BusinessId)
+            .Select(g => new { BusinessId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.BusinessId, x => x.Count, cancellationToken);
 
-        var accountIds = await db.BankAccounts.IgnoreQueryFilters()
-            .Where(a => a.BusinessId == businessId)
-            .Select(a => a.Id)
-            .ToListAsync(cancellationToken);
-
+        // Joined to BankAccounts rather than resolving account ids first: a
+        // transaction only knows its account, and the account carries the
+        // business.
         var totalTransactions = await db.BankTransactions.IgnoreQueryFilters()
-            .CountAsync(t => accountIds.Contains(t.BankAccountId)
-                && t.BookingDate >= from && t.BookingDate <= to, cancellationToken);
+            .Join(db.BankAccounts.IgnoreQueryFilters(), t => t.BankAccountId, a => a.Id,
+                (t, a) => new { Transaction = t, a.BusinessId })
+            .Where(x => ids.Contains(x.BusinessId)
+                && x.Transaction.BookingDate >= from && x.Transaction.BookingDate <= to)
+            .GroupBy(x => x.BusinessId)
+            .Select(g => new { BusinessId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.BusinessId, x => x.Count, cancellationToken);
 
-        // Scoped to matches whose invoice falls in the window, because
-        // TotalInvoices above is. Counting matches over all time against a
-        // windowed denominator lets the rate exceed 100% — glaringly so on the
-        // accountant report, whose window is a single month. The join mirrors
-        // ReconciledAmount below, which already scopes this way.
-        var confirmed = await db.ReconciliationMatches.IgnoreQueryFilters()
-            .Where(m => m.BusinessId == businessId && m.Status == ReconciliationMatchStatus.Confirmed)
-            .Join(db.Invoices.IgnoreQueryFilters(), m => m.InvoiceId, i => i.Id, (_, i) => i)
-            .CountAsync(i => i.IssueDate >= from && i.IssueDate <= to, cancellationToken);
+        var confirmed = await CountMatchesByBusiness(
+            db, ids, from, to, ReconciliationMatchStatus.Confirmed, cancellationToken);
 
-        var pending = await db.ReconciliationMatches.IgnoreQueryFilters()
-            .Where(m => m.BusinessId == businessId && m.Status == ReconciliationMatchStatus.Pending)
-            .Join(db.Invoices.IgnoreQueryFilters(), m => m.InvoiceId, i => i.Id, (_, i) => i)
-            .CountAsync(i => i.IssueDate >= from && i.IssueDate <= to, cancellationToken);
+        var pending = await CountMatchesByBusiness(
+            db, ids, from, to, ReconciliationMatchStatus.Pending, cancellationToken);
 
-        var unreconciledInvoices = await UnreconciledInvoices(db, businessId)
-            .CountAsync(i => i.IssueDate >= from && i.IssueDate <= to, cancellationToken);
+        var unreconciledInvoices = await db.Invoices.IgnoreQueryFilters()
+            .Where(i => ids.Contains(i.BusinessId) && !i.IsReconciled && i.CancelledByMark == null
+                && i.IssueDate >= from && i.IssueDate <= to)
+            .GroupBy(i => i.BusinessId)
+            .Select(g => new { BusinessId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.BusinessId, x => x.Count, cancellationToken);
 
-        var unreconciledTransactions = await UnreconciledTransactions(db, businessId)
-            .CountAsync(t => t.BookingDate >= from && t.BookingDate <= to, cancellationToken);
+        var unreconciledTransactions = await db.BankTransactions.IgnoreQueryFilters()
+            .Join(db.BankAccounts.IgnoreQueryFilters(), t => t.BankAccountId, a => a.Id,
+                (t, a) => new { Transaction = t, a.BusinessId })
+            .Where(x => ids.Contains(x.BusinessId) && !x.Transaction.IsReconciled
+                && x.Transaction.BookingDate >= from && x.Transaction.BookingDate <= to)
+            .GroupBy(x => x.BusinessId)
+            .Select(g => new { BusinessId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.BusinessId, x => x.Count, cancellationToken);
 
         var reconciledAmount = await db.ReconciliationMatches.IgnoreQueryFilters()
-            .Where(m => m.BusinessId == businessId && m.Status == ReconciliationMatchStatus.Confirmed)
-            .Join(db.Invoices.IgnoreQueryFilters(), m => m.InvoiceId, i => i.Id, (_, i) => i)
-            .Where(i => i.IssueDate >= from && i.IssueDate <= to)
-            .SumAsync(i => (decimal?)i.GrossAmount, cancellationToken) ?? 0m;
+            .Where(m => ids.Contains(m.BusinessId) && m.Status == ReconciliationMatchStatus.Confirmed)
+            .Join(db.Invoices.IgnoreQueryFilters(), m => m.InvoiceId, i => i.Id,
+                (m, i) => new { m.BusinessId, i.IssueDate, i.GrossAmount })
+            .Where(x => x.IssueDate >= from && x.IssueDate <= to)
+            .GroupBy(x => x.BusinessId)
+            .Select(g => new { BusinessId = g.Key, Amount = g.Sum(x => x.GrossAmount) })
+            .ToDictionaryAsync(x => x.BusinessId, x => x.Amount, cancellationToken);
 
-        return new ReconciliationCounts(
-            totalInvoices, totalTransactions, confirmed, pending,
-            unreconciledInvoices, unreconciledTransactions, reconciledAmount);
+        return ids.ToDictionary(
+            id => id,
+            id => new ReconciliationCounts(
+                TotalInvoices: totalInvoices.GetValueOrDefault(id),
+                TotalTransactions: totalTransactions.GetValueOrDefault(id),
+                ConfirmedMatches: confirmed.GetValueOrDefault(id),
+                PendingMatches: pending.GetValueOrDefault(id),
+                UnreconciledInvoices: unreconciledInvoices.GetValueOrDefault(id),
+                UnreconciledTransactions: unreconciledTransactions.GetValueOrDefault(id),
+                ReconciledAmount: reconciledAmount.GetValueOrDefault(id)));
     }
+
+    /// <summary>
+    /// Matches in one status, counted per business and scoped to the window by
+    /// the matched invoice's issue date.
+    /// </summary>
+    private static Task<Dictionary<Guid, int>> CountMatchesByBusiness(
+        ApplicationDbContext db,
+        List<Guid> ids,
+        DateOnly from,
+        DateOnly to,
+        ReconciliationMatchStatus status,
+        CancellationToken cancellationToken)
+        => db.ReconciliationMatches.IgnoreQueryFilters()
+            .Where(m => ids.Contains(m.BusinessId) && m.Status == status)
+            .Join(db.Invoices.IgnoreQueryFilters(), m => m.InvoiceId, i => i.Id,
+                (m, i) => new { m.BusinessId, i.IssueDate })
+            .Where(x => x.IssueDate >= from && x.IssueDate <= to)
+            .GroupBy(x => x.BusinessId)
+            .Select(g => new { BusinessId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.BusinessId, x => x.Count, cancellationToken);
 
     public async Task<IReadOnlyList<Invoice>> ListUnreconciledInvoicesPagedAsync(
         Guid businessId, int skip, int take, CancellationToken cancellationToken = default)

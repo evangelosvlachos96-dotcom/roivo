@@ -1,4 +1,5 @@
 @page "/"
+@layout Roivo.Web.Components.Layout.MarketingLayout
 @attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthState
@@ -7,23 +8,18 @@
 @*
     Public landing page (M12).
 
-    LAYOUT: this page deliberately renders no MudBlazor components and carries
-    its own chrome (top bar, hero, footer), because it must not appear inside
-    the authenticated MainLayout — no app bar, no MudContainer padding, no
-    dashboard navigation. There is no empty/marketing layout in the project
-    yet, so the coordinator needs to add one and put `@@layout MarketingLayout`
-    at the top of this file (and of Privacy.razor / Terms.razor). Until then
-    the page still renders, just nested inside the app chrome.
+    LAYOUT: MarketingLayout, not the authenticated MainLayout — this page
+    carries its own chrome (top bar, hero, footer), and under MainLayout it
+    rendered a second navigation above its own.
 
-    Deliberately MudBlazor-free for exactly that reason: MudThemeProvider and
-    friends live in MainLayout, so a bare marketing layout would leave any
-    MudBlazor component here without its providers.
+    Deliberately MudBlazor-free for that reason: MudThemeProvider and friends
+    live in MainLayout, so this page has no providers above it.
 
     All copy comes from Roivo.Resources.Marketing. Nothing user-facing is
     hardcoded in this file.
 *@
 
-<PageTitle>@Marketing.Landing_PageTitle</PageTitle>
+<RoivoPageTitle Title="@(Marketing.Landing_PageTitle)" />
 
 <HeadContent>
     <meta name="description" content="@Marketing.Landing_MetaDescription" />

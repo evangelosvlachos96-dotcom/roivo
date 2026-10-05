@@ -4,6 +4,113 @@ A running log of what's been built, when, and any notes worth keeping. Newest en
 
 ---
 
+## MVP COMPLETE ✅ 2026-10-04 — final polish, branding, review pass
+
+**Roivo's MVP scope (M1–M12) is complete.** 520 tests pass, the build is clean,
+and every milestone below is code complete. This entry covers the closing pass:
+finishing the localization, applying the brand everywhere, and fixing what a
+review of M8–M12 turned up.
+
+### Localization finished
+
+Zero hardcoded Greek remains in the UI. The sweep found 84 lines across **seven**
+files, not the four that were expected — `BusinessCreate.razor` (22 lines) had
+never been covered, and `App.razor` and `MainLayout.razor` each carried one.
+46 new resource keys went into `Businesses`, `Aade`, `Common`, `Marketing` and a
+new `Dashboard` class, every one with an English override.
+
+`tools/scan_greek.py` is the comment-aware check (it skips comment lines and the
+resource classes, which are the legitimate home for Greek) and now reports 0.
+
+Two strings are Greek on purpose and follow the existing `_El` / `_En` pinning
+convention: `Common.LanguageName_El` / `_En` are endonyms, because the language
+switcher labels the *target* language in that language.
+
+### Branding
+
+- **Icons are generated from the real brand asset.** `tools/make_icons.py` crops
+  the squircle out of `wwwroot/images/app-icon.jpeg`, masks the corners, and
+  writes favicon / 192 / 512 / apple-touch / maskable. The previous
+  `favicon.png` was still the Blazor template default from Milestone 1.
+- **`manifest.json`** (installable PWA), `theme-color`, and apple-touch icons,
+  on the Blazor side *and* the Account area.
+- **The inline mark was redrawn.** It had the three bars sitting to the right of
+  the bowl, so the glyph read as a "P" followed by a small bar chart. In the
+  brand icon the bars *are* the ascending stem of the R. `RoivoLogo.razor` and
+  the Account area's `_RoivoBrand.cshtml` now match the icon and each other.
+- **The app bar had never actually been navy.** `MudAppBar` carried
+  `Color="Color.Default"`, which overrode the theme's `AppbarBackground`.
+- **`RoivoPageTitle`** gives every Blazor page one `Roivo — <page>` title; the
+  Razor Pages layout was flipped to match. Three marketing titles had the brand
+  inline and would otherwise have rendered it twice.
+- **Account-area branding reached only four of seven pages**, with the mark
+  pasted into each of the four — and it was a *different* R from the app bar's.
+  The stylesheet and a single `_RoivoBrand` partial moved into `_Layout`, so
+  AccessDenied and the confirmation pages are branded too.
+- `<html lang>` was hardcoded (`en` in the app, `el` in the Account area) on a
+  bilingual product; it now follows the request culture. `og:description` was
+  pinned to English while the meta description followed the visitor.
+
+### Mobile
+
+Verified at 380px against a local build. No page scrolls horizontally; tables
+collapse to label/value cards. Two fixes were needed:
+
+- **The app bar broke at phone width** — four Greek nav labels clipped into each
+  other. Below `md` they collapse into a single menu.
+- **Tap targets were 37–38px**, under the 44px minimum. A `pointer: coarse`
+  block in `app.css` raises them on touch devices only, leaving desktop density
+  alone.
+
+### Review of M8–M12 — found and fixed
+
+- **HTML injection in the failure-notification emails.** `AadeFailureNotification`
+  and `BankingFailureNotification` built their own bodies and did
+  `body.Replace("\n", "<br/>")`, which put `business.Name` into HTML unescaped.
+  Both now render through the branded `SyncFailureEmail` template, which escapes
+  — and which had been written for exactly this consolidation but never wired
+  up. `SyncFailureEmail` gained an optional failed-attempt count so banking
+  keeps the detail it was reporting; null omits the row rather than showing a
+  misleading `0`.
+- **N+1 on all three accountant pages.** `GetCountsAsync` is eight round-trips,
+  and each page called it once per client inside a loop — an accountant with 50
+  clients issued ~400 queries to load a page. `GetCountsForBusinessesAsync` does
+  it in six grouped queries regardless of client count, and `GetCountsAsync` is
+  now expressed through it so the windowing rules cannot drift. Measured on a
+  local build: **42 queries for the reports page with 40 clients, versus 44 with
+  4** — flat.
+- **Cross-tenant email lookup.** `GetConfirmedEmailAsync` queried `db.Users` with
+  no tenant predicate. `ApplicationUser` deliberately is not `ITenantScoped` — a
+  global filter would hide the account at sign-in, before any tenant claim
+  exists — so the predicate has to be explicit. Any user id in the system would
+  otherwise resolve, and the test-notification result reports the address it
+  resolved back to the caller. Not reachable from the browser today (the only
+  caller builds the command server-side inside the circuit), but it was one API
+  endpoint away from being an IDOR.
+- **`/counter` and `/weather` were live routes** — Blazor template leftovers, in
+  a product that handles company financials. Removed, along with the
+  unreferenced `NavMenu.razor` and a `MainLayout.razor.css` whose every selector
+  matched no markup.
+- **Landing, Privacy and Terms rendered inside the authenticated chrome**,
+  showing two stacked navigation bars. M12 had left this as an explicit TODO in
+  the page comments ("the coordinator needs to add one"). `MarketingLayout` is
+  that layout.
+
+Checked and found correct, for the record: tenant scoping in all four
+notification crons, the three accountant handlers' use of `IgnoreQueryFilters`
+(ids always come from a tenant-filtered list first), the `SetLanguage` redirect
+guard, the dispatch-log dedupe, and the match-rate maths.
+
+**Known gaps carried into post-MVP:**
+- The notification dedupe is still check-then-send against the audit table. One
+  Hangfire server makes it safe today; the proper fix is the
+  `NotificationDispatches` table described in `NotificationDispatchLog`.
+- Enable Banking is still blocked on the application id (see M5 below).
+- Privacy and Terms are templates pending review by a Greek lawyer, with every
+  company-specific value left as a bracketed placeholder.
+
+---
+
 ## M11 + M12 — Bilingual, brand system, landing page ✅ Code complete 2026-10-04
 
 ### M11 — Bilingual (Greek / English)

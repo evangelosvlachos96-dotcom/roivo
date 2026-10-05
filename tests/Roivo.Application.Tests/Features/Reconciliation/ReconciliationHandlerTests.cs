@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Roivo.Application.Abstractions;
 using Roivo.Application.Features.Reconciliation.Commands.ConfirmSuggestedMatch;
 using Roivo.Application.Features.Reconciliation.Commands.ManualMatch;
 using Roivo.Application.Features.Reconciliation.Commands.RejectSuggestedMatch;
@@ -246,5 +247,72 @@ public class ReconciliationHandlerTests
 
         result.Should().BeOfType<ManualMatchResult.SideAlreadyReconciled>();
         sut.Repo.Matches.Should().ContainSingle();
+    }
+
+    // --------------------------------------------------- batched counts
+
+    /// <summary>
+    /// The accountant pages read counts for every client in their book. Asking
+    /// per business made the query count scale with the book, so the batched
+    /// call has to agree with the single one exactly — otherwise the two
+    /// surfaces would quietly report different match rates for the same client.
+    /// </summary>
+    [Fact]
+    public async Task BatchedCounts_MatchTheSingleBusinessCall_ForEveryBusiness()
+    {
+        var repo = new FakeReconciliationRepository();
+        var from = new DateOnly(2026, 1, 1);
+        var to = new DateOnly(2026, 1, 31);
+
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+
+        SeedInvoice(repo, first, new DateOnly(2026, 1, 10), 100m);
+        SeedInvoice(repo, first, new DateOnly(2026, 1, 20), 250m);
+        SeedInvoice(repo, second, new DateOnly(2026, 1, 15), 75m);
+
+        var batched = await repo.GetCountsForBusinessesAsync([first, second], from, to);
+
+        foreach (var id in new[] { first, second })
+        {
+            var single = await repo.GetCountsAsync(id, from, to);
+            batched[id].Should().Be(single, "business {0} must read the same either way", id);
+        }
+    }
+
+    /// <summary>
+    /// A client with nothing in the window still needs a row on the accountant
+    /// dashboard. Returning no entry would make the handler throw on lookup.
+    /// </summary>
+    [Fact]
+    public async Task BatchedCounts_ReturnZeroedEntries_ForBusinessesWithNothingInTheWindow()
+    {
+        var repo = new FakeReconciliationRepository();
+        var quiet = Guid.NewGuid();
+
+        var batched = await repo.GetCountsForBusinessesAsync(
+            [quiet], new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 31));
+
+        batched.Should().ContainKey(quiet);
+        batched[quiet].Should().Be(ReconciliationCounts.Empty);
+    }
+
+    [Fact]
+    public async Task BatchedCounts_AreEmpty_WhenAskedForNoBusinesses()
+    {
+        var repo = new FakeReconciliationRepository();
+
+        var batched = await repo.GetCountsForBusinessesAsync(
+            [], new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 31));
+
+        batched.Should().BeEmpty();
+    }
+
+    private static void SeedInvoice(
+        FakeReconciliationRepository repo, Guid businessId, DateOnly issued, decimal gross)
+    {
+        repo.Invoices.Add(Invoice.Create(
+            businessId, Guid.NewGuid().ToString(), InvoiceDirection.Issued, "1.1",
+            issued, "094014201", "ACME AE", gross, 0m, gross, Currency.EUR, null));
     }
 }

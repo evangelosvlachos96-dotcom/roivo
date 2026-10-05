@@ -16,7 +16,7 @@
 @inject NavigationManager Nav
 @inject ITenantContext TenantContext
 
-<PageTitle>@Roivo.Resources.Businesses.PageTitle_Edit</PageTitle>
+<RoivoPageTitle Title="@(Roivo.Resources.Businesses.PageTitle_Edit)" />
 
 <MudContainer MaxWidth="MaxWidth.Small" Class="mt-6">
 
@@ -53,35 +53,35 @@
             <MudForm @ref="form" Model="model" @bind-IsValid="isFormValid">
 
                 <MudTextField @bind-Value="model.Name"
-                              Label="Όνομα επιχείρησης"
+                              Label="@Roivo.Resources.Businesses.Form_NameLabel"
                               Required="true"
-                              RequiredError="Το όνομα είναι υποχρεωτικό"
+                              RequiredError="@Roivo.Resources.Businesses.Form_NameRequired"
                               MaxLength="200"
                               Immediate="true"
                               Class="mb-4" />
                 @if (BusinessPermissions.CanEditAfm(TenantContext.CurrentTenantType))
                 {
                     <MudTextField @bind-Value="model.Afm"
-                                  Label="ΑΦΜ"
+                                  Label="@Roivo.Resources.Businesses.AfmLabel"
                                   Required="true"
-                                  RequiredError="Το ΑΦΜ είναι υποχρεωτικό"
+                                  RequiredError="@Roivo.Resources.Businesses.Form_AfmRequired"
                                   Validation="@(new Func<string, string?>(ValidateAfm))"
                                   MaxLength="9"
-                                  HelperText="9 ψηφία"
+                                  HelperText="@Roivo.Resources.Businesses.Form_AfmHelper"
                                   Immediate="true"
                                   Class="mb-4" />
                 }
 
 
                 <MudTextField @bind-Value="model.Kad"
-                              Label="ΚΑΔ (προαιρετικό)"
+                              Label="@Roivo.Resources.Businesses.Form_KadLabel"
                               MaxLength="20"
-                              HelperText="Κωδικός αριθμός δραστηριότητας"
+                              HelperText="@Roivo.Resources.Businesses.Form_KadHelper"
                               Immediate="true"
                               Class="mb-4" />
 
                 <MudTextField @bind-Value="model.Address"
-                              Label="Διεύθυνση (προαιρετικό)"
+                              Label="@Roivo.Resources.Businesses.Form_AddressLabel"
                               MaxLength="300"
                               Immediate="true"
                               Class="mb-4" />
@@ -111,8 +111,8 @@
             <MudText Typo="Typo.h6" Class="mb-2">AADE myDATA</MudText>
             <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
                 @(aadeStatus?.IsConnected == true
-                    ? $"Συνδεδεμένη. Τελευταίος συγχρονισμός: {(aadeStatus.LastSyncAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")}"
-                    : "Δεν έχει συνδεθεί ακόμα.")
+                    ? string.Format(Aade.Status_ConnectedWithLastSync, aadeStatus.LastSyncAt?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—")
+                    : Aade.Status_NotConnectedSentence)
             </MudText>
             <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
                 <MudButton Variant="Variant.Outlined" Color="Color.Primary"
@@ -269,7 +269,7 @@
             return null;
 
         if (!Roivo.Core.Domain.Validation.AfmValidator.IsValid(afm))
-            return "Μη έγκυρο ΑΦΜ";
+            return Roivo.Resources.Businesses.InvalidAfm_Short;
 
         return null;
     }
@@ -297,13 +297,13 @@
                     Nav.NavigateTo("/businesses");
                     return;
                 case UpdateBusinessResult.InvalidAfm:
-                    errorMessage = "Μη έγκυρο ΑΦΜ";
+                    errorMessage = Roivo.Resources.Businesses.InvalidAfm_Short;
                     return;
                 case UpdateBusinessResult.NotFound:
-                    errorMessage = "Η επιχείρηση δεν υπάρχει πλέον.";
+                    errorMessage = Roivo.Resources.Businesses.NoLongerExists_Error;
                     return;
                 case UpdateBusinessResult.ActiveDuplicateAfm:
-                    errorMessage = "Υπάρχει ήδη άλλη ενεργή επιχείρηση με αυτό το ΑΦΜ.";
+                    errorMessage = Roivo.Resources.Businesses.OtherActiveDuplicate_Error;
                     return;
             }
         }

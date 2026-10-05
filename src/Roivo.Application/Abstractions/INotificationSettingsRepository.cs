@@ -46,8 +46,16 @@ public interface INotificationSettingsRepository
     /// The user's confirmed email address, or null when the account has none
     /// (unconfirmed or missing). Notifications never go to an unproven address.
     /// </summary>
+    /// <param name="tenantId">
+    /// The tenant the caller is acting for. Required because ApplicationUser is
+    /// deliberately not <c>ITenantScoped</c> — a global filter on it would hide
+    /// the account during sign-in, when there is no tenant claim yet — so this
+    /// lookup would otherwise resolve any user id in the system, and the test
+    /// notification reports the address it resolved back to the caller.
+    /// </param>
     Task<string?> GetConfirmedEmailAsync(
         string userId,
+        Guid tenantId,
         CancellationToken cancellationToken = default);
 }
 

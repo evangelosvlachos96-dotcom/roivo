@@ -1,0 +1,19 @@
+@*
+    One brand prefix for every browser tab.
+
+    The Razor Pages side already renders "<page> — Roivo" from its shared
+    _Layout, but Blazor has no equivalent hook: each page writes its own
+    <PageTitle>, and they had drifted — most bare, one with the brand trailing,
+    three marketing pages carrying it inline. This component is the Blazor half
+    of that layout rule, so the two halves of the app agree.
+*@
+
+<PageTitle>@Marketing.BrandName — @Title</PageTitle>
+
+@code {
+    /// <summary>
+    /// The page's own name, already localized. The brand prefix is added here,
+    /// so callers must not repeat it.
+    /// </summary>
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+}

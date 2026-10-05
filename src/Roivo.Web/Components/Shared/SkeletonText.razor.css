@@ -9,7 +9,12 @@
 .rv-sk-line {
     border-radius: 4px;
     flex: 0 0 auto;
-    background: linear-gradient(-90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    /* Navy at low alpha rather than neutral grey, so a loading page reads as
+       the same product as the loaded one. Matches SkeletonChart. */
+    background: linear-gradient(-90deg,
+            rgba(11, 31, 58, 0.07) 25%,
+            rgba(11, 31, 58, 0.14) 50%,
+            rgba(11, 31, 58, 0.07) 75%);
     background-size: 400% 100%;
     animation: rv-shimmer-text 1.5s ease-in-out infinite;
 }
@@ -27,6 +32,6 @@
 @media (prefers-reduced-motion: reduce) {
     .rv-sk-line {
         animation: none;
-        background: #ececec;
+        background: rgba(11, 31, 58, 0.09);
     }
 }
