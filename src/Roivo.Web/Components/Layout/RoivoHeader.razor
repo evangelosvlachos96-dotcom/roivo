@@ -1,0 +1,58 @@
+@*
+    Sticky header for the product shell: breadcrumbs on the left, search and
+    chrome actions on the right. Markup and class names follow the design.
+*@
+
+@using Roivo.Resources
+@using Roivo.Web.Components.Shared
+
+<header class="app-header">
+    <div class="breadcrumbs">
+        @if (!string.IsNullOrWhiteSpace(Context))
+        {
+            <span>@Context</span>
+            <b>/</b>
+        }
+        <strong>@PageTitle</strong>
+    </div>
+
+    <div class="header-actions">
+        <label class="global-search">
+            <RoivoIcon Name="RoivoIconName.Search" Size="17" />
+            <input placeholder="@Shell.SearchPlaceholder" aria-label="@Shell.SearchLabel" />
+            @* The shortcut hint is decorative until global search is wired up;
+               it must not be announced as content. *@
+            <kbd aria-hidden="true">⌘ K</kbd>
+        </label>
+
+        <button type="button" class="icon-button"
+                aria-label="@(IsDark ? Shell.Theme_ToLight : Shell.Theme_ToDark)"
+                @onclick="OnToggleTheme">
+            <RoivoIcon Name="@(IsDark ? RoivoIconName.Sun : RoivoIconName.Moon)" />
+        </button>
+
+        <button type="button" class="icon-button notification-button"
+                aria-label="@Shell.Notifications">
+            <RoivoIcon Name="RoivoIconName.Bell" />
+            @if (UnreadNotifications > 0)
+            {
+                <i aria-hidden="true"></i>
+            }
+        </button>
+    </div>
+</header>
+
+@code {
+    /// <summary>The current page, shown as the last breadcrumb.</summary>
+    [Parameter, EditorRequired] public string PageTitle { get; set; } = "";
+
+    /// <summary>What the page sits under — usually the selected business.</summary>
+    [Parameter] public string? Context { get; set; }
+
+    [Parameter] public bool IsDark { get; set; }
+
+    [Parameter] public EventCallback OnToggleTheme { get; set; }
+
+    /// <summary>Drives the dot on the bell; the count itself is not shown in this design.</summary>
+    [Parameter] public int UnreadNotifications { get; set; }
+}

@@ -19,17 +19,17 @@
 @inject IJSRuntime JS
 @inject ISnackbar Snackbar
 
-<RoivoPageTitle Title="@(Reconciliation.History)" />
+<RoivoPageTitle Title="@(Roivo.Resources.Reconciliation.History)" />
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-6">
 
     <MudPaper Class="pa-4 mb-4">
         <BusinessBreadcrumbs BusinessId="Id" BusinessName="@_business?.Name"
-                             ParentPage="@Reconciliation.Title"
+                             ParentPage="@Roivo.Resources.Reconciliation.Title"
                              ParentHref="@($"/businesses/{Id}/reconciliation")"
-                             CurrentPage="@Reconciliation.History" />
-        <MudText Typo="Typo.h5">@Reconciliation.History</MudText>
-        <MudText Typo="Typo.body2" Class="mud-text-secondary">@Reconciliation.Subtitle</MudText>
+                             CurrentPage="@Roivo.Resources.Reconciliation.History" />
+        <MudText Typo="Typo.h5">@Roivo.Resources.Reconciliation.History</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">@Roivo.Resources.Reconciliation.Subtitle</MudText>
     </MudPaper>
 
     @if (_loading)
@@ -51,19 +51,19 @@
         <MudPaper Class="pa-4">
             <MudGrid Class="mb-2">
                 <MudItem xs="12" sm="6" md="4">
-                    <MudSelect T="string" Label="@Reconciliation.FilterByStatus"
+                    <MudSelect T="string" Label="@Roivo.Resources.Reconciliation.FilterByStatus"
                                Value="@_statusFilter" ValueChanged="OnStatusFilterChanged">
-                        <MudSelectItem Value="@AllFilter">@Reconciliation.FilterAll</MudSelectItem>
-                        <MudSelectItem Value="@(nameof(ReconciliationMatchStatus.Confirmed))">@Reconciliation.Status_Confirmed</MudSelectItem>
-                        <MudSelectItem Value="@(nameof(ReconciliationMatchStatus.Pending))">@Reconciliation.Status_Pending</MudSelectItem>
-                        <MudSelectItem Value="@(nameof(ReconciliationMatchStatus.Rejected))">@Reconciliation.Status_Rejected</MudSelectItem>
+                        <MudSelectItem Value="@AllFilter">@Roivo.Resources.Reconciliation.FilterAll</MudSelectItem>
+                        <MudSelectItem Value="@(nameof(ReconciliationMatchStatus.Confirmed))">@Roivo.Resources.Reconciliation.Status_Confirmed</MudSelectItem>
+                        <MudSelectItem Value="@(nameof(ReconciliationMatchStatus.Pending))">@Roivo.Resources.Reconciliation.Status_Pending</MudSelectItem>
+                        <MudSelectItem Value="@(nameof(ReconciliationMatchStatus.Rejected))">@Roivo.Resources.Reconciliation.Status_Rejected</MudSelectItem>
                     </MudSelect>
                 </MudItem>
                 <MudItem xs="12" sm="6" md="8" Class="d-flex align-center">
                     <MudButton Variant="Variant.Outlined"
                                StartIcon="@Icons.Material.Outlined.Download"
                                OnClick="ExportCsvAsync">
-                        @Reconciliation.ExportCsv
+                        @Roivo.Resources.Reconciliation.ExportCsv
                     </MudButton>
                 </MudItem>
             </MudGrid>
@@ -71,31 +71,31 @@
             <MudTable T="ReconciliationMatchListItem" Items="@FilteredMatches" Dense="true" Hover="true"
                       Breakpoint="Breakpoint.Sm">
                 <HeaderContent>
-                    <MudTh>@Reconciliation.Column_Date</MudTh>
-                    <MudTh>@Reconciliation.Column_Invoice</MudTh>
-                    <MudTh>@Reconciliation.Column_Transaction</MudTh>
-                    <MudTh>@Reconciliation.Column_Type</MudTh>
-                    <MudTh>@Reconciliation.Column_Status</MudTh>
-                    <MudTh>@Reconciliation.Confidence</MudTh>
+                    <MudTh>@Roivo.Resources.Reconciliation.Column_Date</MudTh>
+                    <MudTh>@Roivo.Resources.Reconciliation.Column_Invoice</MudTh>
+                    <MudTh>@Roivo.Resources.Reconciliation.Column_Transaction</MudTh>
+                    <MudTh>@Roivo.Resources.Reconciliation.Column_Type</MudTh>
+                    <MudTh>@Roivo.Resources.Reconciliation.Column_Status</MudTh>
+                    <MudTh>@Roivo.Resources.Reconciliation.Confidence</MudTh>
                     <MudTh></MudTh>
                 </HeaderContent>
                 <RowTemplate>
-                    <MudTd DataLabel="@Reconciliation.Column_Date">@context.MatchedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
-                    <MudTd DataLabel="@Reconciliation.Column_Invoice">
+                    <MudTd DataLabel="@Roivo.Resources.Reconciliation.Column_Date">@context.MatchedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Reconciliation.Column_Invoice">
                         @context.InvoiceIssueDate.ToString("dd/MM/yyyy") — @FormatCurrency(context.InvoiceGrossAmount)
                         <br /><MudText Typo="Typo.caption">@context.InvoiceCounterpartyName</MudText>
                     </MudTd>
-                    <MudTd DataLabel="@Reconciliation.Column_Transaction">
+                    <MudTd DataLabel="@Roivo.Resources.Reconciliation.Column_Transaction">
                         @context.TransactionBookingDate.ToString("dd/MM/yyyy") — @FormatCurrency(context.TransactionAmount)
                         <br /><MudText Typo="Typo.caption">@context.TransactionCounterpartyName</MudText>
                     </MudTd>
-                    <MudTd DataLabel="@Reconciliation.Column_Type">@MatchTypeLabel(context.MatchType)</MudTd>
-                    <MudTd DataLabel="@Reconciliation.Column_Status">
+                    <MudTd DataLabel="@Roivo.Resources.Reconciliation.Column_Type">@MatchTypeLabel(context.MatchType)</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Reconciliation.Column_Status">
                         <MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Status)">
                             @StatusLabel(context.Status)
                         </MudChip>
                     </MudTd>
-                    <MudTd DataLabel="@Reconciliation.Confidence">@FormatPercent(context.Confidence)</MudTd>
+                    <MudTd DataLabel="@Roivo.Resources.Reconciliation.Confidence">@FormatPercent(context.Confidence)</MudTd>
                     <MudTd>
                         @if (context.Status == nameof(ReconciliationMatchStatus.Pending))
                         {
@@ -103,19 +103,19 @@
                                 <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Success"
                                            Disabled="@_busy"
                                            OnClick="@(() => ConfirmAsync(context.MatchId))">
-                                    @Reconciliation.Confirm
+                                    @Roivo.Resources.Reconciliation.Confirm
                                 </MudButton>
                                 <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error"
                                            Disabled="@_busy"
                                            OnClick="@(() => RejectAsync(context.MatchId))">
-                                    @Reconciliation.Reject
+                                    @Roivo.Resources.Reconciliation.Reject
                                 </MudButton>
                             </MudStack>
                         }
                     </MudTd>
                 </RowTemplate>
                 <NoRecordsContent>
-                    <MudText Typo="Typo.body2">@Reconciliation.NoMatches</MudText>
+                    <MudText Typo="Typo.body2">@Roivo.Resources.Reconciliation.NoMatches</MudText>
                 </NoRecordsContent>
             </MudTable>
 
@@ -222,7 +222,7 @@
             switch (result)
             {
                 case ConfirmSuggestedMatchResult.Success:
-                    Snackbar.Add(Reconciliation.MatchConfirmed, Severity.Success);
+                    Snackbar.Add(Roivo.Resources.Reconciliation.MatchConfirmed, Severity.Success);
                     await LoadMatchesAsync();
                     break;
                 case ConfirmSuggestedMatchResult.Forbidden:
@@ -232,7 +232,7 @@
                     Snackbar.Add(Common.Error_NotFound, Severity.Warning);
                     break;
                 case ConfirmSuggestedMatchResult.NotPending:
-                    Snackbar.Add(Reconciliation.Error_NotPending, Severity.Warning);
+                    Snackbar.Add(Roivo.Resources.Reconciliation.Error_NotPending, Severity.Warning);
                     await LoadMatchesAsync();
                     break;
             }
@@ -260,7 +260,7 @@
             switch (result)
             {
                 case RejectSuggestedMatchResult.Success:
-                    Snackbar.Add(Reconciliation.MatchRejected, Severity.Info);
+                    Snackbar.Add(Roivo.Resources.Reconciliation.MatchRejected, Severity.Info);
                     await LoadMatchesAsync();
                     break;
                 case RejectSuggestedMatchResult.Forbidden:
@@ -270,7 +270,7 @@
                     Snackbar.Add(Common.Error_NotFound, Severity.Warning);
                     break;
                 case RejectSuggestedMatchResult.NotPending:
-                    Snackbar.Add(Reconciliation.Error_NotPending, Severity.Warning);
+                    Snackbar.Add(Roivo.Resources.Reconciliation.Error_NotPending, Severity.Warning);
                     await LoadMatchesAsync();
                     break;
             }
@@ -334,16 +334,16 @@
         // accountant checks the bank amount against, so neither may be dropped.
         builder.AppendLine(string.Join(';', new[]
         {
-            Reconciliation.Column_Date,
-            Reconciliation.Column_Invoice,
-            Reconciliation.Column_Amount,
-            Reconciliation.Column_Counterparty,
-            Reconciliation.Column_Transaction,
-            Reconciliation.Column_Amount,
-            Reconciliation.Column_Counterparty,
-            Reconciliation.Column_Type,
-            Reconciliation.Column_Status,
-            Reconciliation.Confidence,
+            Roivo.Resources.Reconciliation.Column_Date,
+            Roivo.Resources.Reconciliation.Column_Invoice,
+            Roivo.Resources.Reconciliation.Column_Amount,
+            Roivo.Resources.Reconciliation.Column_Counterparty,
+            Roivo.Resources.Reconciliation.Column_Transaction,
+            Roivo.Resources.Reconciliation.Column_Amount,
+            Roivo.Resources.Reconciliation.Column_Counterparty,
+            Roivo.Resources.Reconciliation.Column_Type,
+            Roivo.Resources.Reconciliation.Column_Status,
+            Roivo.Resources.Reconciliation.Confidence,
         }.Select(Escape)));
 
         foreach (var match in matches)
@@ -391,9 +391,9 @@
 
     private static string StatusLabel(string status) => status switch
     {
-        nameof(ReconciliationMatchStatus.Confirmed) => Reconciliation.Status_Confirmed,
-        nameof(ReconciliationMatchStatus.Pending) => Reconciliation.Status_Pending,
-        nameof(ReconciliationMatchStatus.Rejected) => Reconciliation.Status_Rejected,
+        nameof(ReconciliationMatchStatus.Confirmed) => Roivo.Resources.Reconciliation.Status_Confirmed,
+        nameof(ReconciliationMatchStatus.Pending) => Roivo.Resources.Reconciliation.Status_Pending,
+        nameof(ReconciliationMatchStatus.Rejected) => Roivo.Resources.Reconciliation.Status_Rejected,
         _ => status
     };
 
@@ -407,9 +407,9 @@
 
     private static string MatchTypeLabel(string matchType) => matchType switch
     {
-        nameof(ReconciliationMatchType.Automatic) => Reconciliation.Type_Automatic,
-        nameof(ReconciliationMatchType.Manual) => Reconciliation.Type_Manual,
-        nameof(ReconciliationMatchType.Suggested) => Reconciliation.Type_Suggested,
+        nameof(ReconciliationMatchType.Automatic) => Roivo.Resources.Reconciliation.Type_Automatic,
+        nameof(ReconciliationMatchType.Manual) => Roivo.Resources.Reconciliation.Type_Manual,
+        nameof(ReconciliationMatchType.Suggested) => Roivo.Resources.Reconciliation.Type_Suggested,
         _ => matchType
     };
 }

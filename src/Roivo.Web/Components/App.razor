@@ -9,6 +9,9 @@
     <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="Roivo.Web.styles.css" />
+    @* Product design system, extracted from the Figma source. Every rule in it
+       is scoped under .app, so it cannot reach the landing or Account pages. *@
+    <link rel="stylesheet" href="css/roivo-app.css" />
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
     <!-- Rasterised from the brand mark by tools/make_icons.py. Several sizes
          rather than one, so hi-DPI tabs and the install prompt each pick the
@@ -32,7 +35,10 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    @* The product design uses DM Sans for body, Manrope for the wordmark, Sora for
+       headings and Caveat for the handwritten accent. Inter stays for the pages
+       Phase 1 leaves on the old look. *@
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600&amp;family=DM+Sans:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=Manrope:wght@500;600;700;800&amp;family=Sora:wght@500;600;700&amp;display=swap" rel="stylesheet" />
     <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 

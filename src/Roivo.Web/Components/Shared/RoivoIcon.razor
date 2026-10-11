@@ -1,0 +1,57 @@
+@*
+    The product icon set, traced from the Figma design.
+
+    One component rather than MudBlazor's Material icons because the design uses
+    a single consistent stroke style — 24-unit box, 1.8 stroke, round caps — and
+    Material's filled/outlined mix reads as a different product next to it.
+
+    Geometry is copied from the design's own SVGs; add a case here rather than
+    reaching for a Material icon when a new one is needed.
+*@
+
+<svg width="@Size" height="@Size" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+     stroke-linejoin="round" aria-hidden="true" focusable="false">
+    @Body
+</svg>
+
+@code {
+    /// <summary>Which glyph to draw. Unknown names render nothing rather than throwing.</summary>
+    [Parameter, EditorRequired] public RoivoIconName Name { get; set; }
+
+    /// <summary>Edge length in CSS pixels. The design uses 18 in the nav, 15–17 in chrome.</summary>
+    [Parameter] public int Size { get; set; } = 18;
+
+    private MarkupString Body => new(Name switch
+    {
+        RoivoIconName.Overview =>
+            """<path d="m3 11 9-8 9 8" /><path d="M5 10v10h14V10M9 20v-6h6v6" />""",
+        RoivoIconName.Cashflow =>
+            """<path d="M4 18V11M10 18V7M16 18V3M22 18H2" /><path d="m16 7 3-3 3 3" />""",
+        RoivoIconName.Reconciliation =>
+            """<path d="M4 7h13M14 4l3 3-3 3M20 17H7M10 14l-3 3 3 3" />""",
+        RoivoIconName.Obligations =>
+            """<path d="M6 3h9l4 4v14H6z" /><path d="M14 3v5h5M9 13h6M9 17h4" />""",
+        RoivoIconName.Reports =>
+            """<path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />""",
+        RoivoIconName.Connections =>
+            """<path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1 1" /><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1-1" />""",
+        RoivoIconName.Help =>
+            """<circle cx="12" cy="12" r="9" /><path d="M9.8 9a2.3 2.3 0 1 1 3.4 2c-.8.5-1.2 1-1.2 2M12 17h.01" />""",
+        RoivoIconName.Settings =>
+            """<circle cx="12" cy="12" r="3" /><path d="M19 15a2 2 0 0 0 .4 2.2l.1.1-2.2 2.2-.1-.1A2 2 0 0 0 15 19a2 2 0 0 0-1.2 1.8v.2h-3.2v-.2A2 2 0 0 0 9.4 19a2 2 0 0 0-2.2.4l-.1.1-2.2-2.2.1-.1A2 2 0 0 0 5.4 15a2 2 0 0 0-1.8-1.2h-.2v-3.2h.2A2 2 0 0 0 5.4 9 2 2 0 0 0 5 6.8l-.1-.1 2.2-2.2.1.1A2 2 0 0 0 9.4 5a2 2 0 0 0 1.2-1.8V3h3.2v.2A2 2 0 0 0 15 5a2 2 0 0 0 2.2-.4l.1-.1 2.2 2.2-.1.1A2 2 0 0 0 19 9a2 2 0 0 0 1.8 1.2h.2v3.2h-.2A2 2 0 0 0 19 15Z" />""",
+        RoivoIconName.Business =>
+            """<path d="M4 21V6h10v15M14 10h6v11M8 10h2M8 14h2M8 18h2M17 14h1M17 18h1" />""",
+        RoivoIconName.Search =>
+            """<circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" />""",
+        RoivoIconName.Bell =>
+            """<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />""",
+        RoivoIconName.Moon =>
+            """<path d="M20 15.5A8.5 8.5 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5Z" />""",
+        // The design only ever shows the moon (it ships light-first); the sun is
+        // the matching glyph for the return trip, drawn in the same stroke style.
+        RoivoIconName.Sun =>
+            """<circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />""",
+        _ => string.Empty,
+    });
+}

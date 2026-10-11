@@ -1,0 +1,179 @@
+@*
+    The product shell: dark sidebar, sticky header, scrolling content.
+
+    Replaces MainLayout for the authenticated product. MainLayout stays in place
+    for the pages Phase 1 leaves alone, so the landing and Account screens keep
+    working while this is built out.
+
+    MudBlazor's providers are still mounted: dialogs, menus and snackbars are
+    worth keeping, and the design's own CSS owns everything inside `.app`.
+*@
+
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.EntityFrameworkCore
+@using Roivo.Infrastructure.Persistence
+@using Roivo.Resources
+@using Roivo.Web.Components.Shared
+@using Roivo.Web.Configuration
+@inherits LayoutComponentBase
+@implements IAsyncDisposable
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthState
+@inject IJSRuntime JS
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+
+<MudThemeProvider Theme="@RoivoTheme.Build()" IsDarkMode="@_isDark" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<div class="app" data-theme="@(_isDark ? "dark" : "light")">
+    <RoivoSidebar Businesses="_businesses"
+                  IsAccountant="_isAccountant"
+                  SelectedBusinessId="_selectedBusinessId"
+                  SelectedBusinessIdChanged="OnBusinessChanged"
+                  UserName="@_userName"
+                  UserRole="@_userRole" />
+
+    <div class="app-frame">
+        <RoivoHeader PageTitle="@CurrentPageTitle"
+                     Context="@SelectedBusinessName"
+                     IsDark="_isDark"
+                     OnToggleTheme="ToggleTheme" />
+
+        @* Both classes are the design's: `content` carries the scroll and the
+           gutters, `module-content` the vertical rhythm every page shares. *@
+        <main class="content module-content">
+            @Body
+        </main>
+    </div>
+</div>
+
+@code {
+    private bool _isDark;
+    private bool _isAccountant;
+    private Guid? _selectedBusinessId;
+    private IReadOnlyList<RoivoSidebar.BusinessOption> _businesses = [];
+    private IJSObjectReference? _themeModule;
+    private string _userName = "";
+    private string _userRole = "";
+
+    /// <summary>
+    /// Breadcrumb tail. Derived from the route rather than passed down, so a
+    /// page cannot forget to set it and leave the header showing the last one.
+    /// </summary>
+    private string CurrentPageTitle => Segment() switch
+    {
+        "dashboard" => Shell.Nav_Overview,
+        "cashflow" => Shell.Nav_Cashflow,
+        "reconciliation" => Shell.Nav_Reconciliation,
+        "obligations" => Shell.Nav_Obligations,
+        "reports" => Shell.Nav_Reports,
+        "connections" => Shell.Nav_Connections,
+        "settings" => Shell.Nav_Settings,
+        "help" => Shell.Nav_Help,
+        _ => Marketing.BrandName,
+    };
+
+    private string? SelectedBusinessName =>
+        _businesses.FirstOrDefault(b => b.Id == _selectedBusinessId)?.Name
+        ?? (_isAccountant ? Shell.AccountantWorkspace : null);
+
+    private string Segment()
+    {
+        var path = Nav.ToBaseRelativePath(Nav.Uri);
+        var cut = path.IndexOfAny(['?', '#']);
+        if (cut >= 0) path = path[..cut];
+        path = path.Trim('/');
+
+        var slash = path.IndexOf('/');
+        return slash >= 0 ? path[..slash] : path;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+
+        var state = await AuthState.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated != true) return;
+
+        _isAccountant = string.Equals(
+            state.User.FindFirst("tenant_type")?.Value,
+            nameof(Roivo.Core.Domain.Enums.TenantType.Accountant),
+            StringComparison.Ordinal);
+
+        // Read through the factory rather than a scoped context: the layout
+        // renders during circuit start-up, where a shared context races with
+        // whatever the first page is loading.
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _businesses = await db.Businesses
+            .Where(b => b.IsActive)
+            .OrderBy(b => b.Name)
+            .Select(b => new RoivoSidebar.BusinessOption(b.Id, b.Name))
+            .ToListAsync();
+
+        // A business owner has exactly one, and no switcher to pick it with.
+        if (!_isAccountant) _selectedBusinessId = _businesses.FirstOrDefault()?.Id;
+
+        var userIdValue = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (Guid.TryParse(userIdValue, out var userId))
+        {
+            var user = await db.Users
+                .Where(u => u.Id == userId)
+                .Select(u => new { u.FullName, u.Email })
+                .FirstOrDefaultAsync();
+
+            _userName = user?.FullName ?? user?.Email ?? "";
+        }
+
+        _userRole = _isAccountant ? Shell.AccountantWorkspace : Dashboard.TenantType_Business;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _themeModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/roivo-theme.js");
+        var stored = await _themeModule.InvokeAsync<string>("get");
+
+        if (stored == "dark" != _isDark)
+        {
+            _isDark = stored == "dark";
+            StateHasChanged();
+        }
+    }
+
+    private async Task ToggleTheme()
+    {
+        _isDark = !_isDark;
+
+        if (_themeModule is not null)
+            await _themeModule.InvokeVoidAsync("set", _isDark ? "dark" : "light");
+    }
+
+    private void OnBusinessChanged(Guid? id)
+    {
+        _selectedBusinessId = id;
+        StateHasChanged();
+    }
+
+    /// <summary>The breadcrumb and the active nav item both follow the route.</summary>
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) => StateHasChanged();
+
+    public async ValueTask DisposeAsync()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+
+        if (_themeModule is not null)
+        {
+            try
+            {
+                await _themeModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The circuit is already gone; there is no module left to dispose.
+            }
+        }
+    }
+}

@@ -12,17 +12,17 @@
 @inject AuthenticationStateProvider AuthState
 @inject ISnackbar Snackbar
 
-<RoivoPageTitle Title="@(Reconciliation.ManualMatching)" />
+<RoivoPageTitle Title="@(Roivo.Resources.Reconciliation.ManualMatching)" />
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-6">
 
     <MudPaper Class="pa-4 mb-4">
         <BusinessBreadcrumbs BusinessId="Id" BusinessName="@_business?.Name"
-                             ParentPage="@Reconciliation.Title"
+                             ParentPage="@Roivo.Resources.Reconciliation.Title"
                              ParentHref="@($"/businesses/{Id}/reconciliation")"
-                             CurrentPage="@Reconciliation.ManualMatching" />
-        <MudText Typo="Typo.h5">@Reconciliation.ManualMatching</MudText>
-        <MudText Typo="Typo.body2" Class="mud-text-secondary">@Reconciliation.Subtitle</MudText>
+                             CurrentPage="@Roivo.Resources.Reconciliation.ManualMatching" />
+        <MudText Typo="Typo.h5">@Roivo.Resources.Reconciliation.ManualMatching</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">@Roivo.Resources.Reconciliation.Subtitle</MudText>
     </MudPaper>
 
     @if (_loading)
@@ -58,11 +58,11 @@
                            StartIcon="@Icons.Material.Outlined.Link"
                            Disabled="@_matching"
                            OnClick="MatchSelectedAsync">
-                    @Reconciliation.MatchSelected
+                    @Roivo.Resources.Reconciliation.MatchSelected
                 </MudButton>
                 @if (_selectedInvoice is null || _selectedTransaction is null)
                 {
-                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@Reconciliation.SelectBothSides</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@Roivo.Resources.Reconciliation.SelectBothSides</MudText>
                 }
             </MudStack>
         </MudPaper>
@@ -70,7 +70,7 @@
         <MudGrid>
             <MudItem xs="12" md="6">
                 <MudPaper Class="pa-4">
-                    <MudText Typo="Typo.subtitle2" Class="mb-2">@Reconciliation.UnmatchedInvoices</MudText>
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">@Roivo.Resources.Reconciliation.UnmatchedInvoices</MudText>
 
                     <MudTable T="UnreconciledItem" Items="@_invoices" Dense="true" Hover="true"
                               Breakpoint="Breakpoint.Sm"
@@ -78,19 +78,19 @@
                               OnRowClick="@OnInvoiceRowClick"
                               RowClassFunc="@InvoiceRowClass">
                         <HeaderContent>
-                            <MudTh>@Reconciliation.Column_Date</MudTh>
-                            <MudTh>@Reconciliation.Column_Amount</MudTh>
-                            <MudTh>@Reconciliation.Column_Counterparty</MudTh>
-                            <MudTh>@Reconciliation.Column_Description</MudTh>
+                            <MudTh>@Roivo.Resources.Reconciliation.Column_Date</MudTh>
+                            <MudTh>@Roivo.Resources.Reconciliation.Column_Amount</MudTh>
+                            <MudTh>@Roivo.Resources.Reconciliation.Column_Counterparty</MudTh>
+                            <MudTh>@Roivo.Resources.Reconciliation.Column_Description</MudTh>
                         </HeaderContent>
                         <RowTemplate>
-                            <MudTd DataLabel="@Reconciliation.Column_Date">@context.Date.ToString("dd/MM/yyyy")</MudTd>
-                            <MudTd DataLabel="@Reconciliation.Column_Amount">@FormatCurrency(context.Amount)</MudTd>
-                            <MudTd DataLabel="@Reconciliation.Column_Counterparty">@context.CounterpartyName</MudTd>
-                            <MudTd DataLabel="@Reconciliation.Column_Description">@context.Description</MudTd>
+                            <MudTd DataLabel="@Roivo.Resources.Reconciliation.Column_Date">@context.Date.ToString("dd/MM/yyyy")</MudTd>
+                            <MudTd DataLabel="@Roivo.Resources.Reconciliation.Column_Amount">@FormatCurrency(context.Amount)</MudTd>
+                            <MudTd DataLabel="@Roivo.Resources.Reconciliation.Column_Counterparty">@context.CounterpartyName</MudTd>
+                            <MudTd DataLabel="@Roivo.Resources.Reconciliation.Column_Description">@context.Description</MudTd>
                         </RowTemplate>
                         <NoRecordsContent>
-                            <MudText Typo="Typo.body2">@Reconciliation.NoUnmatchedInvoices</MudText>
+                            <MudText Typo="Typo.body2">@Roivo.Resources.Reconciliation.NoUnmatchedInvoices</MudText>
                         </NoRecordsContent>
                     </MudTable>
 
@@ -108,7 +108,7 @@
 
             <MudItem xs="12" md="6">
                 <MudPaper Class="pa-4">
-                    <MudText Typo="Typo.subtitle2" Class="mb-2">@Reconciliation.UnmatchedTransactions</MudText>
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">@Roivo.Resources.Reconciliation.UnmatchedTransactions</MudText>
 
                     <MudTable T="UnreconciledItem" Items="@_transactions" Dense="true" Hover="true"
                               Breakpoint="Breakpoint.Sm"
@@ -116,19 +116,19 @@
                               OnRowClick="@OnTransactionRowClick"
                               RowClassFunc="@TransactionRowClass">
                         <HeaderContent>
-                            <MudTh>@Reconciliation.Column_Date</MudTh>
-                            <MudTh>@Reconciliation.Column_Amount</MudTh>
-                            <MudTh>@Reconciliation.Column_Counterparty</MudTh>
-                            <MudTh>@Reconciliation.Column_Description</MudTh>
+                            <MudTh>@Roivo.Resources.Reconciliation.Column_Date</MudTh>
+                            <MudTh>@Roivo.Resources.Reconciliation.Column_Amount</MudTh>
+                            <MudTh>@Roivo.Resources.Reconciliation.Column_Counterparty</MudTh>
+                            <MudTh>@Roivo.Resources.Reconciliation.Column_Description</MudTh>
                         </HeaderContent>
                         <RowTemplate>
-                            <MudTd DataLabel="@Reconciliation.Column_Date">@context.Date.ToString("dd/MM/yyyy")</MudTd>
-                            <MudTd DataLabel="@Reconciliation.Column_Amount">@FormatCurrency(context.Amount)</MudTd>
-                            <MudTd DataLabel="@Reconciliation.Column_Counterparty">@context.CounterpartyName</MudTd>
-                            <MudTd DataLabel="@Reconciliation.Column_Description">@context.Description</MudTd>
+                            <MudTd DataLabel="@Roivo.Resources.Reconciliation.Column_Date">@context.Date.ToString("dd/MM/yyyy")</MudTd>
+                            <MudTd DataLabel="@Roivo.Resources.Reconciliation.Column_Amount">@FormatCurrency(context.Amount)</MudTd>
+                            <MudTd DataLabel="@Roivo.Resources.Reconciliation.Column_Counterparty">@context.CounterpartyName</MudTd>
+                            <MudTd DataLabel="@Roivo.Resources.Reconciliation.Column_Description">@context.Description</MudTd>
                         </RowTemplate>
                         <NoRecordsContent>
-                            <MudText Typo="Typo.body2">@Reconciliation.NoUnmatchedTransactions</MudText>
+                            <MudText Typo="Typo.body2">@Roivo.Resources.Reconciliation.NoUnmatchedTransactions</MudText>
                         </NoRecordsContent>
                     </MudTable>
 
@@ -252,7 +252,7 @@
     {
         if (_selectedInvoice is null || _selectedTransaction is null)
         {
-            Snackbar.Add(Reconciliation.SelectBothSides, Severity.Warning);
+            Snackbar.Add(Roivo.Resources.Reconciliation.SelectBothSides, Severity.Warning);
             return;
         }
 
@@ -274,7 +274,7 @@
             switch (result)
             {
                 case ManualMatchResult.Success:
-                    Snackbar.Add(Reconciliation.MatchCreated, Severity.Success);
+                    Snackbar.Add(Roivo.Resources.Reconciliation.MatchCreated, Severity.Success);
                     _selectedInvoice = null;
                     _selectedTransaction = null;
                     await LoadInvoicesAsync();
@@ -287,10 +287,10 @@
                     Snackbar.Add(Common.Error_NotFound, Severity.Warning);
                     break;
                 case ManualMatchResult.AlreadyMatched:
-                    Snackbar.Add(Reconciliation.Error_AlreadyMatched, Severity.Warning);
+                    Snackbar.Add(Roivo.Resources.Reconciliation.Error_AlreadyMatched, Severity.Warning);
                     break;
                 case ManualMatchResult.SideAlreadyReconciled:
-                    Snackbar.Add(Reconciliation.Error_SideAlreadyReconciled, Severity.Warning);
+                    Snackbar.Add(Roivo.Resources.Reconciliation.Error_SideAlreadyReconciled, Severity.Warning);
                     break;
             }
         }

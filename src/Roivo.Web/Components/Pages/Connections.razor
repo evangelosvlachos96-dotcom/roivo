@@ -1,0 +1,10 @@
+@page "/connections"
+@layout Roivo.Web.Components.Layout.RoivoAppLayout
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using Roivo.Resources
+@using Roivo.Web.Components.Shared
+
+<RoivoPageTitle Title="@(Shell.Nav_Connections)" />
+
+<ModulePlaceholder Title="@(Shell.Nav_Connections)" Description="@(Shell.Placeholder_Connections)" />
