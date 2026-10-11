@@ -2,6 +2,12 @@ using Roivo.Resources;
 
 namespace Roivo.Infrastructure.Email.Templates;
 
+// BACKLOG: This email template uses inline HTML styling matching current transactional emails.
+// When email templates are redesigned in Phase 2 (backlog), this template should be
+// updated to match the new platform design system.
+// See also: welcome/verification email, password reset email, sync notification emails,
+// accountant invitation email — all scheduled for redesign.
+
 /// <summary>
 /// Tells an account owner that their credentials were used from a device we
 /// have not seen before.

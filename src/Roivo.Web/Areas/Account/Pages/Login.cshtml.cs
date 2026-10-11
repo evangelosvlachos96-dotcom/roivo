@@ -162,9 +162,10 @@ public class LoginModel : PageModel
     /// password stops working.
     /// </para>
     /// <para>
-    /// The banner is handed over in TempData rather than held in the database.
-    /// It is a one-shot message for the next page render, and TempData is
-    /// exactly that — it also means dismissing it needs no write.
+    /// Nothing is handed to the next page from here. TempData does not survive
+    /// the redirect into a Blazor circuit, so the shell asks the tracker itself
+    /// whether there is an unacknowledged device; all this does is record one
+    /// and send the mail.
     /// </para>
     /// </remarks>
     private async Task NoticeNewDeviceAsync(ApplicationUser user, CancellationToken cancellationToken)
