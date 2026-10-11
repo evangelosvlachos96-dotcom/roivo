@@ -183,6 +183,11 @@ public static class Shell
     public static string Rec_RunStarted => Strings.Get("Shell.Rec_RunStarted", "Η αντιστοίχιση ξεκίνησε");
     public static string Rec_RunDone => Strings.Get("Shell.Rec_RunDone", "Βρέθηκαν {0} νέες προτάσεις");
 
+    public static string Owner_Customize => Strings.Get("Shell.Owner_Customize", "Προσαρμογή dashboard");
+    public static string Owner_Premium => Strings.Get("Shell.Owner_Premium", "PREMIUM");
+    public static string Owner_Period90 => Strings.Get("Shell.Owner_Period90", "Τελευταίες 90 ημέρες");
+    public static string Owner_PremiumToast => Strings.Get("Shell.Owner_PremiumToast", "Η προσαρμογή του dashboard έρχεται σύντομα στο πακέτο Pro");
+
     /// <summary>English overrides. Keys absent here fall back to Greek.</summary>
     static Shell() => Strings.RegisterEnglish(new Dictionary<string, string>(StringComparer.Ordinal)
     {
@@ -347,5 +352,9 @@ public static class Shell
         ["Shell.Rec_ActionFailed"] = "The action did not complete",
         ["Shell.Rec_RunStarted"] = "Reconciliation started",
         ["Shell.Rec_RunDone"] = "Found {0} new suggestions",
+        ["Shell.Owner_Customize"] = "Customise dashboard",
+        ["Shell.Owner_Premium"] = "PREMIUM",
+        ["Shell.Owner_Period90"] = "Last 90 days",
+        ["Shell.Owner_PremiumToast"] = "Dashboard customisation is coming soon on the Pro plan",
     });
 }

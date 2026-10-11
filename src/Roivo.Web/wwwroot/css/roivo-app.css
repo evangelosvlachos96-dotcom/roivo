@@ -102,7 +102,7 @@
 .brand small {
   margin-top: 3px;
   color: #7790a8;
-  font-size: 5px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: .2em;
   text-transform: uppercase;
@@ -155,7 +155,7 @@
 .workspace-switcher > span {
   margin: 0 5px 5px;
   color: #657d94;
-  font-size: 6px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: .16em;
 }
@@ -180,7 +180,7 @@
 }
 .workspace-switcher strong {
   overflow: hidden;
-  font-size: 9px;
+  font-size: 13px;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -194,7 +194,7 @@
   border-radius: 6px;
   color: #125b8e;
   background: #dcefff;
-  font-size: 6px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0;
 }
@@ -204,7 +204,7 @@
 .nav-group {
   margin: 18px 13px 6px;
   color: #546d84;
-  font-size: 7px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: .16em;
 }
@@ -220,7 +220,7 @@
   color: #7890a7;
   text-align: left;
   background: transparent;
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 600;
 }
 .nav-item:hover {
@@ -256,7 +256,7 @@
   border-radius: 6px;
   color: #8fa6ba;
   background: rgba(255, 255, 255, .07);
-  font-size: 7px;
+  font-size: 11px;
 }
 .nav-item b.warning-count {
   color: #e8ab64;
@@ -283,7 +283,7 @@
   border-radius: 9px;
   color: #06223b;
   background: linear-gradient(135deg, #38d1bc, #3c94ed);
-  font-size: 8px;
+  font-size: 12px;
   font-weight: 800;
 }
 .account-card > span:nth-child(2) {
@@ -291,12 +291,12 @@
 }
 .account-card strong {
   color: #dae6f1;
-  font-size: 9px;
+  font-size: 13px;
 }
 .account-card small {
   margin-top: 3px;
   color: #627b92;
-  font-size: 7px;
+  font-size: 11px;
 }
 .account-card svg {
   color: #627b92;
@@ -325,7 +325,7 @@
   align-items: center;
   gap: 9px;
   color: var(--text-faint);
-  font-size: 10px;
+  font-size: 14px;
 }
 .breadcrumbs b {
   color: var(--line);
@@ -360,7 +360,7 @@
   outline: 0;
   color: var(--text);
   background: transparent;
-  font-size: 9px;
+  font-size: 13px;
 }
 .global-search input::placeholder, .company-search input::placeholder {
   color: var(--text-faint);
@@ -371,7 +371,7 @@
   border-radius: 4px;
   color: var(--text-faint);
   background: var(--surface);
-  font: 500 7px/1 "DM Sans", sans-serif;
+  font: 500 11px/1 "DM Sans", sans-serif;
 }
 .icon-button {
   position: relative;
@@ -415,7 +415,7 @@
 }
 .eyebrow {
   color: var(--teal);
-  font-size: 8px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: .15em;
 }
@@ -430,7 +430,7 @@ h1 {
 .page-intro p {
   margin-top: 7px;
   color: var(--text-soft);
-  font-size: 11px;
+  font-size: 15px;
 }
 .primary-button {
   display: flex;
@@ -443,7 +443,7 @@ h1 {
   color: white;
   background: linear-gradient(135deg, #167ee8, #1472d2);
   box-shadow: 0 7px 18px rgba(22, 124, 229, .24);
-  font-size: 9px;
+  font-size: 13px;
   font-weight: 700;
 }
 .metrics {
@@ -493,7 +493,7 @@ h1 {
 }
 .metric-copy > span {
   color: var(--text-soft);
-  font-size: 8px;
+  font-size: 12px;
 }
 .metric-copy strong {
   margin-top: 8px;
@@ -503,7 +503,7 @@ h1 {
 .metric-copy small {
   margin-top: 8px;
   color: var(--text-faint);
-  font-size: 7px;
+  font-size: 11px;
 }
 .signal {
   display: grid;
@@ -542,18 +542,18 @@ h1 {
 }
 .signal > div > span {
   color: var(--teal);
-  font-size: 6px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: .15em;
 }
 .signal > div strong {
-  font-size: 10px;
+  font-size: 14px;
 }
 .signal p {
   grid-column: 1 / -1;
   margin-top: 3px;
   color: var(--text-soft);
-  font-size: 8px;
+  font-size: 12px;
 }
 .signal button {
   display: flex;
@@ -563,7 +563,7 @@ h1 {
   border: 0;
   color: var(--blue);
   background: transparent;
-  font-size: 8px;
+  font-size: 12px;
   font-weight: 700;
 }
 .portfolio {
@@ -589,12 +589,12 @@ h1 {
   gap: 9px;
 }
 h2 {
-  font: 700 16px/1.2 "Manrope", sans-serif;
+  font: 700 18px/1.2 "Manrope", sans-serif;
   letter-spacing: -.02em;
 }
 .portfolio-header > div:first-child > span {
   color: var(--text-faint);
-  font-size: 8px;
+  font-size: 12px;
 }
 .portfolio-tools {
   display: flex;
@@ -615,7 +615,7 @@ h2 {
   border-radius: 8px;
   color: var(--text-soft);
   background: var(--surface);
-  font-size: 8px;
+  font-size: 12px;
 }
 .filter-button {
   display: flex;
@@ -657,7 +657,7 @@ h2 {
   padding: 11px 15px;
   color: var(--text-faint);
   background: var(--surface-subtle);
-  font-size: 7px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: .04em;
   text-align: left;
@@ -669,7 +669,7 @@ h2 {
   height: 67px;
   padding: 11px 15px;
   border-top: 1px solid var(--line-soft);
-  font-size: 9px;
+  font-size: 13px;
 }
 .company-table tbody tr {
   transition: background 150ms ease;
@@ -686,7 +686,7 @@ h2 {
 .company-table td > small {
   margin-top: 5px;
   color: var(--text-faint);
-  font-size: 7px;
+  font-size: 11px;
 }
 .company-name {
   display: flex;
@@ -697,12 +697,12 @@ h2 {
   display: grid;
 }
 .company-name strong {
-  font-size: 9px;
+  font-size: 13px;
 }
 .company-name small {
   margin-top: 4px;
   color: var(--text-faint);
-  font-size: 7px;
+  font-size: 11px;
 }
 .company-avatar {
   display: grid;
@@ -711,7 +711,7 @@ h2 {
   flex: none;
   place-items: center;
   border-radius: 9px;
-  font-size: 8px;
+  font-size: 12px;
   font-weight: 800;
 }
 .company-avatar--blue {
@@ -738,7 +738,7 @@ h2 {
   filter: brightness(.75) saturate(.9);
 }
 .money {
-  font: 700 10px/1 "Manrope", sans-serif;
+  font: 700 14px/1 "Manrope", sans-serif;
 }
 .up {
   color: #1aa68e !important;
@@ -764,7 +764,7 @@ h2 {
   background: rgba(224, 101, 83, .1);
 }
 .obligation {
-  font-size: 8px;
+  font-size: 12px;
 }
 .status {
   display: inline-flex;
@@ -772,7 +772,7 @@ h2 {
   align-items: center;
   gap: 5px;
   border-radius: 99px;
-  font-size: 7px;
+  font-size: 11px;
   font-weight: 700;
 }
 .status i {
@@ -834,7 +834,7 @@ h2 {
 .company-card-value > span {
   grid-column: 1 / -1;
   color: var(--text-faint);
-  font-size: 7px;
+  font-size: 11px;
 }
 .company-card-value > strong {
   margin-top: 7px;
@@ -842,7 +842,7 @@ h2 {
 }
 .company-card-value > small {
   align-self: end;
-  font-size: 7px;
+  font-size: 11px;
 }
 .company-card-stats {
   display: grid;
@@ -861,11 +861,11 @@ h2 {
 }
 .company-card-stats small {
   color: var(--text-faint);
-  font-size: 7px;
+  font-size: 11px;
 }
 .company-card-stats strong {
   margin-top: 5px;
-  font-size: 9px;
+  font-size: 13px;
 }
 .open-company {
   display: flex;
@@ -878,7 +878,7 @@ h2 {
   border-top: 1px solid var(--line-soft);
   color: var(--blue);
   background: transparent;
-  font-size: 8px;
+  font-size: 12px;
   font-weight: 700;
 }
 .empty-state {
@@ -891,10 +891,10 @@ h2 {
 }
 .empty-state strong {
   color: var(--text);
-  font-size: 11px;
+  font-size: 15px;
 }
 .empty-state span {
-  font-size: 8px;
+  font-size: 12px;
 }
 .owner-content {
   max-width: 1600px;
@@ -917,7 +917,7 @@ h2 {
   border-radius: 9px;
   color: var(--text-soft);
   background: var(--surface);
-  font-size: 8px;
+  font-size: 12px;
   font-weight: 600;
 }
 .customize-button:hover, .customize-button.is-active {
@@ -932,7 +932,7 @@ h2 {
   border-radius: 4px;
   color: #91712d;
   background: #fff3c9;
-  font-size: 5px;
+  font-size: 9px;
   font-weight: 800;
   letter-spacing: .08em;
 }
@@ -972,12 +972,12 @@ h2 {
 }
 .customization-bar > div:first-child strong {
   color: var(--text);
-  font-size: 9px;
+  font-size: 13px;
 }
 .customization-bar > div:first-child small {
   margin-top: 3px;
   color: var(--text-faint);
-  font-size: 6px;
+  font-size: 10px;
 }
 .widget-toggles {
   display: flex;
@@ -993,7 +993,7 @@ h2 {
   border-radius: 6px;
   color: var(--text-faint);
   background: transparent;
-  font-size: 6px;
+  font-size: 10px;
 }
 .widget-toggles button.is-visible {
   color: var(--text-soft);
@@ -1005,7 +1005,7 @@ h2 {
   border: 0;
   color: var(--blue);
   background: transparent;
-  font-size: 7px;
+  font-size: 11px;
   font-weight: 700;
 }
 .owner-dashboard-grid {
@@ -1054,13 +1054,13 @@ h2 {
 .drag-handle span {
   width: 20px;
   overflow: hidden;
-  font-size: 10px;
+  font-size: 14px;
   letter-spacing: 1px;
   line-height: 5px;
   word-break: break-all;
 }
 .drag-handle strong {
-  font-size: 7px;
+  font-size: 11px;
   font-weight: 600;
 }
 .owner-widget {
@@ -1095,7 +1095,7 @@ h2 {
 }
 .owner-widget--metrics span {
   color: var(--text-soft);
-  font-size: 8px;
+  font-size: 12px;
 }
 .owner-widget--metrics strong {
   margin-top: 13px;
@@ -1105,7 +1105,7 @@ h2 {
 .owner-widget--metrics small {
   margin-top: 10px;
   color: var(--text-faint);
-  font-size: 7px;
+  font-size: 11px;
 }
 .owner-widget--forecast, .owner-widget--obligations, .owner-widget--accounts {
   padding: 20px;
@@ -1120,19 +1120,19 @@ h2 {
   display: grid;
 }
 .widget-heading h2 {
-  font-size: 12px;
+  font-size: 16px;
 }
 .widget-heading span {
   margin-top: 5px;
   color: var(--text-faint);
-  font-size: 7px;
+  font-size: 11px;
 }
 .widget-heading button {
   padding: 4px;
   border: 0;
   color: var(--blue);
   background: transparent;
-  font-size: 7px;
+  font-size: 11px;
   font-weight: 700;
 }
 .confidence-pill {
@@ -1166,7 +1166,7 @@ h2 {
   display: flex;
   justify-content: space-between;
   color: var(--text-faint);
-  font-size: 7px;
+  font-size: 11px;
 }
 .chart-legend {
   display: flex;
@@ -1174,7 +1174,7 @@ h2 {
   justify-content: center;
   gap: 16px;
   color: var(--text-faint);
-  font-size: 7px;
+  font-size: 11px;
 }
 .chart-legend span {
   display: flex;
@@ -1216,27 +1216,27 @@ h2 {
   background: var(--surface-subtle);
 }
 .date-box b {
-  font: 700 11px/1 "Manrope", sans-serif;
+  font: 700 15px/1 "Manrope", sans-serif;
 }
 .date-box small {
   margin-top: 3px;
   color: var(--text-faint);
-  font-size: 5px;
+  font-size: 9px;
   font-weight: 800;
 }
 .obligation-row > div {
   display: grid;
 }
 .obligation-row > div strong {
-  font-size: 8px;
+  font-size: 12px;
 }
 .obligation-row > div small {
   margin-top: 4px;
   color: var(--text-faint);
-  font-size: 6px;
+  font-size: 10px;
 }
 .obligation-row > b {
-  font-size: 8px;
+  font-size: 12px;
 }
 .owner-widget--insight {
   min-height: 354px;
@@ -1249,7 +1249,7 @@ h2 {
   align-items: center;
   gap: 8px;
   color: #41d0ba;
-  font-size: 6px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: .14em;
 }
@@ -1259,20 +1259,20 @@ h2 {
   border-radius: 4px;
   color: #75dece;
   background: rgba(55, 205, 181, .12);
-  font-size: 5px;
+  font-size: 9px;
   font-style: normal;
   letter-spacing: .08em;
 }
 .owner-widget--insight h2 {
   max-width: 270px;
   margin-top: 25px;
-  font-size: 18px;
+  font-size: 20px;
   line-height: 1.3;
 }
 .owner-widget--insight p {
   margin-top: 10px;
   color: #98aabd;
-  font-size: 8px;
+  font-size: 12px;
   line-height: 1.6;
 }
 .reserve-scale {
@@ -1296,7 +1296,7 @@ h2 {
   margin-top: 7px;
   justify-content: space-between;
   color: #70879d;
-  font-size: 6px;
+  font-size: 10px;
 }
 .owner-widget--insight > button {
   display: flex;
@@ -1307,7 +1307,7 @@ h2 {
   border: 0;
   color: #50d3c0;
   background: transparent;
-  font-size: 7px;
+  font-size: 11px;
   font-weight: 700;
 }
 .bank-account {
@@ -1327,7 +1327,7 @@ h2 {
   height: 34px;
   place-items: center;
   border-radius: 9px;
-  font-size: 7px;
+  font-size: 11px;
   font-weight: 800;
 }
 .bank-logo--nb {
@@ -1346,22 +1346,22 @@ h2 {
   display: grid;
 }
 .bank-account > div strong {
-  font-size: 8px;
+  font-size: 12px;
 }
 .bank-account > div small {
   margin-top: 4px;
   color: var(--text-faint);
-  font-size: 6px;
+  font-size: 10px;
 }
 .bank-account > b {
-  font-size: 9px;
+  font-size: 13px;
 }
 .bank-account > i {
   padding: 5px 7px;
   border-radius: 99px;
   color: #158f7a;
   background: rgba(32, 187, 161, .1);
-  font-size: 6px;
+  font-size: 10px;
   font-style: normal;
   font-weight: 700;
 }
@@ -1388,7 +1388,7 @@ h2 {
   border-radius: 8px;
   color: var(--text-soft);
   background: var(--surface);
-  font-size: 8px;
+  font-size: 12px;
   font-weight: 600;
 }
 .text-action {
@@ -1399,7 +1399,7 @@ h2 {
   border: 0;
   color: var(--blue);
   background: transparent;
-  font-size: 7px;
+  font-size: 11px;
   font-weight: 700;
 }
 .scenario-bar {
@@ -1420,7 +1420,7 @@ h2 {
 .scenario-bar > div > span {
   margin-right: 7px;
   color: var(--text-faint);
-  font-size: 6px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: .14em;
 }
@@ -1430,7 +1430,7 @@ h2 {
   border-radius: 7px;
   color: var(--text-faint);
   background: transparent;
-  font-size: 7px;
+  font-size: 11px;
 }
 .scenario-bar button.is-active {
   color: var(--text);
@@ -1442,7 +1442,7 @@ h2 {
   align-items: center;
   gap: 5px;
   color: #159b84;
-  font-size: 7px;
+  font-size: 11px;
 }
 .flow-summary {
   display: grid;
@@ -1461,21 +1461,21 @@ h2 {
 }
 .flow-summary article > span {
   color: var(--text-soft);
-  font-size: 7px;
+  font-size: 11px;
 }
 .flow-summary article > strong {
   margin-top: 8px;
-  font: 700 18px/1 "Manrope", sans-serif;
+  font: 700 20px/1 "Manrope", sans-serif;
 }
 .flow-summary article > small {
   margin-top: 7px;
   color: var(--text-faint);
-  font-size: 6px;
+  font-size: 10px;
 }
 .flow-summary > i {
   color: var(--text-faint);
   font-style: normal;
-  font-size: 17px;
+  font-size: 19px;
 }
 .flow-summary .is-result {
   padding: 12px 14px;
@@ -1506,11 +1506,11 @@ h2 {
   border-radius: 8px;
   background: var(--surface-subtle);
   color: var(--text-soft);
-  font-size: 7px;
+  font-size: 11px;
 }
 .forecast-floor strong {
   color: var(--text);
-  font-size: 9px;
+  font-size: 13px;
 }
 .forecast-floor small {
   color: var(--text-faint);
@@ -1547,15 +1547,15 @@ h2 {
   display: grid;
 }
 .cash-event > div strong {
-  font-size: 7px;
+  font-size: 11px;
 }
 .cash-event > div small {
   margin-top: 4px;
   color: var(--text-faint);
-  font-size: 6px;
+  font-size: 10px;
 }
 .cash-event > b {
-  font-size: 7px;
+  font-size: 11px;
 }
 .cash-event > button {
   padding: 3px;
@@ -1582,12 +1582,12 @@ h2 {
   display: grid;
 }
 .reconcile-stats strong {
-  font: 700 17px/1 "Manrope", sans-serif;
+  font: 700 19px/1 "Manrope", sans-serif;
 }
 .reconcile-stats small {
   margin-top: 5px;
   color: var(--text-faint);
-  font-size: 7px;
+  font-size: 11px;
 }
 .reconcile-workspace {
   display: grid;
@@ -1614,12 +1614,12 @@ h2 {
   display: grid;
 }
 .queue-head h2 {
-  font-size: 12px;
+  font-size: 16px;
 }
 .queue-head span {
   margin-top: 4px;
   color: var(--text-faint);
-  font-size: 7px;
+  font-size: 11px;
 }
 .queue-head button {
   border: 0;
@@ -1644,7 +1644,7 @@ h2 {
   outline: 0;
   color: var(--text);
   background: transparent;
-  font-size: 7px;
+  font-size: 11px;
 }
 .queue-item {
   display: grid;
@@ -1672,7 +1672,7 @@ h2 {
   height: 32px;
   place-items: center;
   border-radius: 8px;
-  font-size: 7px;
+  font-size: 11px;
   font-weight: 800;
 }
 .queue-in {
@@ -1690,12 +1690,12 @@ h2 {
   justify-items: end;
 }
 .queue-item strong, .queue-item b {
-  font-size: 7px;
+  font-size: 11px;
 }
 .queue-item small {
   margin-top: 4px;
   color: var(--text-faint);
-  font-size: 6px;
+  font-size: 10px;
 }
 .match-workspace {
   padding: 24px;
@@ -1710,13 +1710,13 @@ h2 {
 }
 .match-header > div span {
   color: var(--blue);
-  font-size: 6px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: .14em;
 }
 .match-header h2 {
   margin-top: 7px;
-  font-size: 18px;
+  font-size: 20px;
 }
 .match-confidence {
   display: flex;
@@ -1726,7 +1726,7 @@ h2 {
   border-radius: 99px;
   color: #168e7a;
   background: rgba(32, 187, 161, .1);
-  font-size: 7px;
+  font-size: 11px;
   font-weight: 700;
 }
 .match-columns {
@@ -1748,7 +1748,7 @@ h2 {
   align-items: center;
   gap: 7px;
   color: var(--text-faint);
-  font-size: 6px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: .1em;
 }
@@ -1765,7 +1765,7 @@ h2 {
   padding: 10px 0;
   justify-content: space-between;
   border-top: 1px solid var(--line);
-  font-size: 7px;
+  font-size: 11px;
 }
 .match-columns dt {
   color: var(--text-faint);
@@ -1797,7 +1797,7 @@ h2 {
   border-radius: 99px;
   color: #168e7a;
   background: rgba(32, 187, 161, .09);
-  font-size: 6px;
+  font-size: 10px;
 }
 .match-actions {
   display: flex;
@@ -1816,11 +1816,11 @@ h2 {
 }
 .no-match strong {
   color: var(--text);
-  font-size: 9px;
+  font-size: 13px;
 }
 .no-match span {
   max-width: 180px;
-  font-size: 7px;
+  font-size: 11px;
   line-height: 1.5;
 }
 .obligation-summary {
@@ -1838,16 +1838,16 @@ h2 {
 }
 .obligation-summary span {
   color: var(--text-soft);
-  font-size: 7px;
+  font-size: 11px;
 }
 .obligation-summary strong {
   margin-top: 9px;
-  font: 700 18px/1 "Manrope", sans-serif;
+  font: 700 20px/1 "Manrope", sans-serif;
 }
 .obligation-summary small {
   margin-top: 7px;
   color: var(--text-faint);
-  font-size: 6px;
+  font-size: 10px;
 }
 .coverage-card small {
   display: flex;
@@ -1887,7 +1887,7 @@ h2 {
   border-radius: 6px;
   color: var(--text-faint);
   background: transparent;
-  font-size: 7px;
+  font-size: 11px;
 }
 .list-toolbar > div button.is-active {
   color: var(--text);
@@ -1916,11 +1916,11 @@ h2 {
   background: var(--surface-subtle);
 }
 .large-date b {
-  font: 700 12px/1 "Manrope", sans-serif;
+  font: 700 16px/1 "Manrope", sans-serif;
 }
 .large-date small {
   margin-top: 3px;
-  font-size: 5px;
+  font-size: 9px;
 }
 .large-date--urgent {
   color: #ca6153;
@@ -1934,16 +1934,16 @@ h2 {
   display: grid;
 }
 .large-obligation > div strong {
-  font-size: 8px;
+  font-size: 12px;
 }
 .large-obligation > div small {
   margin-top: 4px;
   color: var(--text-faint);
-  font-size: 6px;
+  font-size: 10px;
 }
 .large-obligation > b {
   min-width: 58px;
-  font-size: 8px;
+  font-size: 12px;
   text-align: right;
 }
 .large-obligation > button {
@@ -1953,7 +1953,7 @@ h2 {
 }
 .due-label {
   min-width: 65px;
-  font-size: 6px;
+  font-size: 10px;
 }
 .due-label--urgent {
   color: #ca6153;
@@ -1967,7 +1967,7 @@ h2 {
   justify-content: space-between;
 }
 .calendar-head strong {
-  font-size: 9px;
+  font-size: 13px;
 }
 .calendar-head button {
   display: grid;
@@ -1988,7 +1988,7 @@ h2 {
 }
 .calendar-week span {
   color: var(--text-faint);
-  font-size: 5px;
+  font-size: 9px;
   font-weight: 800;
   text-align: center;
 }
@@ -2002,7 +2002,7 @@ h2 {
   aspect-ratio: 1;
   place-items: center;
   border-radius: 7px;
-  font-size: 7px;
+  font-size: 11px;
 }
 .calendar-grid span.today {
   color: white;
@@ -2023,7 +2023,7 @@ h2 {
   margin-top: 17px;
   gap: 14px;
   color: var(--text-faint);
-  font-size: 6px;
+  font-size: 10px;
 }
 .calendar-legend span {
   display: flex;
@@ -2057,13 +2057,13 @@ h2 {
   margin-top: 18px;
 }
 .report-card h2 {
-  font-size: 11px;
+  font-size: 15px;
 }
 .report-card p {
   min-height: 42px;
   margin-top: 7px;
   color: var(--text-faint);
-  font-size: 7px;
+  font-size: 11px;
   line-height: 1.5;
 }
 .report-card > button {
@@ -2076,7 +2076,7 @@ h2 {
   border-top: 1px solid var(--line-soft);
   color: var(--blue);
   background: transparent;
-  font-size: 7px;
+  font-size: 11px;
   font-weight: 700;
 }
 .recent-reports {
@@ -2092,7 +2092,7 @@ h2 {
   gap: 12px;
   border-top: 1px solid var(--line-soft);
   color: var(--text-soft);
-  font-size: 7px;
+  font-size: 11px;
 }
 .report-row--head {
   min-height: 36px;
@@ -2111,7 +2111,7 @@ h2 {
   border-radius: 4px;
   color: #ca6153;
   background: rgba(224, 101, 83, .1);
-  font-size: 5px;
+  font-size: 9px;
   font-style: normal;
   font-weight: 800;
 }
@@ -2140,23 +2140,23 @@ h2 {
 }
 .connection-health strong {
   color: var(--text);
-  font-size: 9px;
+  font-size: 13px;
 }
 .connection-health span {
   margin-top: 4px;
   color: var(--text-faint);
-  font-size: 7px;
+  font-size: 11px;
 }
 .connection-health button {
   border: 0;
   color: var(--blue);
   background: transparent;
-  font-size: 7px;
+  font-size: 11px;
   font-weight: 700;
 }
 .section-label {
   margin: 26px 0 11px;
-  font-size: 12px;
+  font-size: 16px;
 }
 .connections-grid {
   display: grid;
@@ -2180,12 +2180,12 @@ h2 {
   display: grid;
 }
 .connection-card > div:first-child strong {
-  font-size: 8px;
+  font-size: 12px;
 }
 .connection-card > div:first-child small {
   margin-top: 4px;
   color: var(--text-faint);
-  font-size: 6px;
+  font-size: 10px;
 }
 .connection-card dl {
   display: grid;
@@ -2200,11 +2200,11 @@ h2 {
 }
 .connection-card dt {
   color: var(--text-faint);
-  font-size: 6px;
+  font-size: 10px;
 }
 .connection-card dd {
   margin: 5px 0 0;
-  font-size: 7px;
+  font-size: 11px;
   font-weight: 600;
 }
 .connection-card > button {
@@ -2217,7 +2217,7 @@ h2 {
   border-top: 1px solid var(--line-soft);
   color: var(--blue);
   background: transparent;
-  font-size: 7px;
+  font-size: 11px;
   font-weight: 700;
 }
 .tax-connections {
@@ -2231,7 +2231,7 @@ h2 {
   border-radius: 9px;
   color: #176fbd;
   background: #e3f0fc;
-  font-size: 8px;
+  font-size: 12px;
   font-weight: 800;
 }
 .business-toolbar {
@@ -2249,7 +2249,7 @@ h2 {
 }
 .business-toolbar > span {
   color: var(--text-faint);
-  font-size: 7px;
+  font-size: 11px;
 }
 .business-toolbar + .company-cards {
   margin: 0;
@@ -2281,7 +2281,7 @@ h2 {
   color: var(--text-soft);
   text-align: left;
   background: transparent;
-  font-size: 8px;
+  font-size: 12px;
 }
 .settings-layout > aside button.is-active {
   color: var(--blue);
@@ -2297,7 +2297,7 @@ h2 {
 .settings-panel > div:first-child p {
   margin-top: 6px;
   color: var(--text-faint);
-  font-size: 7px;
+  font-size: 11px;
 }
 .settings-panel > label, .settings-row label {
   display: grid;
@@ -2306,7 +2306,7 @@ h2 {
 }
 .settings-panel label > span {
   color: var(--text-soft);
-  font-size: 7px;
+  font-size: 11px;
   font-weight: 600;
 }
 .settings-panel input, .settings-panel select {
@@ -2318,7 +2318,7 @@ h2 {
   outline: 0;
   color: var(--text);
   background: var(--surface-subtle);
-  font-size: 8px;
+  font-size: 12px;
 }
 .settings-row {
   display: grid;
@@ -2338,7 +2338,7 @@ h2 {
   align-items: center;
   gap: 5px;
   color: #159d86;
-  font-size: 7px;
+  font-size: 11px;
 }
 
 @media (max-width: 1180px) {
@@ -2429,7 +2429,7 @@ h2 {
     padding: 6px;
     flex-direction: column;
     gap: 3px;
-    font-size: 7px;}
+    font-size: 11px;}
   .nav-item.is-active::before {
     top: auto;
     right: 25%;
@@ -2640,18 +2640,37 @@ h2 {
     width: 210px;}
 }
 
+
 /* -----------------------------------------------------------------------------
-   Portfolio: table on wide screens, cards on narrow.
-
-   Not from the Figma source. The design offers these as a view the user picks,
-   so its CSS never switches between them — and the Figma preview is 979px wide,
-   where the table always fits. On a phone the table is 760px in a 366px
-   viewport and the page scrolls sideways.
-
-   Both layouts are the design's own; only this choice between them is ours.
-   Kept at the end of the file, below the generated rules, so re-running the
-   extractor does not discard it.
+   Local corrections. Not from the Figma source.
    ----------------------------------------------------------------------------- */
+
+/* The design's mark is cropped out of a photograph of the logo, so it zooms the
+   image to 185% and offsets it to centre the glyph. Our asset is already the
+   tightly-cropped squircle, so that same rule zooms into an image that has no
+   margin left to crop. Fill the box instead. */
+.brand-mark img {
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* The sidebar is a fixed 100vh column with no scroll. The design's demo has two
+   workspace entries; a real accountant has dozens, and the overflow spilled out
+   of the dark panel as a pale block below the fold. */
+.app-sidebar {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+/* Portfolio: table on wide screens, cards on narrow.
+
+   The design offers these as a view the user picks, so its CSS never switches
+   between them — and its preview is 979px wide, where the table always fits. At
+   380px the table is 760px and the page scrolled sideways. Both layouts are the
+   design's; only this choice between them is ours. */
 @media (max-width: 820px) {
     .company-table-wrap {
         display: none;

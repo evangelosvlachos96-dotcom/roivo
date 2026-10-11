@@ -11,6 +11,7 @@
 
 @using Microsoft.AspNetCore.Components.Routing
 @using Microsoft.EntityFrameworkCore
+@using Roivo.Application.Abstractions
 @using Roivo.Infrastructure.Persistence
 @using Roivo.Resources
 @using Roivo.Web.Components.Shared
@@ -21,6 +22,8 @@
 @inject AuthenticationStateProvider AuthState
 @inject IJSRuntime JS
 @inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject IReconciliationRepository Reconciliation
+@inject ICashflowRepository Cashflow
 
 <MudThemeProvider Theme="@RoivoTheme.Build()" IsDarkMode="@_isDark" />
 <MudPopoverProvider />
@@ -33,7 +36,9 @@
                   SelectedBusinessId="_selectedBusinessId"
                   SelectedBusinessIdChanged="OnBusinessChanged"
                   UserName="@_userName"
-                  UserRole="@_userRole" />
+                  UserRole="@_userRole"
+                  PendingMatches="_pendingMatches"
+                  UpcomingObligations="_upcomingObligations" />
 
     <div class="app-frame">
         <RoivoHeader PageTitle="@CurrentPageTitle"
@@ -66,6 +71,15 @@
     private IJSObjectReference? _themeModule;
     private string _userName = "";
     private string _userRole = "";
+    private int _pendingMatches;
+    private int _upcomingObligations;
+
+    /// <summary>
+    /// How far ahead an obligation counts as "coming up" for the sidebar badge.
+    /// Two weeks is the shortest Greek filing cycle, so anything inside it is
+    /// something the user can still act on.
+    /// </summary>
+    private const int ObligationHorizonDays = 14;
 
     /// <summary>
     /// Breadcrumb tail. Derived from the route rather than passed down, so a
@@ -136,6 +150,8 @@
         }
 
         _userRole = _isAccountant ? Shell.AccountantWorkspace : Dashboard.TenantType_Business;
+
+        await LoadBadgeCountsAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -150,6 +166,31 @@
             _isDark = stored == "dark";
             StateHasChanged();
         }
+    }
+
+    /// <summary>
+    /// The two counts the sidebar badges show, across every business the user
+    /// can see.
+    /// </summary>
+    /// <remarks>
+    /// Both reads are batched — one set of grouped queries for the whole client
+    /// book rather than a pair per business. The sidebar renders on every page,
+    /// so a per-business loop here would be an N+1 on every navigation.
+    /// </remarks>
+    private async Task LoadBadgeCountsAsync()
+    {
+        if (_businesses.Count == 0) return;
+
+        var ids = _businesses.Select(b => b.Id).ToList();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var counts = await Reconciliation.GetCountsForBusinessesAsync(
+            ids, today.AddYears(-1), today);
+        _pendingMatches = counts.Values.Sum(c => c.PendingMatches);
+
+        var obligations = await Cashflow.ListTaxObligationsForBusinessesAsync(
+            ids, today, today.AddDays(ObligationHorizonDays));
+        _upcomingObligations = obligations.Count(o => !o.IsPaid);
     }
 
     private async Task ToggleTheme()

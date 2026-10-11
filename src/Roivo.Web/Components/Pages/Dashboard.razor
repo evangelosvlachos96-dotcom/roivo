@@ -19,6 +19,7 @@
 @inject IBusinessRepository Businesses
 @inject GetAccountantDashboardHandler AccountantHandler
 @inject NavigationManager Nav
+@inject ISnackbar Snackbar
 
 <RoivoPageTitle Title="@(Shell.Nav_Overview)" />
 
@@ -53,6 +54,20 @@ else
             <span class="eyebrow">@_business.Name.ToUpperInvariant() · ΑΦΜ @_business.Afm</span>
             <h1>@string.Format(Shell.Greeting, FirstName)</h1>
             <p>@Shell.GreetingSubtitle</p>
+        </div>
+
+        @* Dashboard customisation is a Pro feature with no implementation
+           behind it yet, so the button says what it is and the toast is
+           honest about that rather than opening an editor that does nothing. *@
+        <div class="owner-actions">
+            <button type="button" class="customize-button" @onclick="ShowPremiumNotice">
+                <RoivoIcon Name="RoivoIconName.Settings" Size="16" />
+                @Shell.Owner_Customize
+                <span>@Shell.Owner_Premium</span>
+            </button>
+            <button type="button" class="period-button">
+                @Shell.Owner_Period90 <b>⌄</b>
+            </button>
         </div>
     </section>
 
@@ -291,6 +306,9 @@ else
             _loading = false;
         }
     }
+
+    private void ShowPremiumNotice() =>
+        Snackbar.Add(Shell.Owner_PremiumToast, Severity.Info);
 
     // ------------------------------------------------------------ formatting
 
