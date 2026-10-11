@@ -44,7 +44,11 @@
         @* Both classes are the design's: `content` carries the scroll and the
            gutters, `module-content` the vertical rhythm every page shares. *@
         <main class="content module-content">
-            @Body
+            @* The layout already resolved who is signed in; cascading it saves
+               every page repeating the query just to greet them. *@
+            <CascadingValue Value="_userName" Name="UserFullName">
+                @Body
+            </CascadingValue>
         </main>
     </div>
 </div>

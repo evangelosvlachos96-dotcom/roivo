@@ -88,6 +88,8 @@ public static class Cashflow
     /// </summary>
     public static string EstimateDisclaimer => Strings.Get("Cashflow.EstimateDisclaimer", "Οι εκτιμήσεις βασίζονται στο ιστορικό τιμολογίων και δεν αποτελούν φορολογική δήλωση.");
 
+    public static string Tax_PropertyTax => Strings.Get("Cashflow.Tax_PropertyTax", "ΕΝΦΙΑ");
+
     /// <summary>English overrides. Keys absent here fall back to Greek.</summary>
     static Cashflow() => Strings.RegisterEnglish(new Dictionary<string, string>(StringComparer.Ordinal)
     {
@@ -151,5 +153,6 @@ public static class Cashflow
         ["Cashflow.Error_AlreadyPaid"] = "This obligation is already marked as paid.",
         ["Cashflow.Error_InvalidAmount"] = "The amount cannot be negative.",
         ["Cashflow.EstimateDisclaimer"] = "Estimates are based on invoice history and do not constitute a tax return.",
+        ["Cashflow.Tax_PropertyTax"] = "Property tax (ENFIA)",
     });
 }

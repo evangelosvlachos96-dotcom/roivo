@@ -47,6 +47,42 @@ public static class Shell
     public static string Placeholder_Settings => Strings.Get("Shell.Placeholder_Settings", "Προφίλ, επιχείρηση, χρήστες και εμφάνιση.");
     public static string Placeholder_Help => Strings.Get("Shell.Placeholder_Help", "Οδηγοί και υποστήριξη.");
 
+    public static string Metric_Available => Strings.Get("Shell.Metric_Available", "Συνολικά διαθέσιμα");
+    public static string Metric_ExpectedInflow => Strings.Get("Shell.Metric_ExpectedInflow", "Αναμενόμενες εισροές");
+    public static string Metric_PlannedOutflow => Strings.Get("Shell.Metric_PlannedOutflow", "Προγραμματισμένες εκροές");
+    public static string Metric_NetPosition90 => Strings.Get("Shell.Metric_NetPosition90", "Καθαρή θέση 90 ημερών");
+    public static string Metric_Next30Days => Strings.Get("Shell.Metric_Next30Days", "Επόμενες 30 ημέρες");
+    public static string Metric_HealthyForecast => Strings.Get("Shell.Metric_HealthyForecast", "Υγιής πρόβλεψη");
+    public static string Metric_TightForecast => Strings.Get("Shell.Metric_TightForecast", "Οριακή πρόβλεψη");
+    public static string Metric_RunwayDays => Strings.Get("Shell.Metric_RunwayDays", "Αυτονομία {0} ημερών");
+    public static string Metric_RunwayUnlimited => Strings.Get("Shell.Metric_RunwayUnlimited", "Χωρίς προβλεπόμενο έλλειμμα");
+    public static string Forecast_Title => Strings.Get("Shell.Forecast_Title", "Πρόβλεψη ταμειακών ροών");
+    public static string Forecast_Subtitle => Strings.Get("Shell.Forecast_Subtitle", "Ιστορικά και προβλεπόμενα στοιχεία 90 ημερών");
+    public static string Forecast_Confidence => Strings.Get("Shell.Forecast_Confidence", "{0}% βεβαιότητα");
+    public static string Forecast_Actual => Strings.Get("Shell.Forecast_Actual", "Πραγματικά");
+    public static string Forecast_Projected => Strings.Get("Shell.Forecast_Projected", "Πρόβλεψη");
+    public static string Forecast_NotEnoughHistory => Strings.Get("Shell.Forecast_NotEnoughHistory", "Δεν υπάρχουν αρκετά δεδομένα ακόμα");
+    public static string Forecast_NotEnoughHistoryBody => Strings.Get("Shell.Forecast_NotEnoughHistoryBody", "Συνδέστε έναν τραπεζικό λογαριασμό και αφήστε να περάσουν μερικές εβδομάδες κινήσεων πριν εμφανιστεί η πρόβλεψη.");
+    public static string Obligations_Title => Strings.Get("Shell.Obligations_Title", "Επόμενες υποχρεώσεις");
+    public static string Obligations_Total => Strings.Get("Shell.Obligations_Total", "Συνολικά {0}");
+    public static string Obligations_All => Strings.Get("Shell.Obligations_All", "Όλες");
+    public static string Obligations_DueInDays => Strings.Get("Shell.Obligations_DueInDays", "Σε {0} ημέρες");
+    public static string Obligations_DueToday => Strings.Get("Shell.Obligations_DueToday", "Σήμερα");
+    public static string Obligations_Overdue => Strings.Get("Shell.Obligations_Overdue", "Εκπρόθεσμη");
+    public static string Obligations_None => Strings.Get("Shell.Obligations_None", "Καμία υποχρέωση στις επόμενες 30 ημέρες");
+    public static string Accounts_Title => Strings.Get("Shell.Accounts_Title", "Τραπεζικοί λογαριασμοί");
+    public static string Accounts_Manage => Strings.Get("Shell.Accounts_Manage", "Διαχείριση");
+    public static string Accounts_Connected => Strings.Get("Shell.Accounts_Connected", "Συνδεδεμένο");
+    public static string Accounts_NeverSynced => Strings.Get("Shell.Accounts_NeverSynced", "Χωρίς συγχρονισμό");
+    public static string Accounts_SyncedAt => Strings.Get("Shell.Accounts_SyncedAt", "Τελευταίος συγχρονισμός {0}");
+    public static string Accounts_None => Strings.Get("Shell.Accounts_None", "Δεν έχετε συνδέσει τραπεζικό λογαριασμό");
+    public static string Insight_Title => Strings.Get("Shell.Insight_Title", "ROIVO INSIGHT");
+    public static string Greeting => Strings.Get("Shell.Greeting", "Καλημέρα, {0}");
+    public static string GreetingSubtitle => Strings.Get("Shell.GreetingSubtitle", "Η οικονομική εικόνα της επιχείρησής σας σήμερα.");
+
+    public static string Insight_Positive => Strings.Get("Shell.Insight_Positive", "Η πρόβλεψη δείχνει {0} επιπλέον ρευστότητα στο τρίμηνο, με αυτονομία {1} ημερών. Καλή στιγμή για προγραμματισμό.");
+    public static string Insight_Negative => Strings.Get("Shell.Insight_Negative", "Η πρόβλεψη δείχνει μείωση {0} στο τρίμηνο. Ελέγξτε τις επερχόμενες υποχρεώσεις και τα ανοιχτά τιμολόγια.");
+
     /// <summary>English overrides. Keys absent here fall back to Greek.</summary>
     static Shell() => Strings.RegisterEnglish(new Dictionary<string, string>(StringComparer.Ordinal)
     {
@@ -80,5 +116,39 @@ public static class Shell
         ["Shell.Placeholder_Connections"] = "Banks and AADE myDATA.",
         ["Shell.Placeholder_Settings"] = "Profile, business, users and appearance.",
         ["Shell.Placeholder_Help"] = "Guides and support.",
+        ["Shell.Metric_Available"] = "Total available",
+        ["Shell.Metric_ExpectedInflow"] = "Expected inflows",
+        ["Shell.Metric_PlannedOutflow"] = "Planned outflows",
+        ["Shell.Metric_NetPosition90"] = "90-day net position",
+        ["Shell.Metric_Next30Days"] = "Next 30 days",
+        ["Shell.Metric_HealthyForecast"] = "Healthy forecast",
+        ["Shell.Metric_TightForecast"] = "Tight forecast",
+        ["Shell.Metric_RunwayDays"] = "{0} days of runway",
+        ["Shell.Metric_RunwayUnlimited"] = "No projected shortfall",
+        ["Shell.Forecast_Title"] = "Cashflow forecast",
+        ["Shell.Forecast_Subtitle"] = "90 days of history and projection",
+        ["Shell.Forecast_Confidence"] = "{0}% confidence",
+        ["Shell.Forecast_Actual"] = "Actual",
+        ["Shell.Forecast_Projected"] = "Forecast",
+        ["Shell.Forecast_NotEnoughHistory"] = "Not enough history yet",
+        ["Shell.Forecast_NotEnoughHistoryBody"] = "Connect a bank account and let a few weeks of transactions build up before the forecast appears.",
+        ["Shell.Obligations_Title"] = "Upcoming obligations",
+        ["Shell.Obligations_Total"] = "{0} in total",
+        ["Shell.Obligations_All"] = "All",
+        ["Shell.Obligations_DueInDays"] = "In {0} days",
+        ["Shell.Obligations_DueToday"] = "Today",
+        ["Shell.Obligations_Overdue"] = "Overdue",
+        ["Shell.Obligations_None"] = "No obligations in the next 30 days",
+        ["Shell.Accounts_Title"] = "Bank accounts",
+        ["Shell.Accounts_Manage"] = "Manage",
+        ["Shell.Accounts_Connected"] = "Connected",
+        ["Shell.Accounts_NeverSynced"] = "Never synced",
+        ["Shell.Accounts_SyncedAt"] = "Last synced {0}",
+        ["Shell.Accounts_None"] = "No bank account connected yet",
+        ["Shell.Insight_Title"] = "ROIVO INSIGHT",
+        ["Shell.Greeting"] = "Good morning, {0}",
+        ["Shell.GreetingSubtitle"] = "Your financial picture today.",
+        ["Shell.Insight_Positive"] = "The forecast adds {0} over the quarter, with {1} days of runway. A good moment to plan ahead.",
+        ["Shell.Insight_Negative"] = "The forecast is down {0} over the quarter. Check the upcoming obligations and your open invoices.",
     });
 }
