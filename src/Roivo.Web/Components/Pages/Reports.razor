@@ -1,10 +1,271 @@
 @page "/reports"
 @layout Roivo.Web.Components.Layout.RoivoAppLayout
 @attribute [Authorize]
+@using System.Globalization
+@using System.Text
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.JSInterop
+@using Roivo.Application.Abstractions
+@using Roivo.Application.Features.Cashflow.Queries.GetCashflowDashboard
+@using CashflowOverview = Roivo.Application.Features.Cashflow.Queries.GetCashflowDashboard.CashflowDashboard
+@using Roivo.Core.Domain.Entities
 @using Roivo.Resources
 @using Roivo.Web.Components.Shared
+@inject GetCashflowDashboardHandler CashflowHandler
+@inject IReconciliationRepository Reconciliation
+@inject IBusinessRepository Businesses
+@inject IBankAccountRepository BankAccounts
+@inject IJSRuntime JS
 
 <RoivoPageTitle Title="@(Shell.Nav_Reports)" />
 
-<ModulePlaceholder Title="@(Shell.Nav_Reports)" Description="@(Shell.Placeholder_Reports)" />
+<ModuleHeader Eyebrow="@Shell.Rep_Eyebrow"
+              Title="@Shell.Rep_Title"
+              Description="@Shell.Rep_Description">
+    <Action>
+        <select class="period-button" @bind="_period" @bind:after="Regenerate">
+            @foreach (var option in Periods)
+            {
+                <option value="@option.Key">@option.Label</option>
+            }
+        </select>
+    </Action>
+</ModuleHeader>
+
+<section class="report-grid">
+    @foreach (var definition in Definitions)
+    {
+        <article class="report-card">
+            <span class="metric-icon metric-icon--blue"><RoivoIcon Name="definition.Icon" /></span>
+            <div>
+                <h2>@definition.Title</h2>
+                <p>@definition.Description</p>
+            </div>
+            <button type="button" @onclick="() => Generate(definition.Key)">
+                @Shell.Rep_Generate <RoivoIcon Name="RoivoIconName.Arrow" Size="14" />
+            </button>
+        </article>
+    }
+</section>
+
+@if (_generating)
+{
+    <section class="module-card recent-reports"><SkeletonTable Rows="4" Columns="2" /></section>
+}
+else if (_result is not null)
+{
+    <section class="module-card recent-reports">
+        <div class="widget-heading">
+            <div>
+                <h2>@_result.Title</h2>
+                <span>@_result.Subtitle</span>
+            </div>
+            <div class="match-actions">
+                <button type="button" class="secondary-button" @onclick="DownloadCsv">
+                    @Shell.Rep_ExportCsv
+                </button>
+                <button type="button" class="secondary-button" @onclick="Print">
+                    @Shell.Rep_Print
+                </button>
+                <button type="button" class="secondary-button" @onclick="() => _result = null">
+                    @Shell.Rep_Close
+                </button>
+            </div>
+        </div>
+
+        <div class="report-row report-row--head">
+            <span>@Shell.Rep_Metric</span>
+            <span>@Shell.Rep_Value</span>
+        </div>
+
+        @foreach (var row in _result.Rows)
+        {
+            <div class="report-row">
+                <span>@row.Label</span>
+                <span>@row.Value</span>
+            </div>
+        }
+    </section>
+}
+
+@code {
+    [CascadingParameter(Name = "SelectedBusinessId")] private Guid? SelectedBusinessId { get; set; }
+
+    private string _period = "month";
+    private bool _generating;
+    private string? _lastKey;
+    private Report? _result;
+
+    private sealed record Definition(string Key, string Title, string Description, RoivoIconName Icon);
+
+    private sealed record PeriodOption(string Key, string Label);
+
+    private sealed record Row(string Label, string Value);
+
+    private sealed record Report(string Title, string Subtitle, IReadOnlyList<Row> Rows);
+
+    private Definition[] Definitions =>
+    [
+        new("cashflow", Shell.Rep_Cashflow, Shell.Rep_CashflowDesc, RoivoIconName.Cashflow),
+        new("reconciliation", Shell.Rep_Reconciliation, Shell.Rep_ReconciliationDesc, RoivoIconName.Reconciliation),
+        new("tax", Shell.Rep_Tax, Shell.Rep_TaxDesc, RoivoIconName.Obligations),
+        new("overview", Shell.Rep_Overview, Shell.Rep_OverviewDesc, RoivoIconName.Reports),
+    ];
+
+    private PeriodOption[] Periods =>
+    [
+        new("month", Shell.Rep_Period_ThisMonth),
+        new("lastMonth", Shell.Rep_Period_LastMonth),
+        new("quarter", Shell.Rep_Period_Quarter),
+        new("year", Shell.Rep_Period_Year),
+    ];
+
+    /// <summary>The window the selected period covers, inclusive.</summary>
+    private (DateOnly From, DateOnly To) Window
+    {
+        get
+        {
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+            return _period switch
+            {
+                "lastMonth" => (new DateOnly(today.Year, today.Month, 1).AddMonths(-1),
+                                new DateOnly(today.Year, today.Month, 1).AddDays(-1)),
+                "quarter" => (today.AddMonths(-3), today),
+                "year" => (new DateOnly(today.Year, 1, 1), today),
+                _ => (new DateOnly(today.Year, today.Month, 1), today),
+            };
+        }
+    }
+
+    private string PeriodLabel => Periods.First(p => p.Key == _period).Label;
+
+    /// <summary>Re-runs whichever report is open when the period changes.</summary>
+    private async Task Regenerate()
+    {
+        if (_lastKey is not null) await Generate(_lastKey);
+    }
+
+    private async Task Generate(string key)
+    {
+        _lastKey = key;
+        _generating = true;
+
+        try
+        {
+            var businesses = await Businesses.ListActiveAsync();
+            var business = SelectedBusinessId is Guid id
+                ? businesses.FirstOrDefault(b => b.Id == id)
+                : businesses.FirstOrDefault();
+
+            if (business is null) return;
+
+            var (from, to) = Window;
+            var title = Definitions.First(d => d.Key == key).Title;
+            var subtitle = $"{business.Name} · {PeriodLabel}";
+
+            _result = new Report(title, subtitle, key switch
+            {
+                "reconciliation" => await ReconciliationRows(business.Id, from, to),
+                "tax" => await TaxRows(business.Id, to),
+                "overview" => await OverviewRows(business.Id, from, to),
+                _ => await CashflowRows(business.Id),
+            });
+        }
+        finally
+        {
+            _generating = false;
+        }
+    }
+
+    private async Task<IReadOnlyList<Row>> CashflowRows(Guid businessId)
+    {
+        var dashboard = await CashflowHandler.Handle(
+            new GetCashflowDashboardQuery(businessId), CancellationToken.None);
+
+        var accounts = await BankAccounts.ListByBusinessAsync(businessId);
+        var s = dashboard.Summary;
+
+        return
+        [
+            new(Shell.Cash_OpeningBalance, Money(accounts.Sum(a => a.CurrentBalance))),
+            new(Shell.Cash_TotalInflow, Money(dashboard.DailyForecasts.Sum(f => f.PredictedInflow))),
+            new(Shell.Cash_TotalOutflow, Money(dashboard.DailyForecasts.Sum(f => f.PredictedOutflow))),
+            new(Shell.Cash_ProjectedBalance, Money(s.Forecast90DayBalance)),
+            new(Shell.Metric_RunwayDays.Replace("{0}", "").Trim(), s.DaysOfRunway.ToString()),
+        ];
+    }
+
+    private async Task<IReadOnlyList<Row>> ReconciliationRows(Guid businessId, DateOnly from, DateOnly to)
+    {
+        var counts = await Reconciliation.GetCountsAsync(businessId, from, to);
+
+        return
+        [
+            new(Shell.Rec_Stat_Invoices, counts.TotalInvoices.ToString()),
+            new(Shell.Rec_Stat_Transactions, counts.TotalTransactions.ToString()),
+            new(Shell.Portfolio_Col_MatchRate, counts.TotalInvoices == 0
+                ? "—"
+                : ((decimal)counts.ConfirmedMatches / counts.TotalInvoices).ToString("P1", Strings.FormatCulture)),
+            new(Shell.Rec_Stat_Pending, counts.PendingMatches.ToString()),
+            new(Shell.Portfolio_Col_Unmatched, counts.UnreconciledInvoices.ToString()),
+            new(Shell.Rep_Total, Money(counts.ReconciledAmount)),
+        ];
+    }
+
+    private async Task<IReadOnlyList<Row>> TaxRows(Guid businessId, DateOnly to)
+    {
+        var dashboard = await CashflowHandler.Handle(
+            new GetCashflowDashboardQuery(businessId), CancellationToken.None);
+
+        // Grouped by tax type, which is how an accountant reads a tax summary.
+        var rows = dashboard.UpcomingTaxObligations
+            .Where(o => o.DueDate <= to.AddMonths(3))
+            .GroupBy(o => o.TaxType)
+            .OrderBy(g => g.Key)
+            .Select(g => new Row(TaxLabels.For(g.Key), Money(g.Sum(o => o.EstimatedAmount))))
+            .ToList();
+
+        rows.Add(new Row(Shell.Rep_Total,
+            Money(dashboard.UpcomingTaxObligations
+                .Where(o => o.DueDate <= to.AddMonths(3))
+                .Sum(o => o.EstimatedAmount))));
+
+        return rows;
+    }
+
+    private async Task<IReadOnlyList<Row>> OverviewRows(Guid businessId, DateOnly from, DateOnly to)
+    {
+        var cashflow = await CashflowRows(businessId);
+        var reconciliation = await ReconciliationRows(businessId, from, to);
+
+        return [.. cashflow, .. reconciliation];
+    }
+
+    // ------------------------------------------------------------- exports
+
+    private async Task DownloadCsv()
+    {
+        if (_result is null) return;
+
+        var csv = new StringBuilder();
+        csv.AppendLine($"{Escape(Shell.Rep_Metric)},{Escape(Shell.Rep_Value)}");
+
+        foreach (var row in _result.Rows)
+            csv.AppendLine($"{Escape(row.Label)},{Escape(row.Value)}");
+
+        var name = $"roivo-{_lastKey}-{DateTime.UtcNow:yyyyMMdd}.csv";
+        await JS.InvokeVoidAsync("roivoDownload", name, "text/csv;charset=utf-8", csv.ToString());
+    }
+
+    /// <summary>
+    /// RFC 4180 quoting. Greek number formatting uses the comma as the decimal
+    /// separator, so every value here contains the field delimiter.
+    /// </summary>
+    private static string Escape(string value) =>
+        '"' + value.Replace("\"", "\"\"") + '"';
+
+    private async Task Print() => await JS.InvokeVoidAsync("window.print");
+
+    private static string Money(decimal value) => value.ToString("C2", Strings.FormatCulture);
+}
