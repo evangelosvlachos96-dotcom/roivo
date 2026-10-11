@@ -1,0 +1,31 @@
+@*
+    The heading every product module opens with: a small eyebrow, the title, a
+    sentence of context, and an optional action on the right.
+*@
+
+<section class="page-intro module-intro">
+    <div>
+        @if (!string.IsNullOrWhiteSpace(Eyebrow))
+        {
+            <span class="eyebrow">@Eyebrow</span>
+        }
+        <h1>@Title</h1>
+        @if (!string.IsNullOrWhiteSpace(Description))
+        {
+            <p>@Description</p>
+        }
+    </div>
+    @Action
+</section>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    /// <summary>Small uppercase label above the title.</summary>
+    [Parameter] public string? Eyebrow { get; set; }
+
+    [Parameter] public string? Description { get; set; }
+
+    /// <summary>Usually a primary button, rendered to the right of the title.</summary>
+    [Parameter] public RenderFragment? Action { get; set; }
+}

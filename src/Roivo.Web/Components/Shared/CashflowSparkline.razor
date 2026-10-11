@@ -40,6 +40,13 @@
 
     [Parameter] public string AriaLabel { get; set; } = "";
 
+    /// <summary>
+    /// Which of the engine's three series to draw. The confidence bounds are
+    /// already computed per day, so the optimistic and conservative views are
+    /// real projections rather than a multiplier applied to the base one.
+    /// </summary>
+    [Parameter] public ForecastSeries Series { get; set; } = ForecastSeries.Expected;
+
     /// <summary>viewBox width. The design's is 720; the height is fixed at 210.</summary>
     private const int Width = 720;
 
@@ -63,7 +70,12 @@
             return;
         }
 
-        var balances = Points.Select(p => (double)p.PredictedBalance).ToArray();
+        var balances = Points.Select(p => (double)(Series switch
+        {
+            ForecastSeries.Optimistic => p.ConfidenceHigh,
+            ForecastSeries.Conservative => p.ConfidenceLow,
+            _ => p.PredictedBalance,
+        })).ToArray();
         var min = balances.Min();
         var max = balances.Max();
 

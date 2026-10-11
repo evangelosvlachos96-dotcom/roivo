@@ -24,6 +24,12 @@ public enum RoivoIconName
     More,
     Arrow,
 
+    // Reconciliation
+    Bank,
+    Link,
+    Check,
+    Filter,
+
     // Chrome
     Business,
     Search,
