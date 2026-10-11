@@ -106,6 +106,31 @@ LOCAL_OVERRIDES = """
     overscroll-behavior: contain;
 }
 
+/* `.widget-heading > div` is display:grid and, at one class plus one element,
+   out-specifies `.match-actions`. Inside a widget heading that stacked the
+   report export buttons into a column instead of a row. */
+.widget-heading > .match-actions {
+    display: flex;
+    margin-top: 0;
+    align-items: center;
+    gap: 7px;
+}
+
+/* Knock-on from the type scale above. In the mobile tab bar the design pins the
+   count badge to the nav item's top-right corner, sized for its own 7px type.
+   Scaled to 11px the badge grew enough to sit on the icon rather than beside
+   it, so it is pulled out and trimmed back here. */
+@media (max-width: 820px) {
+    .nav-item b {
+        top: -3px;
+        right: 12%;
+        min-width: 17px;
+        height: 16px;
+        padding: 0 4px;
+        font-size: 10px;
+    }
+}
+
 /* Portfolio: table on wide screens, cards on narrow.
 
    The design offers these as a view the user picks, so its CSS never switches

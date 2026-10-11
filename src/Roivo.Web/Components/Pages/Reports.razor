@@ -8,6 +8,7 @@
 @using Roivo.Application.Abstractions
 @using Roivo.Application.Features.Cashflow.Queries.GetCashflowDashboard
 @using CashflowOverview = Roivo.Application.Features.Cashflow.Queries.GetCashflowDashboard.CashflowDashboard
+@using Roivo.Application.Features.Cashflow.Services
 @using Roivo.Core.Domain.Entities
 @using Roivo.Resources
 @using Roivo.Web.Components.Shared
@@ -192,7 +193,7 @@ else if (_result is not null)
             new(Shell.Cash_TotalInflow, Money(dashboard.DailyForecasts.Sum(f => f.PredictedInflow))),
             new(Shell.Cash_TotalOutflow, Money(dashboard.DailyForecasts.Sum(f => f.PredictedOutflow))),
             new(Shell.Cash_ProjectedBalance, Money(s.Forecast90DayBalance)),
-            new(Shell.Metric_RunwayDays.Replace("{0}", "").Trim(), s.DaysOfRunway.ToString()),
+            new(Shell.Rep_Runway, RunwayValue(s.DaysOfRunway)),
         ];
     }
 
@@ -266,6 +267,15 @@ else if (_result is not null)
         '"' + value.Replace("\"", "\"\"") + '"';
 
     private async Task Print() => await JS.InvokeVoidAsync("window.print");
+
+    /// <summary>
+    /// Runway, or the words for "never runs out". The engine signals an
+    /// indefinite runway with int.MaxValue, which printed raw as 2147483647.
+    /// </summary>
+    private static string RunwayValue(int days) =>
+        days >= CashflowSummary.UnlimitedRunway
+            ? Shell.Metric_RunwayUnlimited
+            : string.Format(Shell.Rep_RunwayDays, days);
 
     private static string Money(decimal value) => value.ToString("C2", Strings.FormatCulture);
 }

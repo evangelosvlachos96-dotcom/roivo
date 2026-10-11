@@ -266,6 +266,14 @@ public static class Shell
     public static string Con_HoursAgo => Strings.Get("Shell.Con_HoursAgo", "πριν {0} ώρες");
     public static string Con_DaysAgo => Strings.Get("Shell.Con_DaysAgo", "πριν {0} ημέρες");
 
+    public static string Con_Balance => Strings.Get("Shell.Con_Balance", "Υπόλοιπο");
+    public static string Con_LastSyncLabel => Strings.Get("Shell.Con_LastSyncLabel", "Τελευταίος συγχρονισμός");
+    public static string Con_AccountsAndSync => Strings.Get("Shell.Con_AccountsAndSync", "{0} · {1}");
+    public static string Con_MyDataSubtitle => Strings.Get("Shell.Con_MyDataSubtitle", "Παραστατικά εσόδων και εξόδων");
+
+    public static string Rep_Runway => Strings.Get("Shell.Rep_Runway", "Αυτονομία");
+    public static string Rep_RunwayDays => Strings.Get("Shell.Rep_RunwayDays", "{0} ημέρες");
+
     /// <summary>English overrides. Keys absent here fall back to Greek.</summary>
     static Shell() => Strings.RegisterEnglish(new Dictionary<string, string>(StringComparer.Ordinal)
     {
@@ -511,5 +519,11 @@ public static class Shell
         ["Shell.Con_Ago"] = "{0} minutes ago",
         ["Shell.Con_HoursAgo"] = "{0} hours ago",
         ["Shell.Con_DaysAgo"] = "{0} days ago",
+        ["Shell.Con_Balance"] = "Balance",
+        ["Shell.Con_LastSyncLabel"] = "Last sync",
+        ["Shell.Con_AccountsAndSync"] = "{0} · {1}",
+        ["Shell.Con_MyDataSubtitle"] = "Income and expense invoices",
+        ["Shell.Rep_Runway"] = "Runway",
+        ["Shell.Rep_RunwayDays"] = "{0} days",
     });
 }

@@ -63,7 +63,10 @@ else
                         <span class="bank-logo">@BankInitials(bank.Key)</span>
                         <span>
                             <strong>@bank.Key</strong>
-                            <small>@AccountsLabel(bank.Count())</small>
+                            <small>
+                                @string.Format(Shell.Con_AccountsAndSync,
+                                    AccountsLabel(bank.Count()), Ago(bank.Max(a => a.LastSyncedAt)))
+                            </small>
                         </span>
                         <StatusPill Status="BankStatus" />
                     </div>
@@ -73,12 +76,8 @@ else
                             <dd>@BankStatusLabel</dd>
                         </div>
                         <div>
-                            <dt>@Shell.Accounts_Title</dt>
+                            <dt>@Shell.Con_Balance</dt>
                             <dd>@Money(bank.Sum(a => a.CurrentBalance))</dd>
-                        </div>
-                        <div>
-                            <dt>@Shell.Rec_Field_Date</dt>
-                            <dd>@Ago(bank.Max(a => a.LastSyncedAt))</dd>
                         </div>
                     </dl>
                     <button type="button" @onclick="GoToBanking">
@@ -98,7 +97,7 @@ else
                 <span class="service-logo">my</span>
                 <span>
                     <strong>myDATA</strong>
-                    <small>@Shell.Placeholder_Connections</small>
+                    <small>@Shell.Con_MyDataSubtitle</small>
                 </span>
                 <StatusPill Status="AadeStatus" />
             </div>
@@ -108,7 +107,7 @@ else
                     <dd>@AadeStatusLabel</dd>
                 </div>
                 <div>
-                    <dt>@Shell.Rec_Field_Date</dt>
+                    <dt>@Shell.Con_LastSyncLabel</dt>
                     <dd>@Ago(_business.LastAadeSyncAt)</dd>
                 </div>
             </dl>
