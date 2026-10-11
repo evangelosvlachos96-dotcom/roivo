@@ -47,7 +47,12 @@
             @* The layout already resolved who is signed in; cascading it saves
                every page repeating the query just to greet them. *@
             <CascadingValue Value="_userName" Name="UserFullName">
-                @Body
+                @* Null means the consolidated accountant workspace rather than
+                   one client. Pages branch on it; without this the sidebar's
+                   switcher moved the breadcrumb and nothing else. *@
+                <CascadingValue Value="_selectedBusinessId" Name="SelectedBusinessId">
+                    @Body
+                </CascadingValue>
             </CascadingValue>
         </main>
     </div>

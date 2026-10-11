@@ -18,6 +18,12 @@ public enum RoivoIconName
     Help,
     Settings,
 
+    // Portfolio
+    Sparkle,
+    Plus,
+    More,
+    Arrow,
+
     // Chrome
     Business,
     Search,

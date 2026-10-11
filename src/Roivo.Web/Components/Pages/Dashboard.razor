@@ -3,6 +3,9 @@
 @attribute [Authorize]
 @using Microsoft.AspNetCore.Authorization
 @using Roivo.Application.Abstractions
+@using Roivo.Application.Features.Accountant.Queries.GetAccountantDashboard
+@* AccountantDashboard is also an existing page component, which wins here. *@
+@using ClientPortfolio = Roivo.Application.Features.Accountant.Queries.GetAccountantDashboard.AccountantDashboard
 @using Roivo.Application.Features.Cashflow.Queries.GetCashflowDashboard
 @* CashflowDashboard is also the name of an existing page component, which
    wins in this scope. The alias keeps the handler result reachable. *@
@@ -14,6 +17,7 @@
 @inject GetCashflowDashboardHandler CashflowHandler
 @inject IBankAccountRepository BankAccounts
 @inject IBusinessRepository Businesses
+@inject GetAccountantDashboardHandler AccountantHandler
 @inject NavigationManager Nav
 
 <RoivoPageTitle Title="@(Shell.Nav_Overview)" />
@@ -33,11 +37,13 @@
         <div class="widget-shell"><SkeletonCard /></div>
     </div>
 }
+else if (_portfolio is not null)
+{
+    @* No client selected: the accountant's own landing view. *@
+    <AccountantPortfolio Dashboard="_portfolio" UserFullName="@UserFullName" />
+}
 else if (_business is null)
 {
-    @* An accountant who has not picked a client yet. The consolidated
-       portfolio is its own design and its own phase; saying so beats
-       rendering an owner dashboard with nothing behind it. *@
     <ModulePlaceholder Title="@Shell.Nav_Overview" Description="@Shell.Placeholder_Body" />
 }
 else
@@ -207,11 +213,19 @@ else
     /// <summary>Supplied by RoivoAppLayout, which already looked the user up.</summary>
     [CascadingParameter(Name = "UserFullName")] private string? UserFullName { get; set; }
 
+    /// <summary>
+    /// Which client the sidebar has selected. Null is the accountant's
+    /// consolidated workspace, which is a different view entirely.
+    /// </summary>
+    [CascadingParameter(Name = "SelectedBusinessId")] private Guid? SelectedBusinessId { get; set; }
+
     private bool _loading = true;
     private Business? _business;
     private CashflowOverview? _dashboard;
     private IReadOnlyList<BankAccount> _accounts = [];
     private IReadOnlyList<TaxObligation> _obligations = [];
+    private ClientPortfolio? _portfolio;
+    private Guid? _loadedFor;
 
     private CashflowSummary Summary =>
         _dashboard?.Summary ?? new CashflowSummary(0m, 0m, 0m, 0m, 0m, 0m, 0m, 0);
@@ -219,14 +233,42 @@ else
     private bool HasForecast =>
         _dashboard?.HasSufficientHistory == true && _dashboard.DailyForecasts.Count > 0;
 
-    protected override async Task OnInitializedAsync()
+    /// <summary>
+    /// Reloads whenever the sidebar's selection changes, not just on first
+    /// render: switching client has to re-fetch, and OnInitialized runs once.
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
     {
+        if (_loadedFor == SelectedBusinessId && !_loading) return;
+
+        _loadedFor = SelectedBusinessId;
+        _loading = true;
+        _portfolio = null;
+        _business = null;
+        _dashboard = null;
+        _accounts = [];
+        _obligations = [];
+
         try
         {
-            // The sidebar owns the selection; until it pushes one down, the
-            // first active business is the only sensible subject.
+            if (SelectedBusinessId is null)
+            {
+                // The consolidated workspace. Forbidden for a business owner,
+                // whose own single business is loaded instead.
+                var result = await AccountantHandler.Handle(
+                    new GetAccountantDashboardQuery(), CancellationToken.None);
+
+                if (result is GetAccountantDashboardResult.Success success)
+                {
+                    _portfolio = success.Dashboard;
+                    return;
+                }
+            }
+
             var businesses = await Businesses.ListActiveAsync();
-            _business = businesses.FirstOrDefault();
+            _business = SelectedBusinessId is Guid id
+                ? businesses.FirstOrDefault(b => b.Id == id)
+                : businesses.FirstOrDefault();
 
             if (_business is null) return;
 

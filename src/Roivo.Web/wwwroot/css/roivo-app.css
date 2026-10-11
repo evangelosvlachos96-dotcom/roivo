@@ -2639,3 +2639,27 @@ h2 {
     right: 0;
     width: 210px;}
 }
+
+/* -----------------------------------------------------------------------------
+   Portfolio: table on wide screens, cards on narrow.
+
+   Not from the Figma source. The design offers these as a view the user picks,
+   so its CSS never switches between them — and the Figma preview is 979px wide,
+   where the table always fits. On a phone the table is 760px in a 366px
+   viewport and the page scrolls sideways.
+
+   Both layouts are the design's own; only this choice between them is ours.
+   Kept at the end of the file, below the generated rules, so re-running the
+   extractor does not discard it.
+   ----------------------------------------------------------------------------- */
+@media (max-width: 820px) {
+    .company-table-wrap {
+        display: none;
+    }
+}
+
+@media (min-width: 821px) {
+    .company-cards {
+        display: none;
+    }
+}
