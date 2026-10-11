@@ -85,7 +85,7 @@ else
                             </span>
                             <div>
                                 <strong>@TaxLabels.For(obligation.TaxType)</strong>
-                                <small>@obligation.Period</small>
+                                <small>@PeriodLabels.For(obligation.Period)</small>
                             </div>
                             <span class="due-label due-label--@tone">@DueLabel(obligation)</span>
                             <b>@Money(obligation.EstimatedAmount)</b>

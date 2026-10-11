@@ -90,6 +90,10 @@ public static class Cashflow
 
     public static string Tax_PropertyTax => Strings.Get("Cashflow.Tax_PropertyTax", "ΕΝΦΙΑ");
 
+    public static string Period_Quarter => Strings.Get("Cashflow.Period_Quarter", "{0}ο τρίμηνο {1}");
+    public static string Period_Instalment => Strings.Get("Cashflow.Period_Instalment", "Δόση {0} · {1}");
+    public static string Period_Prepayment => Strings.Get("Cashflow.Period_Prepayment", "Προκαταβολή {0} · {1}");
+
     /// <summary>English overrides. Keys absent here fall back to Greek.</summary>
     static Cashflow() => Strings.RegisterEnglish(new Dictionary<string, string>(StringComparer.Ordinal)
     {
@@ -154,5 +158,8 @@ public static class Cashflow
         ["Cashflow.Error_InvalidAmount"] = "The amount cannot be negative.",
         ["Cashflow.EstimateDisclaimer"] = "Estimates are based on invoice history and do not constitute a tax return.",
         ["Cashflow.Tax_PropertyTax"] = "Property tax (ENFIA)",
+        ["Cashflow.Period_Quarter"] = "Q{0} {1}",
+        ["Cashflow.Period_Instalment"] = "Instalment {0} · {1}",
+        ["Cashflow.Period_Prepayment"] = "Prepayment {0} · {1}",
     });
 }
