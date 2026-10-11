@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Polly;
 using Polly.Extensions.Http;
 using Roivo.Application.Abstractions;
+using Roivo.Infrastructure.Security;
+using Roivo.Application.Abstractions.Security;
 using Roivo.Infrastructure.Auditing;
 using Roivo.Application.Features.Notifications;
 using Roivo.Infrastructure.Email;
@@ -78,6 +80,7 @@ public static class PersistenceExtensions
         services.AddScoped<INotificationDispatchLog, NotificationDispatchLog>();
         services.AddScoped<NotificationEmailRenderer>();
         services.AddScoped<IAuditWriter, AuditWriter>();
+        services.AddScoped<IDeviceTrackingService, DeviceTrackingService>();
 
         return services;
     }

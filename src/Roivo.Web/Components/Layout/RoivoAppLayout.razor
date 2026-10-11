@@ -10,6 +10,7 @@
 *@
 
 @using Microsoft.AspNetCore.Components.Routing
+@using Roivo.Application.Abstractions.Security
 @using Microsoft.EntityFrameworkCore
 @using Roivo.Application.Abstractions
 @using Roivo.Infrastructure.Persistence
@@ -24,6 +25,7 @@
 @inject IDbContextFactory<ApplicationDbContext> DbFactory
 @inject IReconciliationRepository Reconciliation
 @inject ICashflowRepository Cashflow
+@inject IDeviceTrackingService Devices
 
 <MudThemeProvider Theme="@RoivoTheme.Build()" IsDarkMode="@_isDark" />
 <MudPopoverProvider />
@@ -56,7 +58,16 @@
                    one client. Pages branch on it; without this the sidebar's
                    switcher moved the breadcrumb and nothing else. *@
                 <CascadingValue Value="_selectedBusinessId" Name="SelectedBusinessId">
-                    @Body
+                    @* The theme lives here, because the attribute it sets is on
+                       the shell element. Settings has to read it and change it,
+                       so the layout itself is cascaded rather than a copy of
+                       the flag, which would go stale the moment either side
+                       toggled it. *@
+                    <CascadingValue Value="this" IsFixed="true">
+                        @* Above the page content, where a security notice belongs. *@
+                        <NewDeviceAlert Device="_newDevice" OnAcknowledge="AcknowledgeDevice" />
+                        @Body
+                    </CascadingValue>
                 </CascadingValue>
             </CascadingValue>
         </main>
@@ -73,6 +84,15 @@
     private string _userRole = "";
     private int _pendingMatches;
     private int _upcomingObligations;
+    private UserDeviceView? _newDevice;
+    private Guid _userId;
+
+    /// <summary>
+    /// How long after a sign-in the new-device notice stays worth showing. Long
+    /// enough to survive a slow first page, short enough that it is clearly
+    /// about the session the user just started.
+    /// </summary>
+    private static readonly TimeSpan NewDeviceWindow = TimeSpan.FromMinutes(10);
 
     /// <summary>
     /// How far ahead an obligation counts as "coming up" for the sidebar badge.
@@ -117,6 +137,7 @@
     {
         Nav.LocationChanged += OnLocationChanged;
 
+
         var state = await AuthState.GetAuthenticationStateAsync();
         if (state.User.Identity?.IsAuthenticated != true) return;
 
@@ -141,6 +162,9 @@
         var userIdValue = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         if (Guid.TryParse(userIdValue, out var userId))
         {
+            _userId = userId;
+            _newDevice = await Devices.GetUnacknowledgedDeviceAsync(userId, NewDeviceWindow);
+
             var user = await db.Users
                 .Where(u => u.Id == userId)
                 .Select(u => new { u.FullName, u.Email })
@@ -193,12 +217,37 @@
         _upcomingObligations = obligations.Count(o => !o.IsPaid);
     }
 
+    /// <summary>Retires the notice so it does not reappear on the next page.</summary>
+    private async Task AcknowledgeDevice()
+    {
+        if (_newDevice is null) return;
+
+        await Devices.AcknowledgeDeviceAsync(_userId, _newDevice.Id);
+        _newDevice = null;
+    }
+
     private async Task ToggleTheme()
     {
         _isDark = !_isDark;
 
         if (_themeModule is not null)
             await _themeModule.InvokeVoidAsync("set", _isDark ? "dark" : "light");
+    }
+
+    /// <summary>Which palette the shell is currently drawing.</summary>
+    /// <remarks>
+    /// Public because Settings offers the same choice the header's toggle does,
+    /// and the two must agree.
+    /// </remarks>
+    public bool IsDarkTheme => _isDark;
+
+    /// <summary>Sets the palette outright, rather than flipping it.</summary>
+    public async Task SetThemeAsync(bool dark)
+    {
+        if (dark == _isDark) return;
+
+        await ToggleTheme();
+        StateHasChanged();
     }
 
     private void OnBusinessChanged(Guid? id)

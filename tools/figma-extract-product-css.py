@@ -104,6 +104,12 @@ LOCAL_OVERRIDES = """
 .app-sidebar {
     overflow-y: auto;
     overscroll-behavior: contain;
+
+    /* A scrollable box computes overflow-x: auto too, and a long client name
+       is enough to earn a horizontal scrollbar across the bottom of the
+       sidebar. There is nothing to reach sideways, so there is nothing to
+       scroll to. */
+    overflow-x: hidden;
 }
 
 /* `.widget-heading > div` is display:grid and, at one class plus one element,
@@ -131,6 +137,89 @@ LOCAL_OVERRIDES = """
     }
 }
 
+/* New-device banner. The design has no equivalent, so it is built from the
+   design's own vocabulary: the amber of the PREMIUM pill for the warning tone,
+   the connection-health banner's shape, and the standard card radius. */
+.device-alert {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 22px;
+    padding: 14px 16px;
+    border: 1px solid rgba(217, 119, 6, .28);
+    border-radius: 12px;
+    background: #fff8e8;
+    animation: device-alert-in .22s ease-out;
+}
+
+.app[data-theme="dark"] .device-alert {
+    border-color: rgba(225, 183, 72, .24);
+    background: rgba(225, 183, 72, .09);
+}
+
+.device-alert.is-leaving {
+    animation: device-alert-out .18s ease-in forwards;
+}
+
+.device-alert-icon {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    border-radius: 9px;
+    color: #a86a08;
+    background: rgba(217, 119, 6, .14);
+}
+
+.app[data-theme="dark"] .device-alert-icon {
+    color: #e5c36e;
+}
+
+.device-alert > div:nth-child(2) {
+    display: grid;
+    gap: 3px;
+}
+
+.device-alert strong {
+    color: #7c4a02;
+    font-size: 13px;
+}
+
+.device-alert span {
+    color: #9a6c22;
+    font-size: 11px;
+}
+
+.app[data-theme="dark"] .device-alert strong {
+    color: #f0d9a0;
+}
+
+.app[data-theme="dark"] .device-alert span {
+    color: #c9a85f;
+}
+
+.device-alert-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+@keyframes device-alert-in {
+    from { opacity: 0; transform: translateY(-8px); }
+}
+
+@keyframes device-alert-out {
+    to { opacity: 0; transform: translateY(-8px); }
+}
+
+/* Someone who turns animation down should not be made to watch it. */
+@media (prefers-reduced-motion: reduce) {
+    .device-alert, .device-alert.is-leaving {
+        animation: none;
+    }
+}
+
 /* Portfolio: table on wide screens, cards on narrow.
 
    The design offers these as a view the user picks, so its CSS never switches
@@ -146,6 +235,92 @@ LOCAL_OVERRIDES = """
 @media (min-width: 821px) {
     .company-cards {
         display: none;
+    }
+}
+
+/* Settings. The design hangs its width cap on `settings-content`, a class on
+   the page's own <main>; ours is the shared shell's, so the cap is hung on the
+   content column when a settings layout is what it is holding. */
+.content:has(> .settings-layout) {
+    max-width: 1200px;
+}
+
+/* The design's panel holds one heading, so it styles the sub-line as
+   `> div:first-child p`. Ours holds a few sections — profile, password,
+   devices — so the same declarations are generalised to every heading block. */
+.settings-panel > .settings-section {
+    margin-top: 26px;
+}
+
+.settings-panel > .settings-section:first-child {
+    margin-top: 0;
+}
+
+.settings-panel > .settings-section > p {
+    margin-top: 6px;
+    color: var(--text-faint);
+    font-size: 11px;
+}
+
+/* A read-only value where the design has an input: same box, same rhythm, but
+   visibly not something you can type into. */
+.settings-static {
+    display: flex;
+    /* Height rather than a fixed one: the email and its pill sit side by side
+       on a desktop and wrap onto two lines on a phone. */
+    min-height: 37px;
+    padding: 6px 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--line-soft);
+    border-radius: 8px;
+    color: var(--text-soft);
+    background: var(--surface-subtle);
+    font-size: 12px;
+}
+
+/* The design's save bar shows only the green confirmation. A failure has to
+   say something too, and in the tone of the figures it sits beside. */
+.settings-save > span.is-error {
+    color: #cf6d5f;
+}
+
+/* Device and member rows reuse `.cash-event`, which is built for four columns.
+   With two text columns and no figure the spare track has to come out. */
+.settings-panel .cash-event {
+    grid-template-columns: auto 1fr auto;
+}
+
+.settings-panel .cash-event:last-child {
+    border-bottom: 0;
+}
+
+/* `.cash-event > span` wins on specificity, so the avatar's own size is lost
+   here; its gradient and weight carry through, which is the part that reads. */
+.settings-panel .cash-event > span.avatar {
+    color: #06223b;
+}
+
+/* Stacked, the design writes `grid-template-columns: 1fr`, which is really
+   `minmax(auto, 1fr)`. The section list beside it turns into a scrolling flex
+   row there, and its min-content width — four buttons side by side — then sets
+   the track, dragging the panel off the right of a phone screen. Naming the
+   zero minimum lets the list scroll inside its track instead. */
+@media (max-width: 1180px) {
+    .settings-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 560px) {
+    .settings-panel .cash-event {
+        grid-template-columns: auto 1fr;
+    }
+
+    .settings-panel .cash-event > button {
+        grid-column: 2;
+        justify-self: start;
     }
 }
 """

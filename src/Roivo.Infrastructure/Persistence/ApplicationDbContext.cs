@@ -28,6 +28,7 @@ public class ApplicationDbContext(
     public DbSet<TaxObligation> TaxObligations => Set<TaxObligation>();
     public DbSet<NotificationSettings> NotificationSettings => Set<NotificationSettings>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<UserDevice> UserDevices => Set<UserDevice>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder builder)

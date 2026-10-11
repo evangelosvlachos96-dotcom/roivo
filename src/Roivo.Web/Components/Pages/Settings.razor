@@ -1,10 +1,603 @@
+@*
+    Account and workspace settings.
+
+    The design's settings screen is a section list beside one panel, not a top
+    tab bar; that layout is kept, and the sections are the ones this product
+    actually has something to change — profile, business, team, appearance.
+*@
+
 @page "/settings"
 @layout Roivo.Web.Components.Layout.RoivoAppLayout
 @attribute [Authorize]
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using Roivo.Application.Abstractions
+@using Roivo.Application.Abstractions.Security
+@using Roivo.Application.Features.Businesses.Commands.UpdateBusiness
+@using Roivo.Core.Domain.Entities
+@using Roivo.Infrastructure.Persistence
 @using Roivo.Resources
 @using Roivo.Web.Components.Shared
+@inject AuthenticationStateProvider AuthState
+@inject UserManager<ApplicationUser> UserManager
+@inject IDeviceTrackingService Devices
+@inject IBusinessRepository BusinessRepository
+@inject UpdateBusinessHandler UpdateBusiness
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject NavigationManager Nav
 
 <RoivoPageTitle Title="@(Shell.Nav_Settings)" />
 
-<ModulePlaceholder Title="@(Shell.Nav_Settings)" Description="@(Shell.Placeholder_Settings)" />
+<ModuleHeader Eyebrow="@Shell.Set_Eyebrow"
+              Title="@Shell.Set_Title"
+              Description="@Shell.Set_Description" />
+
+<section class="settings-layout">
+    <aside>
+        @foreach (var option in Sections)
+        {
+            <button type="button"
+                    class="@(_section == option.Key ? "is-active" : "")"
+                    @onclick="() => Show(option.Key)">
+                @option.Label
+            </button>
+        }
+    </aside>
+
+    <article class="module-card settings-panel">
+        @if (_section == Section.Profile)
+        {
+            <div class="settings-section">
+                <h2>@Shell.Set_Profile_Title</h2>
+                <p>@Shell.Set_Profile_Sub</p>
+            </div>
+
+            <label>
+                <span>@Shell.Set_FullName</span>
+                <input @bind="_fullName" autocomplete="name" />
+            </label>
+
+            <label>
+                <span>@Shell.Set_Email</span>
+                <div class="settings-static">
+                    @_email
+                    @* The design's pill, but not StatusPill — its labels read
+                       "healthy" and "needs attention", which is the vocabulary
+                       of a client's cashflow, not of a confirmed address. *@
+                    <span class="status status--@(_emailConfirmed ? "healthy" : "attention")">
+                        <i></i>@(_emailConfirmed ? Shell.Set_Verified : Shell.Set_Unverified)
+                    </span>
+                </div>
+            </label>
+
+            <div class="settings-save">
+                @SaveMessage
+                <button type="button" class="primary-button" @onclick="SaveProfile">@Shell.Set_Save</button>
+            </div>
+
+            <div class="settings-section">
+                <h2>@Shell.Set_Password_Title</h2>
+            </div>
+
+            <label>
+                <span>@Shell.Set_Password_Current</span>
+                <input type="password" @bind="_currentPassword" autocomplete="current-password" />
+            </label>
+
+            <div class="settings-row">
+                <label>
+                    <span>@Shell.Set_Password_New</span>
+                    <input type="password" @bind="_newPassword" autocomplete="new-password" />
+                </label>
+                <label>
+                    <span>@Shell.Set_Password_Confirm</span>
+                    <input type="password" @bind="_confirmPassword" autocomplete="new-password" />
+                </label>
+            </div>
+
+            <div class="settings-save">
+                <span></span>
+                <button type="button" class="secondary-button" @onclick="ChangePassword">
+                    @Shell.Set_Password_Title
+                </button>
+            </div>
+
+            <div class="settings-section">
+                <h2>@Shell.Device_SectionTitle</h2>
+                <p>@Shell.Device_SectionBody</p>
+            </div>
+
+            <div class="event-list">
+                @if (_devices.Count == 0)
+                {
+                    <div class="cash-event">
+                        <span class="event-in"><RoivoIcon Name="RoivoIconName.Check" Size="14" /></span>
+                        <div><strong>@Shell.Device_None</strong></div>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var device in _devices)
+                    {
+                        <div class="cash-event">
+                            <span class="event-in"><RoivoIcon Name="RoivoIconName.Check" Size="14" /></span>
+                            <div>
+                                <strong>@device.DeviceName</strong>
+                                <small>@DeviceDetail(device)</small>
+                            </div>
+                            <button type="button" @onclick="() => RemoveDevice(device.Id)">
+                                @Shell.Device_Remove
+                            </button>
+                        </div>
+                    }
+                }
+            </div>
+        }
+        else if (_section == Section.Business)
+        {
+            <div class="settings-section">
+                <h2>@Shell.Set_Business_Title</h2>
+                <p>@Shell.Set_Business_Sub</p>
+            </div>
+
+            @if (_businessId is null)
+            {
+                <section class="empty-state">
+                    <span>@Shell.Set_Business_PickClient</span>
+                </section>
+            }
+            else
+            {
+                <label>
+                    <span>@Shell.Set_Business_Name</span>
+                    <input @bind="_businessName" autocomplete="organization" />
+                </label>
+
+                <div class="settings-row">
+                    <label>
+                        <span>@Shell.Set_Business_Afm</span>
+                        @if (_aadeConnected)
+                        {
+                            <div class="settings-static">@_businessAfm</div>
+                        }
+                        else
+                        {
+                            <input @bind="_businessAfm" inputmode="numeric" />
+                        }
+                    </label>
+                    <label>
+                        <span>@Shell.Set_Business_Kad</span>
+                        <input @bind="_businessKad" inputmode="numeric" />
+                    </label>
+                </div>
+
+                @if (_aadeConnected)
+                {
+                    <div class="settings-section">
+                        <p>@Shell.Set_Business_AfmLocked</p>
+                    </div>
+                }
+
+                <label>
+                    <span>@Shell.Set_Business_Address</span>
+                    <input @bind="_businessAddress" autocomplete="street-address" />
+                </label>
+
+                <div class="settings-save">
+                    @SaveMessage
+                    <button type="button" class="primary-button" @onclick="SaveBusiness">@Shell.Set_Save</button>
+                </div>
+            }
+        }
+        else if (_section == Section.Team)
+        {
+            <div class="settings-section">
+                <h2>@Shell.Set_Team_Title</h2>
+                <p>@Shell.Set_Team_Sub</p>
+            </div>
+
+            <div class="event-list">
+                @foreach (var member in _team)
+                {
+                    <div class="cash-event">
+                        <span class="avatar">@Initials(member.Name)</span>
+                        <div>
+                            <strong>@MemberName(member)</strong>
+                            <small>@member.Email · @LastActive(member)</small>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @* No invite or remove command exists yet, so the panel says so
+               rather than offering a button that could not do anything. *@
+            <div class="settings-section">
+                <p>@Shell.Set_Team_InviteNote</p>
+            </div>
+        }
+        else
+        {
+            <div class="settings-section">
+                <h2>@Shell.Set_Appearance_Title</h2>
+                <p>@Shell.Set_Appearance_Sub</p>
+            </div>
+
+            <label>
+                <span>@Shell.Set_Theme</span>
+                <select @bind="_themeChoice" @bind:after="ApplyTheme">
+                    <option value="light">@Shell.Set_Theme_Light</option>
+                    <option value="dark">@Shell.Set_Theme_Dark</option>
+                </select>
+            </label>
+
+            <div class="settings-section">
+                <p>@Shell.Set_Theme_Sub</p>
+            </div>
+
+            <label>
+                <span>@Shell.Set_Language</span>
+                <select @bind="_languageChoice" @bind:after="ApplyLanguage">
+                    <option value="@Strings.Greek">@Common.LanguageName_El</option>
+                    <option value="@Strings.English">@Common.LanguageName_En</option>
+                </select>
+            </label>
+
+            <div class="settings-section">
+                <p>@Shell.Set_Language_Sub</p>
+            </div>
+        }
+    </article>
+</section>
+
+@code {
+    /// <summary>
+    /// The shell owns the theme, because the attribute it sets lives on the
+    /// shell element. Appearance reads and writes it through here, so the
+    /// header's toggle and this page can never disagree.
+    /// </summary>
+    [CascadingParameter] private Roivo.Web.Components.Layout.RoivoAppLayout? AppShell { get; set; }
+
+    /// <summary>
+    /// For an accountant this is the client the sidebar switcher has selected;
+    /// null is the consolidated workspace, where "the business" means nothing.
+    /// </summary>
+    [CascadingParameter(Name = "SelectedBusinessId")] private Guid? SelectedBusinessId { get; set; }
+
+    /// <summary>Set by the round trip a password change takes through Identity.</summary>
+    [SupplyParameterFromQuery(Name = "passwordchanged")] private bool PasswordChanged { get; set; }
+
+    private enum Section { Profile, Business, Team, Appearance }
+
+    private Section _section = Section.Profile;
+
+    private Guid _userId;
+    private string _fullName = "";
+    private string _email = "";
+    private bool _emailConfirmed;
+
+    private string _currentPassword = "";
+    private string _newPassword = "";
+    private string _confirmPassword = "";
+
+    private Guid? _businessId;
+    private string _businessName = "";
+    private string _businessAfm = "";
+    private string _businessKad = "";
+    private string _businessAddress = "";
+    private bool _aadeConnected;
+
+    /// <summary>Which client the business panel is currently showing, and whether it has loaded at all.</summary>
+    private Guid? _loadedBusinessId;
+    private bool _businessLoaded;
+
+    private string _themeChoice = "light";
+    private string _languageChoice = Strings.Greek;
+
+    private IReadOnlyList<UserDeviceView> _devices = [];
+    private IReadOnlyList<TeamMember> _team = [];
+
+    /// <summary>The save bar's message, and whether it reads as a failure.</summary>
+    private string? _message;
+    private bool _messageIsError;
+
+    private sealed record SectionOption(Section Key, string Label);
+
+    private sealed record TeamMember(string Name, string Email, DateTime? LastLoginAt, bool IsSelf);
+
+    private SectionOption[] Sections =>
+    [
+        new(Section.Profile, Shell.Set_Nav_Profile),
+        new(Section.Business, Shell.Set_Nav_Business),
+        new(Section.Team, Shell.Set_Nav_Team),
+        new(Section.Appearance, Shell.Set_Nav_Appearance),
+    ];
+
+    /// <summary>
+    /// The design's save bar carries the green confirmation; a failure has to
+    /// say something there too, so the one element serves both.
+    /// </summary>
+    private RenderFragment SaveMessage => @<span class="@(_messageIsError ? "is-error" : "")">
+        @if (_message is not null)
+        {
+            @if (!_messageIsError)
+            {
+                <RoivoIcon Name="RoivoIconName.Check" Size="13" />
+            }
+            @_message
+        }
+    </span>;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated != true) return;
+
+        var userIdValue = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(userIdValue, out _userId)) return;
+
+        _languageChoice = Strings.IsEnglish ? Strings.English : Strings.Greek;
+
+        // Read through the factory rather than UserManager's scoped context:
+        // this runs during circuit start-up alongside the layout's own queries,
+        // and a shared context races there.
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        var me = await db.Users
+            .AsNoTracking()
+            .Where(u => u.Id == _userId)
+            .Select(u => new { u.FullName, u.Email, u.EmailConfirmed, u.TenantId })
+            .FirstOrDefaultAsync();
+
+        if (me is null) return;
+
+        _fullName = me.FullName;
+        _email = me.Email ?? "";
+        _emailConfirmed = me.EmailConfirmed;
+
+        // ApplicationUser is deliberately outside the tenant query filter, so
+        // the tenant has to be named here rather than assumed.
+        _team =
+        [
+            .. await db.Users
+                .AsNoTracking()
+                .Where(u => u.TenantId == me.TenantId)
+                .OrderBy(u => u.FullName)
+                .Select(u => new TeamMember(
+                    u.FullName, u.Email ?? "", u.LastLoginAt, u.Id == _userId))
+                .ToListAsync()
+        ];
+
+        _devices = await Devices.ListDevicesAsync(_userId);
+
+        // The password change goes out through a full request so the auth
+        // cookie can be re-issued; the confirmation rides back in the query.
+        if (PasswordChanged) Report(Shell.Set_Password_Changed, isError: false);
+    }
+
+    /// <summary>
+    /// Everything that follows a cascade rather than the route.
+    /// </summary>
+    /// <remarks>
+    /// The theme is read here rather than in the initialiser, because the shell
+    /// settles it after its own first render and a snapshot taken earlier would
+    /// leave the select showing light while the page is drawn dark. The
+    /// business is reloaded here for the same kind of reason: an accountant
+    /// changing client in the sidebar changes nothing the router can see, so
+    /// the panel would otherwise go on showing the client they left.
+    /// </remarks>
+    protected override async Task OnParametersSetAsync()
+    {
+        _themeChoice = AppShell?.IsDarkTheme == true ? "dark" : "light";
+
+        if (_businessLoaded && _loadedBusinessId == SelectedBusinessId) return;
+
+        // A different client is a different form, so its confirmation does not
+        // carry over. Only on a change, though: on the first pass there is
+        // nothing to clear, and clearing would throw away the message the
+        // password change just arrived with.
+        if (_businessLoaded) _message = null;
+
+        _businessLoaded = true;
+        _loadedBusinessId = SelectedBusinessId;
+
+        await LoadBusinessAsync();
+    }
+
+    private async Task LoadBusinessAsync()
+    {
+        var all = await BusinessRepository.ListActiveAsync();
+
+        // An owner has exactly one and no switcher to pick it with; an
+        // accountant gets whichever client the switcher has selected.
+        var business = SelectedBusinessId is Guid id
+            ? all.FirstOrDefault(b => b.Id == id)
+            : all.Count == 1 ? all[0] : null;
+
+        _businessId = business?.Id;
+        _businessName = business?.Name ?? "";
+        _businessAfm = business?.Afm ?? "";
+        _businessKad = business?.Kad ?? "";
+        _businessAddress = business?.Address ?? "";
+        _aadeConnected = business?.AadeUserIdEncrypted is not null;
+    }
+
+    private void Show(Section section)
+    {
+        _section = section;
+
+        // The confirmation belongs to the form that produced it.
+        _message = null;
+        _messageIsError = false;
+    }
+
+    private void Report(string text, bool isError)
+    {
+        _message = text;
+        _messageIsError = isError;
+    }
+
+    // ------------------------------------------------------------------ profile
+
+    private async Task SaveProfile()
+    {
+        var name = _fullName.Trim();
+
+        if (name.Length == 0)
+        {
+            Report(Shell.Set_SaveFailed, isError: true);
+            return;
+        }
+
+        var user = await UserManager.FindByIdAsync(_userId.ToString());
+        if (user is null) return;
+
+        user.FullName = name;
+        var result = await UserManager.UpdateAsync(user);
+
+        _fullName = name;
+        Report(result.Succeeded ? Shell.Set_Saved : Shell.Set_SaveFailed, !result.Succeeded);
+    }
+
+    private async Task ChangePassword()
+    {
+        if (_newPassword != _confirmPassword)
+        {
+            Report(Shell.Set_Password_Mismatch, isError: true);
+            return;
+        }
+
+        var user = await UserManager.FindByIdAsync(_userId.ToString());
+        if (user is null) return;
+
+        var result = await UserManager.ChangePasswordAsync(user, _currentPassword, _newPassword);
+
+        if (!result.Succeeded)
+        {
+            // A wrong current password is the one failure worth its own words.
+            // The rest are Identity's complaints about the new one, and it says
+            // them better than a single generic line would.
+            Report(
+                result.Errors.Any(e => e.Code == "PasswordMismatch")
+                    ? Shell.Set_Password_Wrong
+                    : string.Join(" ", result.Errors.Select(e => e.Description)),
+                isError: true);
+            return;
+        }
+
+        _currentPassword = _newPassword = _confirmPassword = "";
+
+        // The change rotated the security stamp, so the cookie the browser is
+        // holding is now stale and Identity would sign the user out inside the
+        // half-hour. Only a real request can re-issue it, so leave the circuit.
+        Nav.NavigateTo(
+            "/Account/RefreshSignIn?redirectUri="
+            + Uri.EscapeDataString("/settings?passwordchanged=true"),
+            forceLoad: true);
+    }
+
+    private async Task RemoveDevice(Guid deviceId)
+    {
+        if (!await Devices.RemoveDeviceAsync(_userId, deviceId)) return;
+
+        _devices = await Devices.ListDevicesAsync(_userId);
+        Report(Shell.Device_Removed, isError: false);
+    }
+
+    private static string DeviceDetail(UserDeviceView device)
+    {
+        var seen = Shell.Device_LastSeen.Format(Moment(device.LastSeenAt));
+
+        return string.IsNullOrWhiteSpace(device.IpPrefix)
+            ? seen
+            : $"{seen} · {Shell.Device_Network.Format(device.IpPrefix)}";
+    }
+
+    // ----------------------------------------------------------------- business
+
+    private async Task SaveBusiness()
+    {
+        if (_businessId is not Guid id) return;
+
+        var result = await UpdateBusiness.Handle(
+            new UpdateBusinessCommand(
+                id,
+                _businessName,
+                _businessAfm,
+                _businessKad,
+                _businessAddress));
+
+        switch (result)
+        {
+            case UpdateBusinessResult.Success:
+                Report(Shell.Set_Saved, isError: false);
+                await LoadBusinessAsync();
+                break;
+
+            case UpdateBusinessResult.InvalidAfm:
+                Report(Roivo.Resources.Businesses.InvalidAfm_Error, isError: true);
+                break;
+
+            case UpdateBusinessResult.ActiveDuplicateAfm:
+                Report(Roivo.Resources.Businesses.OtherActiveDuplicate_Error, isError: true);
+                break;
+
+            // The handler's reason is already a sentence in the user's language.
+            case UpdateBusinessResult.Forbidden forbidden:
+                Report(forbidden.Reason, isError: true);
+                break;
+
+            default:
+                Report(Shell.Set_SaveFailed, isError: true);
+                break;
+        }
+    }
+
+    // --------------------------------------------------------------------- team
+
+    private static string MemberName(TeamMember member) =>
+        member.IsSelf ? $"{member.Name} · {Shell.Set_Team_You}" : member.Name;
+
+    private static string LastActive(TeamMember member) =>
+        Shell.Set_Team_LastActive + " " + (member.LastLoginAt is DateTime seen
+            ? Moment(seen)
+            : Shell.Set_Team_Never);
+
+    /// <summary>Up to two initials for the avatar chip.</summary>
+    private static string Initials(string name)
+    {
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        return parts.Length switch
+        {
+            0 => "?",
+            1 => parts[0][..1].ToUpperInvariant(),
+            _ => (parts[0][..1] + parts[^1][..1]).ToUpperInvariant(),
+        };
+    }
+
+    // --------------------------------------------------------------- appearance
+
+    private async Task ApplyTheme()
+    {
+        if (AppShell is null) return;
+
+        await AppShell.SetThemeAsync(_themeChoice == "dark");
+    }
+
+    /// <summary>
+    /// The culture is applied by middleware on the next request, not inside the
+    /// live circuit, so the switch has to leave Blazor to take effect.
+    /// </summary>
+    private void ApplyLanguage() =>
+        Nav.NavigateTo(
+            $"/Account/SetLanguage?culture={(_languageChoice == Strings.English ? Strings.English : Strings.Greek)}"
+            + "&redirectUri=" + Uri.EscapeDataString("/settings"),
+            forceLoad: true);
+
+    // -------------------------------------------------------------------- dates
+
+    private static string Moment(DateTime instant) =>
+        instant.ToLocalTime().ToString("dd/MM/yyyy HH:mm", Strings.FormatCulture);
+}
