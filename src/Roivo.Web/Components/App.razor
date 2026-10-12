@@ -11,8 +11,14 @@
     <link rel="stylesheet" href="Roivo.Web.styles.css" />
     @* Product design system, extracted from the Figma source. Every rule in it
        is scoped under .app, so it cannot reach the landing or Account pages. *@
-    <link rel="stylesheet" href="css/roivo-app.css" />
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
+    @* Last, so the design has the final word inside `.app`. MudBlazor's reset
+       styles bare elements — `button` carries justify-content: center — and at
+       equal specificity whichever sheet loads later wins; loading it first meant
+       every design rule that relied on a browser default silently lost. Nothing
+       in this sheet matches outside `.app`, so it cannot reach MudBlazor's own
+       components or the pages still on MainLayout. *@
+    <link rel="stylesheet" href="css/roivo-app.css" />
     <!-- Rasterised from the brand mark by tools/make_icons.py. Several sizes
          rather than one, so hi-DPI tabs and the install prompt each pick the
          one they need instead of upscaling the 32px. -->

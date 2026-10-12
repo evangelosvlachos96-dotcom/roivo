@@ -1,15 +1,19 @@
 """Slice the product design system out of the Figma Make stylesheet.
 
 The generated sheet is, in order:
-  1-204     Tailwind v4 preamble (reset + utility layers) — the design barely
-            uses utilities, and importing it would fight MudBlazor's own reset.
-  205-2536  the product: shell, sidebar, header, cards, every workspace.
-  2537-4634 landing page, auth modals, email gallery — Phase 2 backlog.
-  4635-end  media queries for both halves, interleaved.
+  a Tailwind v4 preamble (reset + utility layers) — the design barely uses
+    utilities, and importing it would fight MudBlazor's own reset;
+  the product: shell, sidebar, header, cards, every workspace;
+  landing page, auth modals, email gallery — Phase 2 backlog;
+  media queries for both halves, interleaved.
 
 We take the product range verbatim, then take only the media-query rules whose
 selectors belong to it, so the responsive behaviour survives without dragging
 in the backlog styles.
+
+The boundaries are found by their anchors rather than written down as line
+numbers. They were line numbers once, and the first design update moved all
+three — the extractor went on running and quietly sliced the wrong range.
 """
 import io
 import re
@@ -17,11 +21,36 @@ import re
 SRC = 'roivo.css'
 OUT = 'roivo-app.css'
 
-PRODUCT_START, PRODUCT_END = 205, 2536     # 1-based, inclusive
-MEDIA_START = 4635
+# The product section opens with the :root rule carrying the typeface and ends
+# where the landing page begins; the media blocks follow both halves.
+PRODUCT_START_RE = re.compile(r'^:root \{$')
+PRODUCT_END_RE = re.compile(r'^\.landing \{$')
+MEDIA_START_RE = re.compile(r'^@media ')
 
+
+def boundaries(lines):
+    """The 1-based inclusive product range, and where the media blocks start."""
+
+    def find(pattern, what, start=0):
+        for index in range(start, len(lines)):
+            if pattern.match(lines[index]):
+                return index + 1
+        raise SystemExit('could not find %s — the design source changed shape' % what)
+
+    start = find(PRODUCT_START_RE, 'the product :root rule')
+    end = find(PRODUCT_END_RE, 'the start of the landing page', start) - 1
+    media = find(MEDIA_START_RE, 'the first media query', end)
+
+    return start, end, media
+
+# `plan-badge|plan-index|plan-price` are the landing page's pricing table. The
+# design later added `.plan-card` for the subscription panel in Settings, which
+# is product and must come through — so these are named rather than matched on
+# a `plan` prefix. `brand-mark` is the sidebar lockup and is product too; it was
+# listed here while the shell was still being built.
 BACKLOG = re.compile(
-    r'^\s*\.(relanding|landing|auth-|open-r|email-|wordmark-|plan\b|hero-|brand-mark)',
+    r'^\s*\.(relanding|landing|auth-|open-r|email-|wordmark-'
+    r'|plan-badge|plan-index|plan-price|hero-)',
     re.I)
 
 # Global rules the design hangs off :root / body. They would reach the existing
@@ -238,6 +267,19 @@ LOCAL_OVERRIDES = """
     }
 }
 
+/* MudBlazor's reset puts `justify-content: center` on every button. The design
+   was authored against the browser default and only states the property when it
+   wants centring, so every button it lays out as a row — the workspace switcher
+   worst of all — came out centred instead of left aligned.
+
+   `.app` is wrapped in :where() so this weighs exactly the same as MudBlazor's
+   bare `button` — this sheet now loads after MudBlazor, so it wins the tie —
+   while any design rule carrying a class, `.secondary-button` among them, still
+   outranks it and keeps its own centring. */
+:where(.app) button {
+    justify-content: flex-start;
+}
+
 /* Settings. The design hangs its width cap on `settings-content`, a class on
    the page's own <main>; ours is the shared shell's, so the cap is hung on the
    content column when a settings layout is what it is holding. */
@@ -348,7 +390,8 @@ BANNER = """/* =================================================================
 
 def main():
     lines = io.open(SRC, encoding='utf-8').read().split('\n')
-    product = '\n'.join(lines[PRODUCT_START - 1:PRODUCT_END])
+    product_start, product_end, media_start = boundaries(lines)
+    product = '\n'.join(lines[product_start - 1:product_end])
 
     for rule in GLOBAL_RULES:
         if rule not in product:
@@ -366,7 +409,7 @@ def main():
         1)
 
     kept_media = []
-    media_src = '\n'.join(lines[MEDIA_START - 1:])
+    media_src = '\n'.join(lines[media_start - 1:])
 
     for mq in re.finditer(r'(@media[^{]+)\{(.*?)\n\}', media_src, re.S):
         header, body = mq.group(1).strip(), mq.group(2)
@@ -385,6 +428,8 @@ def main():
 
     text = io.open(OUT, encoding='utf-8').read()
     leaked = [l for l in text.split('\n') if BACKLOG.match(l)]
+    print('product lines %d-%d, media from %d'
+          % (product_start, product_end, media_start))
     print('%s: %d bytes, %d lines, %d media blocks'
           % (OUT, len(text), text.count('\n') + 1, len(kept_media)))
     print('backlog selectors leaked: %d%s'

@@ -28,3 +28,23 @@ export function set(theme) {
         localStorage.setItem(KEY, theme);
     } catch { /* the toggle still works for this page view */ }
 }
+
+// Sidebar width, remembered the same way and for the same reasons. Collapsing
+// is a working preference, not account state: someone on a laptop wants the
+// icons-only rail on every page, and wants it back when they return.
+
+const SIDEBAR_KEY = 'roivo.sidebar';
+
+export function getSidebar() {
+    try {
+        return localStorage.getItem(SIDEBAR_KEY) === 'collapsed';
+    } catch {
+        return false;
+    }
+}
+
+export function setSidebar(collapsed) {
+    try {
+        localStorage.setItem(SIDEBAR_KEY, collapsed ? 'collapsed' : 'expanded');
+    } catch { /* the toggle still works for this page view */ }
+}

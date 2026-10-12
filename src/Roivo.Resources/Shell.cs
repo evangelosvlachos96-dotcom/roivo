@@ -339,6 +339,9 @@ public static class Shell
     public static string Set_Theme_Sub => Strings.Get("Shell.Set_Theme_Sub", "Ισχύει αμέσως και θυμάται την επιλογή σας σε αυτό το πρόγραμμα περιήγησης.");
     public static string Set_Language_Sub => Strings.Get("Shell.Set_Language_Sub", "Η αλλαγή γλώσσας ανανεώνει τη σελίδα.");
 
+    public static string Sidebar_Collapse => Strings.Get("Shell.Sidebar_Collapse", "Σύμπτυξη μενού");
+    public static string Sidebar_Expand => Strings.Get("Shell.Sidebar_Expand", "Ανάπτυξη μενού");
+
     /// <summary>English overrides. Keys absent here fall back to Greek.</summary>
     static Shell() => Strings.RegisterEnglish(new Dictionary<string, string>(StringComparer.Ordinal)
     {
@@ -652,5 +655,7 @@ public static class Shell
         ["Shell.Set_Business_PickClient"] = "Pick a client from the sidebar switcher to see their details.",
         ["Shell.Set_Theme_Sub"] = "Applies at once and is remembered in this browser.",
         ["Shell.Set_Language_Sub"] = "Switching language reloads the page.",
+        ["Shell.Sidebar_Collapse"] = "Collapse menu",
+        ["Shell.Sidebar_Expand"] = "Expand menu",
     });
 }

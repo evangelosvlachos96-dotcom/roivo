@@ -33,8 +33,10 @@
 <MudDialogProvider />
 <MudSnackbarProvider />
 
-<div class="app" data-theme="@(_isDark ? "dark" : "light")">
+<div class="app" data-theme="@(_isDark ? "dark" : "light")" data-sidebar="@(_sidebarCollapsed ? "collapsed" : "expanded")">
     <RoivoSidebar Businesses="_businesses"
+                  Collapsed="_sidebarCollapsed"
+                  OnToggleCollapsed="ToggleSidebar"
                   IsAccountant="_isAccountant"
                   SelectedBusinessId="_selectedBusinessId"
                   SelectedBusinessIdChanged="OnBusinessChanged"
@@ -77,6 +79,7 @@
 
 @code {
     private bool _isDark;
+    private bool _sidebarCollapsed;
     private bool _isAccountant;
     private Guid? _selectedBusinessId;
     private IReadOnlyList<RoivoSidebar.BusinessOption> _businesses = [];
@@ -154,7 +157,7 @@
         _businesses = await db.Businesses
             .Where(b => b.IsActive)
             .OrderBy(b => b.Name)
-            .Select(b => new RoivoSidebar.BusinessOption(b.Id, b.Name))
+            .Select(b => new RoivoSidebar.BusinessOption(b.Id, b.Name, b.Kad))
             .ToListAsync();
 
         // A business owner has exactly one, and no switcher to pick it with.
@@ -179,16 +182,39 @@
         await LoadBadgeCountsAsync();
     }
 
+    /// <summary>
+    /// Restores the viewer's remembered theme and sidebar width.
+    /// </summary>
+    /// <remarks>
+    /// Guarded, because a browser holding a cached copy of the module from
+    /// before a deploy will not have whatever export was added in it — and an
+    /// exception here kills the circuit, which takes the whole page with it for
+    /// exactly the people whose cache is stale. Losing a remembered preference
+    /// for one page view is the right failure instead.
+    /// </remarks>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
 
-        _themeModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/roivo-theme.js");
-        var stored = await _themeModule.InvokeAsync<string>("get");
+        string stored;
+        bool collapsed;
 
-        if (stored == "dark" != _isDark)
+        try
+        {
+            _themeModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/roivo-theme.js");
+            stored = await _themeModule.InvokeAsync<string>("get");
+            collapsed = await _themeModule.InvokeAsync<bool>("getSidebar");
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException)
+        {
+            Logger.LogWarning(ex, "Could not read the stored shell preferences");
+            return;
+        }
+
+        if (stored == "dark" != _isDark || collapsed != _sidebarCollapsed)
         {
             _isDark = stored == "dark";
+            _sidebarCollapsed = collapsed;
             StateHasChanged();
         }
     }
@@ -264,8 +290,36 @@
     {
         _isDark = !_isDark;
 
-        if (_themeModule is not null)
-            await _themeModule.InvokeVoidAsync("set", _isDark ? "dark" : "light");
+        await RememberAsync("set", _isDark ? "dark" : "light");
+    }
+
+    /// <summary>
+    /// Narrows the sidebar to the icons-only rail, and remembers the choice.
+    /// </summary>
+    private async Task ToggleSidebar()
+    {
+        _sidebarCollapsed = !_sidebarCollapsed;
+
+        await RememberAsync("setSidebar", _sidebarCollapsed);
+    }
+
+    /// <summary>
+    /// Writes one preference to the browser, and never fails for it. The toggle
+    /// has already taken effect on screen; all that can be lost here is whether
+    /// it survives the next reload.
+    /// </summary>
+    private async Task RememberAsync(string export, object value)
+    {
+        if (_themeModule is null) return;
+
+        try
+        {
+            await _themeModule.InvokeVoidAsync(export, value);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException)
+        {
+            Logger.LogWarning(ex, "Could not store the {Preference} preference", export);
+        }
     }
 
     /// <summary>Which palette the shell is currently drawing.</summary>

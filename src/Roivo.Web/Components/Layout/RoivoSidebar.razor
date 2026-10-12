@@ -13,15 +13,27 @@
 @inject NavigationManager Nav
 
 <aside class="app-sidebar">
-    <span class="brand">
-        <span class="brand-mark"><img src="icon-192.png" alt="@Marketing.BrandName" /></span>
-        <span>
-            @* The dotless ı is the design's: the dot is drawn by CSS on
-               .wordmark-i so it can carry the brand gradient. *@
-            <strong>Ro<span class="wordmark-i">ı</span>vo</strong>
-            <small>@Shell.BrandTagline</small>
+    @* The design pairs the lockup with the collapse control on one row. Our own
+       brand mark stays: the design's is a placeholder drawn in SVG. *@
+    <div class="sidebar-brand-row">
+        <span class="brand">
+            <span class="brand-mark"><img src="icon-192.png" alt="@Marketing.BrandName" /></span>
+            <span>
+                @* The dotless ı is the design's: the dot is drawn by CSS on
+                   .wordmark-i so it can carry the brand gradient. *@
+                <strong>Ro<span class="wordmark-i">ı</span>vo</strong>
+                <small>@Shell.BrandTagline</small>
+            </span>
         </span>
-    </span>
+
+        <button type="button" class="sidebar-collapse"
+                aria-label="@(Collapsed ? Shell.Sidebar_Expand : Shell.Sidebar_Collapse)"
+                aria-expanded="@((!Collapsed).ToString().ToLowerInvariant())"
+                title="@(Collapsed ? Shell.Sidebar_Expand : Shell.Sidebar_Collapse)"
+                @onclick="OnToggleCollapsed">
+            <RoivoIcon Name="RoivoIconName.Arrow" Size="14" />
+        </button>
+    </div>
 
     @if (IsAccountant)
     {
@@ -30,7 +42,7 @@
 
             <button type="button" class="@(SelectedBusinessId is null ? "is-active" : "")"
                     @onclick="() => SelectBusiness(null)">
-                <RoivoIcon Name="RoivoIconName.Business" Size="15" />
+                <span class="workspace-company">@BusinessEmoji.Practice</span>
                 <strong>@Shell.AccountantWorkspace</strong>
             </button>
 
@@ -38,7 +50,7 @@
             {
                 <button type="button" class="@(SelectedBusinessId == business.Id ? "is-active" : "")"
                         @onclick="() => SelectBusiness(business.Id)">
-                    <span class="workspace-company">@Initials(business.Name)</span>
+                    <span class="workspace-company">@BusinessEmoji.For(business.Kad)</span>
                     <strong>@business.Name</strong>
                 </button>
             }
@@ -85,6 +97,11 @@
     /// <summary>Business owners have one business, so they get no switcher.</summary>
     [Parameter] public bool IsAccountant { get; set; }
 
+    /// <summary>Icons-only rail. The shell owns the state; this only reports it.</summary>
+    [Parameter] public bool Collapsed { get; set; }
+
+    [Parameter] public EventCallback OnToggleCollapsed { get; set; }
+
     /// <summary>Who is signed in, for the card pinned to the bottom.</summary>
     [Parameter] public string UserName { get; set; } = "";
 
@@ -97,7 +114,8 @@
     [Parameter] public int? UpcomingObligations { get; set; }
 
     /// <summary>One row of the switcher.</summary>
-    public sealed record BusinessOption(Guid Id, string Name);
+    /// <param name="Kad">Activity code, which chooses the switcher glyph.</param>
+    public sealed record BusinessOption(Guid Id, string Name, string? Kad);
 
     private RenderFragment NavItem(
         RoivoIconName icon, string label, string segment, int? badge = null, bool warning = false) =>
