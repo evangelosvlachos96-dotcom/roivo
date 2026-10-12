@@ -1,4 +1,6 @@
 using Hangfire;
+using Roivo.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.HttpOverrides;
 using MudBlazor.Services;
 using Roivo.Aade.Configuration;
@@ -128,6 +130,60 @@ builder.Services.Configure<RequestLocalizationOptions>(options =>
 });
 
 var app = builder.Build();
+
+// Bring the schema up to date before the first request is served.
+//
+// Until now every migration needed someone to remember to run `dotnet ef
+// database update` against the remote database by hand, and the one time that
+// was missed, every authenticated page on staging returned 500 — the table was
+// simply not there.
+//
+// Failure is logged, not thrown. The landing page, sign-in and /health need no
+// schema at all, and an instance that still serves those and says loudly what
+// is wrong is more useful than one that will not boot.
+//
+// NOTE: this is right for a single instance (staging, early production). For
+// multi-instance zero-downtime deploys, move it to a CI/CD step that runs
+// before the new version rolls out — two instances migrating at once is a race
+// this does not solve.
+// See https://learn.microsoft.com/en-us/ef/core/managing-schemas/migrations/applying
+await using (var migrationScope = app.Services.CreateAsyncScope())
+{
+    var logger = migrationScope.ServiceProvider.GetRequiredService<ILoggerFactory>()
+        .CreateLogger("Roivo.Startup.Migrations");
+
+    try
+    {
+        // Through the factory: the scoped context is built per request and the
+        // tenant filter it carries is meaningless outside one.
+        var factory = migrationScope.ServiceProvider
+            .GetRequiredService<IDbContextFactory<ApplicationDbContext>>();
+
+        await using var db = await factory.CreateDbContextAsync();
+
+        var pending = (await db.Database.GetPendingMigrationsAsync()).ToList();
+
+        if (pending.Count == 0)
+        {
+            logger.LogInformation("Database is up to date, no pending migrations");
+        }
+        else
+        {
+            logger.LogInformation(
+                "Applying {Count} pending migration(s): {Migrations}",
+                pending.Count, string.Join(", ", pending));
+
+            await db.Database.MigrateAsync();
+
+            logger.LogInformation("Applied {Count} migration(s)", pending.Count);
+        }
+    }
+    catch (Exception ex)
+    {
+        logger.LogCritical(ex, "Could not apply database migrations; starting anyway");
+    }
+}
+
 
 // Render terminates TLS and forwards plain HTTP to the container, so without
 // this the app sees http:// and OpenIddict rejects its own endpoints as
