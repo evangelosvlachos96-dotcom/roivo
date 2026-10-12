@@ -1,0 +1,38 @@
+@*
+    One headline figure on the accountant portfolio, matching the design's
+    metric-card: a tinted icon tile beside a label, value and note.
+*@
+
+<article class="metric-card">
+    <span class="metric-icon metric-icon--@Tone.ToString().ToLowerInvariant()">
+        <RoivoIcon Name="Icon" Size="19" />
+    </span>
+    <div class="metric-copy">
+        <span>@Label</span>
+        <strong>@Value</strong>
+        <small class="@NoteClass">@Note</small>
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+
+    [Parameter, EditorRequired] public string Value { get; set; } = "";
+
+    /// <summary>The line under the figure — a trend, a count, a qualifier.</summary>
+    [Parameter] public string? Note { get; set; }
+
+    [Parameter] public RoivoIconName Icon { get; set; }
+
+    [Parameter] public MetricTone Tone { get; set; } = MetricTone.Blue;
+
+    /// <summary>Colours the note green or red when the caller says it carries a direction.</summary>
+    [Parameter] public MetricDirection Direction { get; set; } = MetricDirection.Neutral;
+
+    private string? NoteClass => Direction switch
+    {
+        MetricDirection.Up => "up",
+        MetricDirection.Down => "down",
+        _ => null,
+    };
+}

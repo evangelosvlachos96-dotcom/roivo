@@ -26,7 +26,11 @@ public sealed class SyncSingleBusinessJob
 
     public async Task Execute(Guid businessId)
     {
-        var result = await _handler.Handle(new SyncBusinessInvoicesCommand(businessId)).ConfigureAwait(false);
+        // No signed-in user here, so the tenant-filtered lookup would find
+        // nothing. Same bypass the banking sync uses.
+        var result = await _handler
+            .Handle(new SyncBusinessInvoicesCommand(businessId, BypassTenantScope: true))
+            .ConfigureAwait(false);
 
         switch (result)
         {

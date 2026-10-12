@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Roivo.Resources;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -36,13 +37,13 @@ public class ResetPasswordModel : PageModel
         [Required]
         public string Token { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Ο κωδικός είναι υποχρεωτικός")]
+        [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordRequired))]
         [DataType(DataType.Password)]
         public string Password { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Επιβεβαίωσε τον κωδικό")]
+        [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.ConfirmPasswordRequired))]
         [DataType(DataType.Password)]
-        [Compare(nameof(Password), ErrorMessage = "Οι κωδικοί δεν ταιριάζουν")]
+        [Compare(nameof(Password), ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordsDoNotMatch))]
         public string ConfirmPassword { get; set; } = string.Empty;
     }
 

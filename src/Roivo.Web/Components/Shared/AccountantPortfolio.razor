@@ -1,0 +1,278 @@
+@*
+    The accountant's landing view: headline figures across the client book, a
+    signal strip, and the client table.
+
+    Ported from the design's portfolio composition. Two of its columns are not
+    the design's — see the note on the table below.
+*@
+
+@using Roivo.Application.Features.Accountant.Queries.GetAccountantDashboard
+@using Roivo.Resources
+@inject NavigationManager Nav
+
+<section class="page-intro">
+    <div>
+        <h1>@string.Format(Shell.Portfolio_Greeting, FirstName)</h1>
+        <p>@Shell.Portfolio_Subtitle</p>
+    </div>
+    <button type="button" class="primary-button" @onclick='() => Nav.NavigateTo("/businesses/new")'>
+        <RoivoIcon Name="RoivoIconName.Plus" Size="17" /> @Shell.Portfolio_NewBusiness
+    </button>
+</section>
+
+<section class="metrics" aria-label="@Shell.Portfolio_MetricsLabel">
+    <MetricCard Label="@Shell.Portfolio_Metric_Clients"
+                Value="@Dashboard.Summary.TotalBusinesses.ToString()"
+                Note="@ClientsNote"
+                Direction="@(Dashboard.Summary.BusinessesWithCashflowWarnings == 0 ? MetricDirection.Up : MetricDirection.Neutral)"
+                Icon="RoivoIconName.Business"
+                Tone="MetricTone.Blue" />
+
+    <MetricCard Label="@Shell.Portfolio_Metric_MatchRate"
+                Value="@Percent(Dashboard.Summary.AverageMatchRate)"
+                Note="@string.Format(Shell.Portfolio_Metric_UnmatchedNote, Dashboard.Businesses.Count)"
+                Icon="RoivoIconName.Cashflow"
+                Tone="MetricTone.Teal" />
+
+    <MetricCard Label="@Shell.Portfolio_Metric_Unmatched"
+                Value="@TotalUnmatched.ToString()"
+                Note="@string.Format(Shell.Portfolio_Metric_UnmatchedNote, BusinessesWithUnmatched)"
+                Icon="RoivoIconName.Reconciliation"
+                Tone="MetricTone.Violet" />
+
+    <MetricCard Label="@Shell.Portfolio_Metric_Deadlines"
+                Value="@Dashboard.Summary.TaxDeadlinesNext30Days.ToString()"
+                Note="@string.Format(Shell.Portfolio_Metric_DeadlinesNote, Dashboard.Summary.TaxDeadlinesNext30Days)"
+                Icon="RoivoIconName.Obligations"
+                Tone="MetricTone.Amber" />
+</section>
+
+<section class="signal">
+    <span class="signal-icon"><RoivoIcon Name="RoivoIconName.Sparkle" /></span>
+    <div>
+        <span>@Shell.Signal_Label</span>
+        <strong>@SignalHeadline</strong>
+        <p>@string.Format(Shell.Signal_Detail, TotalUnmatched, Dashboard.Summary.TaxDeadlinesNext30Days)</p>
+    </div>
+    <button type="button" @onclick='() => Nav.NavigateTo("/accountant/alerts")'>
+        @Shell.Signal_ViewActions <RoivoIcon Name="RoivoIconName.Arrow" Size="15" />
+    </button>
+</section>
+
+<section class="portfolio">
+    <div class="portfolio-header">
+        <div>
+            <h2>@Shell.Portfolio_Clients</h2>
+            <span>@string.Format(Shell.Portfolio_Count, Filtered.Count, Dashboard.Businesses.Count)</span>
+        </div>
+        <div class="portfolio-tools">
+            <label class="company-search">
+                <RoivoIcon Name="RoivoIconName.Search" Size="16" />
+                <input @bind="_query" @bind:event="oninput"
+                       placeholder="@Shell.Portfolio_SearchPlaceholder"
+                       aria-label="@Shell.Portfolio_SearchLabel" />
+            </label>
+            <select @bind="_statusFilter" aria-label="@Shell.Portfolio_Col_Status">
+                <option value="">@Shell.Portfolio_AllStatuses</option>
+                <option value="@nameof(ClientStatus.Healthy)">@Shell.Status_Healthy</option>
+                <option value="@nameof(ClientStatus.Attention)">@Shell.Status_Attention</option>
+                <option value="@nameof(ClientStatus.Urgent)">@Shell.Status_Urgent</option>
+            </select>
+        </div>
+    </div>
+
+    @if (Filtered.Count == 0)
+    {
+        <section class="empty-state"><p>@Shell.Portfolio_NoMatches</p></section>
+    }
+    else
+    {
+        <div class="company-cards">
+            @foreach (var row in Filtered)
+            {
+                <article class="company-card" @onclick="() => Open(row.BusinessId)">
+                    <div class="company-card-head">
+                        <div class="company-name">
+                            <span class="company-avatar">@Initials(row.Name)</span>
+                            <span>
+                                <strong>@row.Name</strong>
+                                <small>@Roivo.Resources.Businesses.AfmLabel @row.Afm</small>
+                            </span>
+                        </div>
+                        <StatusPill Status="StatusOf(row)" />
+                    </div>
+
+                    <div class="company-card-value">
+                        <span>@Shell.Portfolio_Col_MatchRate</span>
+                        <strong>@Percent(row.MatchRate)</strong>
+                        <small>@string.Format(Shell.Portfolio_Invoices, row.TotalInvoices)</small>
+                    </div>
+
+                    <div class="company-card-stats">
+                        <span>
+                            <small>@Shell.Portfolio_Col_Runway</small>
+                            <strong class="@(row.DaysOfRunway is null or >= 60 ? "forecast-up" : "forecast-down")">
+                                @RunwayLabel(row.DaysOfRunway)
+                            </strong>
+                        </span>
+                        <span>
+                            <small>@Shell.Portfolio_Col_Unmatched</small>
+                            <strong>@row.UnreconciledInvoices</strong>
+                        </span>
+                        <span>
+                            <small>@Shell.Portfolio_Col_Deadlines</small>
+                            <strong>@row.TaxDeadlinesNext30Days</strong>
+                        </span>
+                    </div>
+                </article>
+            }
+        </div>
+
+        <div class="company-table-wrap">
+            @* Columns two and three differ from the design, which shows cash on
+               hand and the 90-day projection per client. The accountant handler
+               exposes neither, and reaching for them per row would reintroduce
+               the N+1 that handler was just fixed for. Match rate and runway
+               are what it does expose, and they answer the same question. *@
+            <table class="company-table">
+                <thead>
+                    <tr>
+                        <th>@Shell.Portfolio_Col_Business</th>
+                        <th>@Shell.Portfolio_Col_MatchRate</th>
+                        <th>@Shell.Portfolio_Col_Runway</th>
+                        <th>@Shell.Portfolio_Col_Unmatched</th>
+                        <th>@Shell.Portfolio_Col_Deadlines</th>
+                        <th>@Shell.Portfolio_Col_Status</th>
+                        <th><span class="sr-only">@Shell.Portfolio_Col_Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Filtered)
+                    {
+                        <tr title="@Shell.Portfolio_OpenHint" @onclick="() => Open(row.BusinessId)">
+                            <td>
+                                <div class="company-name">
+                                    <span class="company-avatar">@Initials(row.Name)</span>
+                                    <span>
+                                        <strong>@row.Name</strong>
+                                        <small>@Roivo.Resources.Businesses.AfmLabel @row.Afm</small>
+                                    </span>
+                                </div>
+                            </td>
+                            <td>
+                                <strong class="money">@Percent(row.MatchRate)</strong>
+                                <small>@string.Format(Shell.Portfolio_Invoices, row.TotalInvoices)</small>
+                            </td>
+                            <td>
+                                <strong class="@(row.DaysOfRunway is null or >= 60 ? "forecast-up" : "forecast-down")">
+                                    @RunwayLabel(row.DaysOfRunway)
+                                </strong>
+                            </td>
+                            <td>
+                                <span class="match-count @(row.UnreconciledInvoices > 15 ? "is-high" : "")">
+                                    @row.UnreconciledInvoices
+                                </span>
+                            </td>
+                            <td><strong class="obligation">@row.TaxDeadlinesNext30Days</strong></td>
+                            <td><StatusPill Status="StatusOf(row)" /></td>
+                            <td>
+                                <button type="button" class="icon-button row-action"
+                                        aria-label="@string.Format(Shell.Portfolio_RowActions, row.Name)">
+                                    <RoivoIcon Name="RoivoIconName.More" />
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public AccountantDashboard Dashboard { get; set; } = default!;
+
+    /// <summary>Who to greet. Supplied by the page from the layout's cascade.</summary>
+    [Parameter] public string? UserFullName { get; set; }
+
+    private string _query = "";
+    private string _statusFilter = "";
+
+    private string FirstName =>
+        (UserFullName ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
+
+    private IReadOnlyList<AccountantBusinessRow> Filtered
+    {
+        get
+        {
+            IEnumerable<AccountantBusinessRow> rows = Dashboard.Businesses;
+
+            if (!string.IsNullOrWhiteSpace(_query))
+            {
+                var needle = _query.Trim();
+                rows = rows.Where(r =>
+                    r.Name.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                    || r.Afm.Contains(needle, StringComparison.Ordinal));
+            }
+
+            if (Enum.TryParse<ClientStatus>(_statusFilter, out var wanted))
+                rows = rows.Where(r => StatusOf(r) == wanted);
+
+            return [.. rows];
+        }
+    }
+
+    private int TotalUnmatched => Dashboard.Businesses.Sum(b => b.UnreconciledInvoices);
+
+    private int BusinessesWithUnmatched => Dashboard.Businesses.Count(b => b.UnreconciledInvoices > 0);
+
+    private string ClientsNote => Dashboard.Summary.BusinessesWithCashflowWarnings == 0
+        ? Shell.Portfolio_Metric_ClientsAllWell
+        : string.Format(Shell.Portfolio_Metric_ClientsNote, Dashboard.Summary.BusinessesWithCashflowWarnings);
+
+    private string SignalHeadline => Dashboard.Summary.BusinessesWithCashflowWarnings switch
+    {
+        0 => Shell.Signal_AllWell,
+        1 => Shell.Signal_OneNeedsAttention,
+        var n => string.Format(Shell.Signal_NeedAttention, n),
+    };
+
+    /// <summary>
+    /// Health as the table shows it. Runway drives it, with an unreconciled
+    /// backlog able to pull a client down one step: an accountant cannot trust
+    /// a forecast built on books that are not yet matched.
+    /// </summary>
+    private static ClientStatus StatusOf(AccountantBusinessRow row)
+    {
+        if (row.DaysOfRunway is int days && days < 30) return ClientStatus.Urgent;
+        if (row.UnreconciledInvoices > 25) return ClientStatus.Urgent;
+        if (row.DaysOfRunway is int warn && warn < 60) return ClientStatus.Attention;
+        if (row.UnreconciledInvoices > 10) return ClientStatus.Attention;
+
+        return ClientStatus.Healthy;
+    }
+
+    private static string Percent(decimal rate) =>
+        rate.ToString("P1", Strings.FormatCulture);
+
+    private static string RunwayLabel(int? days) => days switch
+    {
+        null => Shell.Portfolio_NoRunway,
+        >= 999 => Shell.Metric_RunwayUnlimited,
+        var d => string.Format(Shell.Metric_RunwayDays, d),
+    };
+
+    private static string Initials(string name)
+    {
+        var words = name.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        return words.Length switch
+        {
+            0 => "—",
+            1 => words[0][..Math.Min(2, words[0].Length)].ToUpperInvariant(),
+            _ => string.Concat(words[0][..1], words[1][..1]).ToUpperInvariant(),
+        };
+    }
+
+    private void Open(Guid businessId) => Nav.NavigateTo($"/businesses/{businessId}");
+}

@@ -1,0 +1,366 @@
+@page "/obligations"
+@layout Roivo.Web.Components.Layout.RoivoAppLayout
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using Roivo.Application.Abstractions
+@using Roivo.Application.Features.Cashflow.Commands.MarkTaxPaid
+@using Roivo.Application.Features.Cashflow.Queries.GetTaxCalendar
+@using Roivo.Core.Domain.Entities
+@using Roivo.Core.Domain.Enums
+@using Roivo.Resources
+@using Roivo.Web.Components.Shared
+@inject GetTaxCalendarHandler CalendarHandler
+@inject MarkTaxPaidHandler MarkPaidHandler
+@inject IBusinessRepository Businesses
+@inject IBankAccountRepository BankAccounts
+@inject ISnackbar Snackbar
+
+<RoivoPageTitle Title="@(Shell.Nav_Obligations)" />
+
+<ModuleHeader Eyebrow="@Shell.Obl_Eyebrow"
+              Title="@Shell.Obl_Title"
+              Description="@Shell.Obl_Description" />
+
+@if (_loading)
+{
+    <section class="obligation-summary"><SkeletonCard /></section>
+    <div class="obligations-layout">
+        <div class="module-card obligations-list-card"><SkeletonTable Rows="5" Columns="4" /></div>
+        <div class="module-card calendar-card"><SkeletonCard /></div>
+    </div>
+}
+else
+{
+    <section class="obligation-summary">
+        <article>
+            <span>@Shell.Obl_Next7</span>
+            <strong>@Money(Next7.Sum(o => o.EstimatedAmount))</strong>
+            <small>@CountLabel(Next7.Count)</small>
+        </article>
+        <article>
+            <span>@Shell.Obl_RestOfMonth</span>
+            <strong>@Money(RestOfMonth.Sum(o => o.EstimatedAmount))</strong>
+            <small>@CountLabel(RestOfMonth.Count)</small>
+        </article>
+        <article>
+            <span>@MonthName(_month)</span>
+            <strong>@Money(InMonth.Sum(o => o.EstimatedAmount))</strong>
+            <small>@CountLabel(InMonth.Count)</small>
+        </article>
+        <article class="coverage-card">
+            <span>@Shell.Obl_Coverage</span>
+            <strong>@Coverage</strong>
+            <small><i></i> @(CoverageIsOk ? Shell.Obl_CoverageOk : Shell.Obl_CoverageShort)</small>
+        </article>
+    </section>
+
+    <section class="obligations-layout">
+        <article class="module-card obligations-list-card">
+            <div class="list-toolbar">
+                <div>
+                    @foreach (var option in Filters)
+                    {
+                        <button type="button" class="@(_filter == option.Key ? "is-active" : "")"
+                                @onclick="() => _filter = option.Key">
+                            @option.Label
+                        </button>
+                    }
+                </div>
+            </div>
+
+            @if (Filtered.Count == 0)
+            {
+                <section class="empty-state"><p>@Shell.Obl_Empty</p></section>
+            }
+            else
+            {
+                <div class="large-obligation-list">
+                    @foreach (var obligation in Filtered)
+                    {
+                        var tone = ToneOf(obligation);
+                        <div class="large-obligation">
+                            <span class="large-date large-date--@tone">
+                                <b>@obligation.DueDate.Day.ToString("00")</b>
+                                <small>@MonthAbbrev(obligation.DueDate)</small>
+                            </span>
+                            <div>
+                                <strong>@TaxLabels.For(obligation.TaxType)</strong>
+                                <small>@PeriodLabels.For(obligation.Period)</small>
+                            </div>
+                            <span class="due-label due-label--@tone">@DueLabel(obligation)</span>
+                            <b>@Money(obligation.EstimatedAmount)</b>
+                            @if (!obligation.IsPaid)
+                            {
+                                <button type="button" title="@Shell.Obl_MarkPaid"
+                                        @onclick="() => MarkPaid(obligation)">
+                                    <RoivoIcon Name="RoivoIconName.Check" Size="17" />
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </article>
+
+        <aside class="module-card calendar-card">
+            <div class="calendar-head">
+                <button type="button" @onclick="() => ShiftMonth(-1)">‹</button>
+                <strong>@MonthName(_month) @_month.Year</strong>
+                <button type="button" @onclick="() => ShiftMonth(1)">›</button>
+            </div>
+
+            <div class="calendar-week">
+                @foreach (var day in Shell.Obl_Weekdays.Split(' '))
+                {
+                    <span>@day</span>
+                }
+            </div>
+
+            <div class="calendar-grid">
+                @foreach (var cell in CalendarCells)
+                {
+                    <span class="@cell.Css" title="@cell.Title">@cell.Label</span>
+                }
+            </div>
+
+            <div class="calendar-legend">
+                <span><i></i> @Shell.Obl_Legend_Due</span>
+                <span><i></i> @Shell.Obl_Legend_Today</span>
+            </div>
+        </aside>
+    </section>
+}
+
+@code {
+    [CascadingParameter(Name = "SelectedBusinessId")] private Guid? SelectedBusinessId { get; set; }
+
+    private bool _loading = true;
+    private Guid? _businessId;
+    private Guid? _loadedFor;
+    private bool _everLoaded;
+    private string _filter = "all";
+    private DateOnly _month = new(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+    private IReadOnlyList<TaxObligation> _obligations = [];
+    private decimal _available;
+
+    private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
+
+    private sealed record FilterOption(string Key, string Label);
+
+    private FilterOption[] Filters =>
+    [
+        new("all", Shell.Obl_Filter_All),
+        new("taxes", Shell.Obl_Filter_Taxes),
+        new("contributions", Shell.Obl_Filter_Contributions),
+        new("other", Shell.Obl_Filter_Other),
+        new("paid", Shell.Obl_Filter_Paid),
+    ];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_everLoaded && _loadedFor == SelectedBusinessId) return;
+
+        _loadedFor = SelectedBusinessId;
+        _everLoaded = true;
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+
+        try
+        {
+            var businesses = await Businesses.ListActiveAsync();
+            var business = SelectedBusinessId is Guid id
+                ? businesses.FirstOrDefault(b => b.Id == id)
+                : businesses.FirstOrDefault();
+
+            if (business is null) return;
+
+            _businessId = business.Id;
+
+            // A wide window: the calendar can be paged in either direction, and
+            // overdue items from earlier in the year still need to be visible.
+            var calendar = await CalendarHandler.Handle(
+                new GetTaxCalendarQuery(business.Id, Today.AddMonths(-12), Today.AddMonths(12)),
+                CancellationToken.None);
+
+            _obligations = calendar.Obligations;
+
+            var accounts = await BankAccounts.ListByBusinessAsync(business.Id);
+            _available = accounts.Sum(a => a.CurrentBalance);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task MarkPaid(TaxObligation obligation)
+    {
+        var result = await MarkPaidHandler.Handle(
+            new MarkTaxPaidCommand(obligation.Id, obligation.EstimatedAmount, DateTime.UtcNow),
+            CancellationToken.None);
+
+        if (result is MarkTaxPaidResult.Success)
+        {
+            Snackbar.Add(Shell.Obl_MarkedPaid, Severity.Success);
+            await LoadAsync();
+        }
+        else
+        {
+            Snackbar.Add(Shell.Rec_ActionFailed, Severity.Warning);
+        }
+    }
+
+    private void ShiftMonth(int delta) => _month = _month.AddMonths(delta);
+
+    // --------------------------------------------------------------- slices
+
+    private IReadOnlyList<TaxObligation> Unpaid =>
+        [.. _obligations.Where(o => !o.IsPaid)];
+
+    private IReadOnlyList<TaxObligation> Next7 =>
+        [.. Unpaid.Where(o => o.DueDate >= Today && o.DueDate <= Today.AddDays(7))];
+
+    private IReadOnlyList<TaxObligation> RestOfMonth =>
+        [.. Unpaid.Where(o => o.DueDate > Today.AddDays(7)
+            && o.DueDate.Year == Today.Year && o.DueDate.Month == Today.Month)];
+
+    private IReadOnlyList<TaxObligation> InMonth =>
+        [.. _obligations.Where(o => o.DueDate.Year == _month.Year && o.DueDate.Month == _month.Month)];
+
+    private IReadOnlyList<TaxObligation> Filtered
+    {
+        get
+        {
+            IEnumerable<TaxObligation> rows = _filter switch
+            {
+                "paid" => _obligations.Where(o => o.IsPaid),
+                "taxes" => Unpaid.Where(o => IsTax(o.TaxType)),
+                "contributions" => Unpaid.Where(o => o.TaxType == TaxType.SocialSecurity),
+                "other" => Unpaid.Where(o => !IsTax(o.TaxType) && o.TaxType != TaxType.SocialSecurity),
+                _ => Unpaid,
+            };
+
+            return [.. rows.OrderBy(o => o.DueDate).Take(25)];
+        }
+    }
+
+    private static bool IsTax(TaxType type) => type
+        is TaxType.Vat or TaxType.IncomeTax or TaxType.WithholdingTax
+        or TaxType.PropertyTax or TaxType.TaxPrepayment;
+
+    /// <summary>
+    /// Whether the money on hand covers what is due in the next week. Capped at
+    /// 100%: "we have four times what we need" is not a useful reading, and the
+    /// bar it drives cannot overflow.
+    /// </summary>
+    private string Coverage
+    {
+        get
+        {
+            var due = Next7.Sum(o => o.EstimatedAmount);
+            if (due <= 0m) return "100%";
+
+            return Math.Min(_available / due, 1m).ToString("P0", Strings.FormatCulture);
+        }
+    }
+
+    private bool CoverageIsOk => _available >= Next7.Sum(o => o.EstimatedAmount);
+
+    // ------------------------------------------------------------- calendar
+
+    private sealed record Cell(string Label, string Css, string? Title);
+
+    /// <summary>
+    /// A five-week grid for the shown month, Monday first, with leading and
+    /// trailing blanks. Days carrying a deadline are marked, as is today.
+    /// </summary>
+    private IEnumerable<Cell> CalendarCells
+    {
+        get
+        {
+            var first = new DateTime(_month.Year, _month.Month, 1);
+
+            // DayOfWeek is Sunday-based; Greek calendars start on Monday.
+            var lead = ((int)first.DayOfWeek + 6) % 7;
+            var days = DateTime.DaysInMonth(_month.Year, _month.Month);
+            var cells = (int)(Math.Ceiling((lead + days) / 7d) * 7);
+
+            var due = InMonth.Where(o => !o.IsPaid)
+                .GroupBy(o => o.DueDate.Day)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            for (var i = 0; i < cells; i++)
+            {
+                var day = i - lead + 1;
+
+                if (day < 1 || day > days)
+                {
+                    yield return new Cell("", "", null);
+                    continue;
+                }
+
+                var date = new DateOnly(_month.Year, _month.Month, day);
+                var css = new List<string>();
+
+                if (date == Today) css.Add("today");
+                if (due.ContainsKey(day)) css.Add("has-due");
+
+                var title = due.TryGetValue(day, out var items)
+                    ? string.Join(", ", items.Select(o => TaxLabels.For(o.TaxType)))
+                    : null;
+
+                yield return new Cell(day.ToString(), string.Join(' ', css), title);
+            }
+        }
+    }
+
+    // ------------------------------------------------------------ formatting
+
+    private static string Money(decimal value) => value.ToString("C0", Strings.FormatCulture);
+
+    private static string CountLabel(int count) =>
+        count == 1 ? Shell.Obl_CountOne : string.Format(Shell.Obl_Count, count);
+
+    private static string MonthName(DateOnly month) =>
+        month.ToString("MMMM", Strings.FormatCulture);
+
+    private static string MonthAbbrev(DateOnly date) =>
+        date.ToString("MMM", Strings.FormatCulture).TrimEnd('.').ToUpperInvariant();
+
+    /// <summary>
+    /// Urgency drives the colour: overdue and due-today are urgent, the coming
+    /// week needs attention, anything further out is normal.
+    /// </summary>
+    private static string ToneOf(TaxObligation obligation)
+    {
+        if (obligation.IsPaid) return "paid";
+
+        var days = obligation.DueDate.DayNumber - Today.DayNumber;
+
+        return days switch
+        {
+            <= 0 => "urgent",
+            <= 7 => "attention",
+            _ => "normal",
+        };
+    }
+
+    private static string DueLabel(TaxObligation obligation)
+    {
+        if (obligation.IsPaid) return Shell.Obl_Paid;
+
+        var days = obligation.DueDate.DayNumber - Today.DayNumber;
+
+        return days switch
+        {
+            < 0 => Shell.Obl_Overdue,
+            0 => Shell.Obl_DueToday,
+            _ => string.Format(Shell.Obl_DueInDays, days),
+        };
+    }
+}

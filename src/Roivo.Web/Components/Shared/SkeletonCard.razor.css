@@ -1,0 +1,16 @@
+.rv-sk-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    padding: 1rem;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(11, 31, 58, 0.12);
+}
+
+.rv-sk-card ::deep .rv-sk-card-value {
+    margin-bottom: 0.25rem;
+}

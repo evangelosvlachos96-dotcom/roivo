@@ -4,6 +4,482 @@ A running log of what's been built, when, and any notes worth keeping. Newest en
 
 ---
 
+## MVP COMPLETE ✅ 2026-10-04 — final polish, branding, review pass
+
+**Roivo's MVP scope (M1–M12) is complete.** 520 tests pass, the build is clean,
+and every milestone below is code complete. This entry covers the closing pass:
+finishing the localization, applying the brand everywhere, and fixing what a
+review of M8–M12 turned up.
+
+### Localization finished
+
+Zero hardcoded Greek remains in the UI. The sweep found 84 lines across **seven**
+files, not the four that were expected — `BusinessCreate.razor` (22 lines) had
+never been covered, and `App.razor` and `MainLayout.razor` each carried one.
+46 new resource keys went into `Businesses`, `Aade`, `Common`, `Marketing` and a
+new `Dashboard` class, every one with an English override.
+
+`tools/scan_greek.py` is the comment-aware check (it skips comment lines and the
+resource classes, which are the legitimate home for Greek) and now reports 0.
+
+Two strings are Greek on purpose and follow the existing `_El` / `_En` pinning
+convention: `Common.LanguageName_El` / `_En` are endonyms, because the language
+switcher labels the *target* language in that language.
+
+### Branding
+
+- **Icons are generated from the real brand asset.** `tools/make_icons.py` crops
+  the squircle out of `wwwroot/images/app-icon.jpeg`, masks the corners, and
+  writes favicon / 192 / 512 / apple-touch / maskable. The previous
+  `favicon.png` was still the Blazor template default from Milestone 1.
+- **`manifest.json`** (installable PWA), `theme-color`, and apple-touch icons,
+  on the Blazor side *and* the Account area.
+- **The inline mark was redrawn.** It had the three bars sitting to the right of
+  the bowl, so the glyph read as a "P" followed by a small bar chart. In the
+  brand icon the bars *are* the ascending stem of the R. `RoivoLogo.razor` and
+  the Account area's `_RoivoBrand.cshtml` now match the icon and each other.
+- **The app bar had never actually been navy.** `MudAppBar` carried
+  `Color="Color.Default"`, which overrode the theme's `AppbarBackground`.
+- **`RoivoPageTitle`** gives every Blazor page one `Roivo — <page>` title; the
+  Razor Pages layout was flipped to match. Three marketing titles had the brand
+  inline and would otherwise have rendered it twice.
+- **Account-area branding reached only four of seven pages**, with the mark
+  pasted into each of the four — and it was a *different* R from the app bar's.
+  The stylesheet and a single `_RoivoBrand` partial moved into `_Layout`, so
+  AccessDenied and the confirmation pages are branded too.
+- `<html lang>` was hardcoded (`en` in the app, `el` in the Account area) on a
+  bilingual product; it now follows the request culture. `og:description` was
+  pinned to English while the meta description followed the visitor.
+
+### Mobile
+
+Verified at 380px against a local build. No page scrolls horizontally; tables
+collapse to label/value cards. Two fixes were needed:
+
+- **The app bar broke at phone width** — four Greek nav labels clipped into each
+  other. Below `md` they collapse into a single menu.
+- **Tap targets were 37–38px**, under the 44px minimum. A `pointer: coarse`
+  block in `app.css` raises them on touch devices only, leaving desktop density
+  alone.
+
+### Review of M8–M12 — found and fixed
+
+- **HTML injection in the failure-notification emails.** `AadeFailureNotification`
+  and `BankingFailureNotification` built their own bodies and did
+  `body.Replace("\n", "<br/>")`, which put `business.Name` into HTML unescaped.
+  Both now render through the branded `SyncFailureEmail` template, which escapes
+  — and which had been written for exactly this consolidation but never wired
+  up. `SyncFailureEmail` gained an optional failed-attempt count so banking
+  keeps the detail it was reporting; null omits the row rather than showing a
+  misleading `0`.
+- **N+1 on all three accountant pages.** `GetCountsAsync` is eight round-trips,
+  and each page called it once per client inside a loop — an accountant with 50
+  clients issued ~400 queries to load a page. `GetCountsForBusinessesAsync` does
+  it in six grouped queries regardless of client count, and `GetCountsAsync` is
+  now expressed through it so the windowing rules cannot drift. Measured on a
+  local build: **42 queries for the reports page with 40 clients, versus 44 with
+  4** — flat.
+- **Cross-tenant email lookup.** `GetConfirmedEmailAsync` queried `db.Users` with
+  no tenant predicate. `ApplicationUser` deliberately is not `ITenantScoped` — a
+  global filter would hide the account at sign-in, before any tenant claim
+  exists — so the predicate has to be explicit. Any user id in the system would
+  otherwise resolve, and the test-notification result reports the address it
+  resolved back to the caller. Not reachable from the browser today (the only
+  caller builds the command server-side inside the circuit), but it was one API
+  endpoint away from being an IDOR.
+- **`/counter` and `/weather` were live routes** — Blazor template leftovers, in
+  a product that handles company financials. Removed, along with the
+  unreferenced `NavMenu.razor` and a `MainLayout.razor.css` whose every selector
+  matched no markup.
+- **Landing, Privacy and Terms rendered inside the authenticated chrome**,
+  showing two stacked navigation bars. M12 had left this as an explicit TODO in
+  the page comments ("the coordinator needs to add one"). `MarketingLayout` is
+  that layout.
+
+Checked and found correct, for the record: tenant scoping in all four
+notification crons, the three accountant handlers' use of `IgnoreQueryFilters`
+(ids always come from a tenant-filtered list first), the `SetLanguage` redirect
+guard, the dispatch-log dedupe, and the match-rate maths.
+
+**Known gaps carried into post-MVP:**
+- The notification dedupe is still check-then-send against the audit table. One
+  Hangfire server makes it safe today; the proper fix is the
+  `NotificationDispatches` table described in `NotificationDispatchLog`.
+- Enable Banking is still blocked on the application id (see M5 below).
+- Privacy and Terms are templates pending review by a Greek lawyer, with every
+  company-specific value left as a bracketed placeholder.
+
+---
+
+## M11 + M12 — Bilingual, brand system, landing page ✅ Code complete 2026-10-04
+
+### M11 — Bilingual (Greek / English)
+
+**The crux was that `public const string` can never be bilingual.** A const is
+inlined at compile time, so the whole product was Greek by construction. The
+resource classes now expose `public static string X => Strings.Get("Key",
+"greek")` — which means all **558 call sites** (`@Common.SaveButton`) kept
+working untouched. Greek is the fallback, not English: this is a product for
+Greek businesses, and a missing translation must degrade to the language users
+actually read.
+
+**473 strings translated, 0 untranslated**, across 11 resource classes.
+
+**Validation messages needed a second mechanism.** DataAnnotations resolves
+`ErrorMessageResourceName` by reflecting for a public static property on
+`ErrorMessageResourceType`, and an attribute argument must be a compile-time
+constant — so a culture-switching property physically cannot be passed to
+`[Required(ErrorMessage = …)]`. Those 20 attributes now point at a
+`ValidationMessages.resx` / `.en.resx` pair with a hand-written accessor (the
+designer generator depends on a Visual Studio build step and is unreliable
+under the plain `dotnet build` the container image uses).
+
+**Verified on a running server, both directions:** page labels *and* server-side
+validation render in English with the culture cookie set ("Email is required",
+"Invalid email address") and in Greek without it. The toggle writes the cookie
+through `/Account/SetLanguage`, which uses `LocalRedirect` + `Url.IsLocalUrl` —
+taking an arbitrary `redirectUri` would have made the language switch an open
+redirect.
+
+### M12 — Landing page and brand
+
+Public `/`, `/privacy` and `/terms`, all anonymous, all rendering bilingually.
+Brand applied as a real `MudTheme` (Navy #0B1F3A, Blue #1E88E5, Teal #2DD4BF,
+Inter) rather than hex codes restated per page. SVG favicon, Inter webfont,
+SEO/OG meta.
+
+**A route collision would have crashed the app:** `Home.razor` and the new
+`Landing.razor` both claimed `@page "/"`. `Home.razor` was an untouched
+template placeholder referenced nowhere, so it was retired, and `Landing` now
+redirects authenticated visitors — accountants to their workspace, owners to
+their dashboard.
+
+**`/businesses/{id}` had no route at all.** Every breadcrumb pointing at a
+specific business was 404ing, including on pages already shipped. `BusinessEdit`
+now answers it, which is what makes the back-navigation fix work.
+
+### Polish
+
+Loading skeletons (shimmer, `prefers-reduced-motion` respected, screen-reader
+live region) on all 15 data pages, shaped to each page's real content.
+Breadcrumbs replacing back buttons that went to the business *list* instead of
+the business. Tax-calendar columns pinned to fixed widths so they align across
+date groups, collapsing to cards under 600px. Mobile fixes: tables that never
+collapsed now set `Breakpoint.Sm`, 30px tap targets raised past 44px.
+
+### Tests
+
+**407 → 506 passed**, 1 skipped. The most valuable are reflection-driven:
+placeholder parity (a translation that drops `{0}` fails the build rather than
+throwing `FormatException` at a user), format arity, no-empty-regression, and
+per-culture resolution across every resource property — so a class added later
+is covered without new tests.
+
+### Known gaps / next steps
+
+- **Four older pages still carry hardcoded Greek in markup** — `Dashboard`,
+  `Businesses`, `BusinessEdit`, `BusinessAade`. Pre-existing, outside what this
+  epic touched, and the reason "fully bilingual" is true of the auth flow and
+  the newer pages but not yet of the whole app.
+- **Legal pages are templates, not legal text.** Both carry a visible
+  pending-review notice and `[PLACEHOLDER]` markers for company address and
+  contact details. They must not ship as-is.
+- **Email templates were redesigned but the account emails are not fully
+  wired.** `EmailConfirmationEmail` and `PasswordResetEmail` exist; the
+  Register/ForgotPassword page models still build their bodies inline.
+- Pricing is display-only. No payment processing exists.
+
+---
+
+## M9 + M10 — Accountant workspace and email notifications ✅ Code complete 2026-10-04
+
+### M9 — Accountant dashboard
+
+Three pages at `/accountant/dashboard`, `/accountant/alerts`, `/accountant/reports`,
+behind `AccountantAccess.CanViewAccountantWorkspace` — a business-owner tenant
+gets `Forbidden`, not a thinner version of the page.
+
+- **Dashboard**: per client, AADE and banking status, reconciliation rate,
+  cashflow health, last sync; summary bar with totals, average match rate,
+  cashflow warnings and tax deadlines inside 30 days.
+- **Alerts**: aggregated across clients, ordered Critical → Warning → Info.
+  Only the *earliest* predicted shortfall per business is reported — later
+  negative days are the same shortfall, not new ones — and a business with no
+  invoices is not flagged for a 0% match rate, which is absence of work rather
+  than a backlog.
+- **Reports**: consolidated reconciliation, tax calendar and cashflow views,
+  with a CSV export matching the corrected implementation (formula-injection
+  prefix, UTF-8 BOM, full set, RFC 4180 quoting).
+
+**Cashflow health** is a pure function over days of runway: Red under 30 days —
+one ΦΠΑ/ΕΦΚΑ cycle, inside which the shortfall can no longer be fixed by
+rescheduling — Yellow under 90, Green at the forecast horizon, and **Unknown**
+when nothing is stored, which is deliberately not the same as healthy.
+
+**Data isolation** is the central risk and is tested, not just intended: the
+handlers use only the tenant-filtered `ListActiveAsync()`, never the
+`...AcrossAllTenantsAsync` cron variants. A test wraps a repository that mirrors
+production's filtered/unfiltered asymmetry, so swapping in a cron read fails the
+test instead of leaking another tenant's clients.
+
+**Query cost** is bounded by the bulk reads `ListStoredForecastsAsync` and
+`ListTaxObligationsForBusinessesAsync` — two queries regardless of client count,
+rather than one forecast run per business.
+
+### M10 — Email notifications
+
+Five kinds (daily digest, tax reminder, cashflow alert, sync failure, weekly
+reconciliation) over the Resend HTTP transport that M-fix made work. Per-user,
+per-business `NotificationSettings`, now mapped with a unique index on
+`(BusinessId, UserId)`. Settings UI at
+`/businesses/{id}/settings/notifications` with a test-send button.
+
+Four Hangfire jobs, all Europe/Athens: **cashflow-alert 06:30** (deliberately
+after the 06:00 forecast it reads — earlier would alert on yesterday's
+projection), **daily-digest 07:00**, **tax-reminder 08:00** (ahead of the 09:00
+failure notifications, so a deadline lands before the noise), and
+**weekly-reconciliation Monday 07:00**. Ten recurring jobs now registered,
+verified in Hangfire's own tables.
+
+### Tests
+
+**406 passed, 1 skipped** (322 → 406, +84: 47 accountant, 37 notification).
+
+### Decisions worth knowing
+
+- **`Roivo.Infrastructure` may reference `Roivo.Resources`** — the csproj says so
+  explicitly and CODING_STANDARDS only bars Application/Core/Aade/Banking. So the
+  email templates read Greek strings directly instead of having them threaded
+  through from the caller.
+- **Notification idempotency rides on AuditLogs.** The entity and its migration
+  were frozen when the jobs were written, so `NotificationDispatchLog` records a
+  ledger row per send rather than stamping a column. It works and is dedupe-keyed
+  per job, but see the gap below.
+
+### Post-build review — four defects found and fixed
+
+Both features were reviewed adversarially after they were built. M10 came back
+with **no blockers**: tenant scope is correct on all four jobs and all seven
+repository calls, writes carry a real `TenantId` rather than `Guid.Empty`, and
+every interpolated value in every template is HTML-escaped. M9 did not, and the
+fixes are in:
+
+- **Match rate could exceed 100%.** `GetCountsAsync` counted confirmed and
+  pending matches over all time against a window-filtered invoice count. Latent
+  since M6 — invisible on a 90-day dashboard with little history, glaring on the
+  accountant report's one-month window, where a long-reconciled client would read
+  several hundred percent. It also voided the "below 50%" alert. Both counts are
+  now scoped to the window's invoices, the fake mirrors the real repository, and
+  a regression test pins it.
+- **Overdue tax obligations were invisible.** Both accountant queries floored
+  their window at today, so an unpaid obligation vanished on the morning it
+  became late — and `TaxObligation.IsOverdue` could never return true, which made
+  the overdue UI unreachable dead code. Both now look back 90 days.
+- **One undeliverable address aborted a whole job run.** Resend throws on any
+  4xx and Polly deliberately does not retry those, so a single rejected recipient
+  starved everyone ordered after it — on that run and identically on every run
+  after. All four jobs now isolate each send and continue.
+- **A doc comment promised tenant filtering that does not exist.** The bulk
+  cashflow reads use `IgnoreQueryFilters()`; confinement comes entirely from the
+  ids passed in. The comment now says so.
+
+### Known gaps / next steps
+
+- **The dispatch ledger belongs in its own table.** A `NotificationDispatches`
+  table — `TenantId`, `DispatchKey`, `SentAt`, unique on `(TenantId, DispatchKey)`
+  — would replace the AuditLogs ledger and turn the current check-then-send into
+  one atomic insert, closing the race if two Hangfire workers run a job at once.
+  A `LastSentAt` column on `NotificationSettings` would *not* do: the tax reminder
+  dedupes per obligation per lead-time stage, which needs a row per key.
+- **Reconciliation counts are still N+1, and it is worse than it looks.**
+  `GetCountsAsync` is eight SQL round trips, not one, and
+  `IReconciliationRepository` has no bulk variant — so a 50-client accountant
+  page issues ~403 statements, doubled to ~806 because `App.razor` prerenders
+  without `prerender: false`. The digest and weekly jobs pay the same cost. The
+  fix is a `GetCountsForBusinessesAsync(IReadOnlyCollection<Guid>, from, to)`
+  returning a dictionary with zeroed entries for businesses that have no rows,
+  mirroring the two bulk cashflow reads.
+- **Two notification jobs ignore bulk reads that already exist.**
+  `CashflowAlertJob` passes a one-element array to a collection-taking API fifty
+  times, and `TaxReminderJob` never uses `ListTaxObligationsForBusinessesAsync`.
+- **No `[DisableConcurrentExecution]` on the notification jobs.** Two Hangfire
+  servers would both pass the "already sent?" check before either stamps the
+  ledger. The attribute needs a Hangfire reference that `Roivo.Infrastructure`
+  deliberately does not have — its jobs are plain classes invoked reflectively —
+  so the unique-index fix above is the right close, not a package dependency.
+- Both migrations are applied to staging; existing businesses defaulted to
+  `Quarterly` ΦΠΑ and a null property value, so no ΕΝΦΙΑ is projected for them
+  until someone enters a value.
+
+---
+
+## M8 — Tax calendar completion, plus a shared clock ✅ Code complete 2026-10-03
+
+### M8
+
+- **ΕΝΦΙΑ (property tax)** in `GreekTaxCalendar`: five monthly instalments,
+  September through January. Generated **only** when the owner has supplied
+  `Business.EstimatedPropertyValue` — Roivo cannot see the property register, so
+  with no value it projects nothing rather than inventing a figure.
+- **Monthly vs quarterly ΦΠΑ** keyed off the new `Business.VatFrequency`.
+  Quarterly stays the 20th after the quarter closes; monthly is the 20th of the
+  following month. A business gets one or the other, never both.
+- Both read through a new `ICashflowRepository.GetTaxProfileAsync` projection,
+  so the calendar reads two fields instead of loading (and risking mutating) a
+  whole aggregate.
+
+### Shared clock
+
+`IClock` / `SystemClock` in `Roivo.Application.Abstractions`, registered as a
+singleton. The reconciliation dashboard was seeding its date range from
+`DateTime.Today` (server local) while every handler worked in UTC — Greece is
+UTC+2/+3, so for up to three hours a day the two disagreed about which day it
+was, and the same obligation read "pending" on one screen and "overdue" on
+another. Entity `CreatedAt = DateTime.UtcNow` defaults are deliberately left
+alone: entities are not DI-resolved, and they were never the inconsistency.
+
+### Tests
+
+`Roivo.Application.Tests` 213 → **229**. Suite total **322 passed, 1 skipped**.
+Tax-calendar tests now run against a `FakeClock` rather than absolute dates, so
+they cannot rot the way two earlier ones did.
+
+### Verified against staging, not just compiled
+
+Seeded 60 days of bank transactions for a test business and loaded the cashflow
+page: the forecast engine produced a real 90-day projection (balance €8,500 →
+€12,560), and **the MudChart rendered with data for the first time** — three
+series, scaled axes, a populated confidence band. Until then every chart in M6
+and M7 had only ever been seen behind an empty-data guard, so the MudBlazor 9.4
+`ChartSeries<double>` / `ChartData<double>` wiring was unproven.
+
+### Known gaps / next steps
+
+- **M9 (accountant dashboard) and M10 (email notifications) are NOT built.**
+  Only scaffolding exists: `Features/Accountant/AccountantAccess.cs` and
+  `Services/CashflowHealth.cs`, plus `Roivo.Resources/Notifications.cs`. No
+  handlers, pages, templates or jobs. The `NotificationSettings` entity exists
+  but is deliberately **not** mapped — no `DbSet`, no EF configuration, no
+  migration — so it is inert groundwork rather than half-applied schema.
+- The `AddBusinessTaxProfile` migration covers only the two `Business` columns.
+  `VatFrequency`'s default is set to `Quarterly` by hand; EF generated `""`,
+  which every pre-existing row would have failed to parse.
+- ΕΝΦΙΑ uses a single flat rate as a coarse projection. The real figure is
+  per-property and location-based; this is a cashflow estimate, not a
+  calculation, and the rate belongs in configuration before anyone relies on it.
+
+---
+
+## M6 + M7 — Reconciliation engine and cashflow forecasting ✅ Code complete 2026-10-01
+
+Built together as one epic because M7 cannot forecast without M6's matched data,
+and both land on the same two new UI surfaces.
+
+### M6 — Reconciliation engine
+
+**Domain:** `ReconciliationMatch` (automatic / manual / suggested, pending /
+confirmed / rejected) and `ReconciliationRule` (per-business amount and date
+tolerance, optional counterparty pattern). `IsReconciled` + `ReconciledAt` added
+to `Invoice` (via `MarkReconciled` / `ClearReconciliation`) and
+`BankTransaction`.
+
+**Matching:** `ReconciliationEngine` scores every eligible pair — exact amount
+0.4, within tolerance 0.2; date within 1 day 0.3, 3 days 0.2, 7 days 0.1;
+counterparty 0.3. At or above 0.8 the match is applied automatically; 0.5 and up
+is suggested for review. Assignment is greedy over a globally sorted candidate
+list, so the strongest pair claims a transaction before a weaker one competing
+for it.
+
+**Handlers:** `RunReconciliation`, `ConfirmSuggestedMatch`,
+`RejectSuggestedMatch`, `ManualMatch`, `GetReconciliationDashboard`,
+`GetUnreconciledItems`.
+
+**Job:** `NightlyReconciliationJob` at 05:00 Europe/Athens, an hour after the
+banking sync, over the trailing 90 days. Only businesses with *both* AADE and
+banking connected are eligible — with one side missing every invoice would
+report as unreconciled.
+
+### M7 — Cashflow forecasting
+
+**Domain:** `CashflowForecast` (prediction plus the actuals backfilled later),
+`CashflowCategory` (recurring rent / payroll / subscriptions), `TaxObligation`.
+
+**Forecasting:** `CashflowForecastEngine` blends a day-of-week and a
+day-of-month profile from the last 365 days of bank activity, layers on
+recurring categories and unpaid tax obligations, and runs a 90-day balance
+forward. The confidence band widens with the square root of the horizon.
+Alerts fire for negative balance, low balance, a tax date, and an outlier
+outflow.
+
+**Tax calendar:** `GreekTaxCalendar` generates ΦΠΑ (quarterly, 20th after
+quarter end), Παρακρατούμενος Φόρος (monthly, 20th), ΕΦΚΑ (monthly, month end),
+and the three income-tax instalments with their prepayment and Τέλος
+Επιτηδεύματος. VAT is estimated from actual invoice VAT (output less input,
+floored at zero); income tax from projected revenue.
+
+**Handlers:** `GetCashflowForecast`, `GetCashflowDashboard`, `GetTaxCalendar`,
+`MarkTaxPaid`, `AddRecurringItem`.
+
+**Job:** `NightlyCashflowForecastJob` at 06:00 Europe/Athens, after
+reconciliation. Skips any business with under 30 days of history.
+
+### Tests
+
+`Roivo.Application.Tests` 136 → **208** (+72). Engine scoring 13, tax calendar
+14, forecast engine 10, reconciliation handlers 10, cashflow handlers 25.
+A seeded 100-invoice synthetic dataset holds the engine to the milestone's
+70% auto-match bar and asserts that every automatic match is correct — a wrong
+auto-match is worse than none, because nobody reviews it.
+
+### Decisions worth knowing
+
+- **Both engines live in Application over repository abstractions**, not in
+  `Roivo.Forecasting` (still empty) — they are pure computation over rows we
+  already hold, with no third-party integration to isolate.
+- **A rejected match is kept, never deleted.** It is the only record that the
+  engine proposed a pair and a human said no, which is what stops the next
+  nightly run proposing it again. The unique index on
+  `(InvoiceId, BankTransactionId)` is filtered to exclude rejected rows, so a
+  pair can still be matched by hand afterwards.
+- **Direction has to agree**: an invoice we issued is settled by a credit, one
+  we received by a debit. Without that check a refund of the same size scores
+  identically to the payment.
+- **Cancelled invoices are excluded** from matching — AADE voided them, so
+  there is no money to find, and leaving them in would permanently depress the
+  match rate.
+- **Withholding tax and ΕΦΚΑ estimate zero.** Both depend on payroll, which
+  Roivo never sees. A user-entered recurring category is the honest way to get
+  them into the forecast; a guess would read as authoritative.
+- **No history produces no projection**, not a flat line at the current
+  balance. A flat line reads as a prediction.
+- **Tax obligations are identified by `(business, type, period)`**, so
+  regenerating the calendar is idempotent and never clobbers a recorded payment.
+
+### Known gaps / next steps
+
+- **M8 is now mostly built.** The spec folded the Greek tax calendar into M7, so
+  ROADMAP's M8 is reduced to ΕΝΦΙΑ, the monthly-vs-quarterly ΦΠΑ distinction by
+  books type, and surfacing obligations as markers on the cashflow chart.
+- **Invoice status is not set to Paid on match.** M6's roadmap line asks for it;
+  the build sets `IsReconciled` / `ReconciledAt` only, leaving
+  `Invoice.Status` as AADE reported it. Deliberate — the two facts are
+  different, and conflating them would lose the distinction — but it is a gap
+  against the roadmap wording.
+- **Critical cashflow alerts are logged, not emailed.** Wiring them into
+  `EmailJob` needs a per-business dedupe stamp, or a persistent shortfall mails
+  the owner every night.
+- **Tax rates are hardcoded** (ΦΠΑ 24%, income tax 22%, prepayment 80%, Τέλος
+  Επιτηδεύματος €650). They belong in configuration before anyone relies on the
+  figures, and AADE moves statutory deadlines by decision most years.
+- **Forecast accuracy is unmeasured against reality.** `CashflowForecast` stores
+  `Actual*` columns and a `BalanceError` for exactly this, but nothing backfills
+  them yet.
+- The engine's 70% bar is met against *generated* data shaped like Greek SMB
+  activity. It is a regression guard on the thresholds, not evidence about real
+  bank feeds.
+
+---
+
 ## Cashflow UI v1 — synced AADE data viewer ✅ Completed 2026-05-21
 
 First UI surfacing the data M4 syncs from AADE (incoming `Invoices` + outgoing aggregated `IncomeBookEntries`). Per-business page at `/businesses/{id}/invoices` with two tabs.
@@ -261,9 +737,12 @@ filtered index on `BankingAccessTokenEncrypted` for the cron.
   stale redirect.
 - Consent expiry (90 days) is stored and displayed but nothing proactively warns
   the user before it lapses — today they find out when a sync fails.
-- Pre-existing, outside M5: `NightlyAadeSyncJob`'s per-business job logs
-  "Business … not found; skipping" for every business, because
-  `SyncBusinessInvoicesHandler` loads through the tenant-filtered repository
-  while the cron runs with no tenant scope. The banking sync hit the same trap
-  and works around it with an explicit `BypassTenantScope` flag; AADE needs the
-  same fix or its nightly sync is a no-op.
+- ~~Pre-existing, outside M5: `NightlyAadeSyncJob`'s per-business job logs
+  "Business … not found; skipping" for every business~~ — **fixed 2026-10-02.**
+  `SyncBusinessInvoicesCommand` gained `BypassTenantScope`, and the tenant id
+  now comes from the loaded aggregate rather than ambient context. The identity
+  probes in `InvoiceRepository.UpsertAsync` and both
+  `IncomeBookEntryRepository` reads also needed `IgnoreQueryFilters()`: without
+  them the tenant-less cron missed every existing row and either inserted
+  orphaned `TenantId = Guid.Empty` duplicates or collided with the unique
+  indexes. Three regression tests cover it.

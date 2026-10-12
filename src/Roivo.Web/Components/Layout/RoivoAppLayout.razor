@@ -1,0 +1,278 @@
+@*
+    The product shell: dark sidebar, sticky header, scrolling content.
+
+    Replaces MainLayout for the authenticated product. MainLayout stays in place
+    for the pages Phase 1 leaves alone, so the landing and Account screens keep
+    working while this is built out.
+
+    MudBlazor's providers are still mounted: dialogs, menus and snackbars are
+    worth keeping, and the design's own CSS owns everything inside `.app`.
+*@
+
+@using Microsoft.AspNetCore.Components.Routing
+@using Roivo.Application.Abstractions.Security
+@using Microsoft.EntityFrameworkCore
+@using Roivo.Application.Abstractions
+@using Roivo.Infrastructure.Persistence
+@using Roivo.Resources
+@using Roivo.Web.Components.Shared
+@using Roivo.Web.Configuration
+@inherits LayoutComponentBase
+@implements IAsyncDisposable
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthState
+@inject IJSRuntime JS
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject IReconciliationRepository Reconciliation
+@inject ICashflowRepository Cashflow
+@inject IDeviceTrackingService Devices
+
+<MudThemeProvider Theme="@RoivoTheme.Build()" IsDarkMode="@_isDark" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<div class="app" data-theme="@(_isDark ? "dark" : "light")">
+    <RoivoSidebar Businesses="_businesses"
+                  IsAccountant="_isAccountant"
+                  SelectedBusinessId="_selectedBusinessId"
+                  SelectedBusinessIdChanged="OnBusinessChanged"
+                  UserName="@_userName"
+                  UserRole="@_userRole"
+                  PendingMatches="_pendingMatches"
+                  UpcomingObligations="_upcomingObligations" />
+
+    <div class="app-frame">
+        <RoivoHeader PageTitle="@CurrentPageTitle"
+                     Context="@SelectedBusinessName"
+                     IsDark="_isDark"
+                     OnToggleTheme="ToggleTheme" />
+
+        @* Both classes are the design's: `content` carries the scroll and the
+           gutters, `module-content` the vertical rhythm every page shares. *@
+        <main class="content module-content">
+            @* The layout already resolved who is signed in; cascading it saves
+               every page repeating the query just to greet them. *@
+            <CascadingValue Value="_userName" Name="UserFullName">
+                @* Null means the consolidated accountant workspace rather than
+                   one client. Pages branch on it; without this the sidebar's
+                   switcher moved the breadcrumb and nothing else. *@
+                <CascadingValue Value="_selectedBusinessId" Name="SelectedBusinessId">
+                    @* The theme lives here, because the attribute it sets is on
+                       the shell element. Settings has to read it and change it,
+                       so the layout itself is cascaded rather than a copy of
+                       the flag, which would go stale the moment either side
+                       toggled it. *@
+                    <CascadingValue Value="this" IsFixed="true">
+                        @* Above the page content, where a security notice belongs. *@
+                        <NewDeviceAlert Device="_newDevice" OnAcknowledge="AcknowledgeDevice" />
+                        @Body
+                    </CascadingValue>
+                </CascadingValue>
+            </CascadingValue>
+        </main>
+    </div>
+</div>
+
+@code {
+    private bool _isDark;
+    private bool _isAccountant;
+    private Guid? _selectedBusinessId;
+    private IReadOnlyList<RoivoSidebar.BusinessOption> _businesses = [];
+    private IJSObjectReference? _themeModule;
+    private string _userName = "";
+    private string _userRole = "";
+    private int _pendingMatches;
+    private int _upcomingObligations;
+    private UserDeviceView? _newDevice;
+    private Guid _userId;
+
+    /// <summary>
+    /// How long after a sign-in the new-device notice stays worth showing. Long
+    /// enough to survive a slow first page, short enough that it is clearly
+    /// about the session the user just started.
+    /// </summary>
+    private static readonly TimeSpan NewDeviceWindow = TimeSpan.FromMinutes(10);
+
+    /// <summary>
+    /// How far ahead an obligation counts as "coming up" for the sidebar badge.
+    /// Two weeks is the shortest Greek filing cycle, so anything inside it is
+    /// something the user can still act on.
+    /// </summary>
+    private const int ObligationHorizonDays = 14;
+
+    /// <summary>
+    /// Breadcrumb tail. Derived from the route rather than passed down, so a
+    /// page cannot forget to set it and leave the header showing the last one.
+    /// </summary>
+    private string CurrentPageTitle => Segment() switch
+    {
+        "dashboard" => Shell.Nav_Overview,
+        "cashflow" => Shell.Nav_Cashflow,
+        "reconciliation" => Shell.Nav_Reconciliation,
+        "obligations" => Shell.Nav_Obligations,
+        "reports" => Shell.Nav_Reports,
+        "connections" => Shell.Nav_Connections,
+        "settings" => Shell.Nav_Settings,
+        "help" => Shell.Nav_Help,
+        _ => Marketing.BrandName,
+    };
+
+    private string? SelectedBusinessName =>
+        _businesses.FirstOrDefault(b => b.Id == _selectedBusinessId)?.Name
+        ?? (_isAccountant ? Shell.AccountantWorkspace : null);
+
+    private string Segment()
+    {
+        var path = Nav.ToBaseRelativePath(Nav.Uri);
+        var cut = path.IndexOfAny(['?', '#']);
+        if (cut >= 0) path = path[..cut];
+        path = path.Trim('/');
+
+        var slash = path.IndexOf('/');
+        return slash >= 0 ? path[..slash] : path;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+
+
+        var state = await AuthState.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated != true) return;
+
+        _isAccountant = string.Equals(
+            state.User.FindFirst("tenant_type")?.Value,
+            nameof(Roivo.Core.Domain.Enums.TenantType.Accountant),
+            StringComparison.Ordinal);
+
+        // Read through the factory rather than a scoped context: the layout
+        // renders during circuit start-up, where a shared context races with
+        // whatever the first page is loading.
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _businesses = await db.Businesses
+            .Where(b => b.IsActive)
+            .OrderBy(b => b.Name)
+            .Select(b => new RoivoSidebar.BusinessOption(b.Id, b.Name))
+            .ToListAsync();
+
+        // A business owner has exactly one, and no switcher to pick it with.
+        if (!_isAccountant) _selectedBusinessId = _businesses.FirstOrDefault()?.Id;
+
+        var userIdValue = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (Guid.TryParse(userIdValue, out var userId))
+        {
+            _userId = userId;
+            _newDevice = await Devices.GetUnacknowledgedDeviceAsync(userId, NewDeviceWindow);
+
+            var user = await db.Users
+                .Where(u => u.Id == userId)
+                .Select(u => new { u.FullName, u.Email })
+                .FirstOrDefaultAsync();
+
+            _userName = user?.FullName ?? user?.Email ?? "";
+        }
+
+        _userRole = _isAccountant ? Shell.AccountantWorkspace : Dashboard.TenantType_Business;
+
+        await LoadBadgeCountsAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _themeModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/roivo-theme.js");
+        var stored = await _themeModule.InvokeAsync<string>("get");
+
+        if (stored == "dark" != _isDark)
+        {
+            _isDark = stored == "dark";
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// The two counts the sidebar badges show, across every business the user
+    /// can see.
+    /// </summary>
+    /// <remarks>
+    /// Both reads are batched — one set of grouped queries for the whole client
+    /// book rather than a pair per business. The sidebar renders on every page,
+    /// so a per-business loop here would be an N+1 on every navigation.
+    /// </remarks>
+    private async Task LoadBadgeCountsAsync()
+    {
+        if (_businesses.Count == 0) return;
+
+        var ids = _businesses.Select(b => b.Id).ToList();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var counts = await Reconciliation.GetCountsForBusinessesAsync(
+            ids, today.AddYears(-1), today);
+        _pendingMatches = counts.Values.Sum(c => c.PendingMatches);
+
+        var obligations = await Cashflow.ListTaxObligationsForBusinessesAsync(
+            ids, today, today.AddDays(ObligationHorizonDays));
+        _upcomingObligations = obligations.Count(o => !o.IsPaid);
+    }
+
+    /// <summary>Retires the notice so it does not reappear on the next page.</summary>
+    private async Task AcknowledgeDevice()
+    {
+        if (_newDevice is null) return;
+
+        await Devices.AcknowledgeDeviceAsync(_userId, _newDevice.Id);
+        _newDevice = null;
+    }
+
+    private async Task ToggleTheme()
+    {
+        _isDark = !_isDark;
+
+        if (_themeModule is not null)
+            await _themeModule.InvokeVoidAsync("set", _isDark ? "dark" : "light");
+    }
+
+    /// <summary>Which palette the shell is currently drawing.</summary>
+    /// <remarks>
+    /// Public because Settings offers the same choice the header's toggle does,
+    /// and the two must agree.
+    /// </remarks>
+    public bool IsDarkTheme => _isDark;
+
+    /// <summary>Sets the palette outright, rather than flipping it.</summary>
+    public async Task SetThemeAsync(bool dark)
+    {
+        if (dark == _isDark) return;
+
+        await ToggleTheme();
+        StateHasChanged();
+    }
+
+    private void OnBusinessChanged(Guid? id)
+    {
+        _selectedBusinessId = id;
+        StateHasChanged();
+    }
+
+    /// <summary>The breadcrumb and the active nav item both follow the route.</summary>
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) => StateHasChanged();
+
+    public async ValueTask DisposeAsync()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+
+        if (_themeModule is not null)
+        {
+            try
+            {
+                await _themeModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The circuit is already gone; there is no module left to dispose.
+            }
+        }
+    }
+}

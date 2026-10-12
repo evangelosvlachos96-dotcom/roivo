@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Roivo.Application.Abstractions;
 using Roivo.Core.Domain.Entities;
 using Roivo.Infrastructure.Email;
+using Roivo.Infrastructure.Email.Templates;
 using Roivo.Resources;
 
 namespace Roivo.Infrastructure.Jobs;
@@ -68,8 +69,8 @@ public sealed class AadeFailureNotificationJob
                 continue;
             }
 
-            var body = BuildEmailBody(business, baseUrl);
-            await _emailSender.SendEmailAsync(ownerEmail, Aade.FailureEmailSubject, body, cancellationToken).ConfigureAwait(false);
+            var email = RenderEmail(business, baseUrl);
+            await _emailSender.SendEmailAsync(ownerEmail, email.Subject, email.HtmlBody, cancellationToken).ConfigureAwait(false);
 
             business.RecordAadeFailureEmailSent();
             await _businesses.UpdateAsync(business, cancellationToken).ConfigureAwait(false);
@@ -80,27 +81,28 @@ public sealed class AadeFailureNotificationJob
         }
     }
 
-    private static string BuildEmailBody(Business business, string baseUrl)
-    {
-        var reconnectUrl = $"{baseUrl}/businesses/{business.Id}/aade";
-        var reasonText = MapFailureReasonToGreek(business.AadeLastFailureReason);
-        // ! is safe: ListWithExpiredAadeFailureAsync filters out null failure timestamps.
-        var failureLocal = business.AadeLastFailureAt!.Value.ToLocalTime();
+    /// <summary>Product name; the same in both languages.</summary>
+    private const string AadeConnectionLabel = "AADE myDATA";
 
-        var body = string.Format(
-            Aade.FailureEmailBody,
-            business.Name,
-            business.Afm,
-            failureLocal,
-            reasonText,
-            reconnectUrl);
+    /// <remarks>
+    /// Rendered in Greek rather than the owner's language: the recipient's
+    /// choice lives in a culture cookie, which a background job cannot see.
+    /// Greek is the product default, so an unattended send belongs there.
+    /// </remarks>
+    private static RenderedEmail RenderEmail(Business business, string baseUrl) =>
+        SyncFailureEmail.Render(
+            new SyncFailureEmail.Model(
+                BusinessId: business.Id,
+                BusinessName: business.Name,
+                ConnectionLabel: AadeConnectionLabel,
+                ReasonText: MapFailureReason(business.AadeLastFailureReason),
+                // ! is safe: ListWithExpiredAadeFailureAsync filters out null failure timestamps.
+                SinceUtc: business.AadeLastFailureAt!.Value,
+                CheckPath: "aade"),
+            baseUrl,
+            english: false);
 
-        // IEmailSender takes HTML; convert plain-text newlines.
-        var html = body.Replace("\n", "<br/>") + "<br/><br/>" + Aade.FailureEmailSignature;
-        return html;
-    }
-
-    private static string MapFailureReasonToGreek(string? reason) => reason switch
+    private static string MapFailureReason(string? reason) => reason switch
     {
         "InvalidCredentials" => Aade.FailureReasonInvalidCredentials,
         "AfmMismatch" => Aade.FailureReasonAfmMismatch,

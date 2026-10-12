@@ -8,6 +8,8 @@ using Roivo.Application.Abstractions;
 using Roivo.Core.Domain.Auditing;
 using Roivo.Core.Domain.Entities;
 using Roivo.Infrastructure.Email;
+using Roivo.Infrastructure.Email.Templates;
+using Roivo.Resources;
 
 namespace Roivo.Web.Areas.Account.Pages;
 
@@ -42,8 +44,8 @@ public class ForgotPasswordModel : PageModel
 
     public class InputModel
     {
-        [Required(ErrorMessage = "Το email είναι υποχρεωτικό")]
-        [EmailAddress(ErrorMessage = "Μη έγκυρο email")]
+        [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.EmailRequired))]
+        [EmailAddress(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.EmailInvalid))]
         public string Email { get; set; } = string.Empty;
     }
 
@@ -68,23 +70,17 @@ public class ForgotPasswordModel : PageModel
                     ["token"] = token,
                 });
 
-            var html = $$"""
-                <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#222;">
-                  <h2 style="color:#1565c0;">Επαναφορά κωδικού</h2>
-                  <p>Λάβαμε αίτημα για επαναφορά του κωδικού σου. Πάτησε το παρακάτω κουμπί για να ορίσεις νέο κωδικό.</p>
-                  <p style="text-align:center;margin:32px 0;">
-                    <a href="{{resetUrl}}" style="background:#1565c0;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;">Επαναφορά κωδικού</a>
-                  </p>
-                  <p style="font-size:13px;color:#666;">Αν το κουμπί δεν λειτουργεί, αντίγραψε αυτό το link στον browser σου:</p>
-                  <p style="font-size:12px;color:#666;word-break:break-all;">{{resetUrl}}</p>
-                  <hr style="border:none;border-top:1px solid #eee;margin:24px 0;" />
-                  <p style="font-size:12px;color:#888;">Αν δεν ζήτησες επαναφορά κωδικού, αγνόησε αυτό το μήνυμα.</p>
-                </div>
-                """;
+            // Rendered on the request thread so the template follows the
+            // visitor's language; the Hangfire worker that sends it has none.
+            var reset = PasswordResetEmail.Render(
+                new PasswordResetEmail.Model(resetUrl),
+                baseUrl: $"{Request.Scheme}://{Request.Host}",
+                english: Strings.IsEnglish);
 
             // Enqueue the email send so the user gets the "check your inbox"
             // page immediately. Hangfire will retry on SMTP failure.
-            _backgroundJobs.Enqueue<EmailJob>(job => job.SendAsync(Input.Email, "Επαναφορά κωδικού - Roivo", html));
+            _backgroundJobs.Enqueue<EmailJob>(job =>
+                job.SendAsync(Input.Email, reset.Subject, reset.HtmlBody));
 
             await _audit.WriteAsync(
                 action: AuditAction.PasswordResetRequested,

@@ -1,0 +1,393 @@
+@page "/reconciliation"
+@layout Roivo.Web.Components.Layout.RoivoAppLayout
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Roivo.Application.Abstractions
+@using Roivo.Application.Features.Reconciliation.Commands.ConfirmSuggestedMatch
+@using Roivo.Application.Features.Reconciliation.Commands.RejectSuggestedMatch
+@using Roivo.Application.Features.Reconciliation.Commands.RunReconciliation
+@using Roivo.Application.Features.Reconciliation.Queries.GetReconciliationDashboard
+@using Roivo.Core.Domain.Enums
+@using Roivo.Resources
+@using Roivo.Web.Components.Shared
+@inject AuthenticationStateProvider AuthState
+@inject IBusinessRepository Businesses
+@inject IReconciliationRepository Repository
+@inject GetReconciliationDashboardHandler DashboardHandler
+@inject ConfirmSuggestedMatchHandler ConfirmHandler
+@inject RejectSuggestedMatchHandler RejectHandler
+@inject RunReconciliationHandler RunHandler
+@inject ISnackbar Snackbar
+
+<RoivoPageTitle Title="@(Shell.Nav_Reconciliation)" />
+
+<ModuleHeader Eyebrow="@Shell.Rec_Eyebrow"
+              Title="@Shell.Rec_Title"
+              Description="@Shell.Rec_Description">
+    <Action>
+        <button type="button" class="primary-button" disabled="@_running" @onclick="RunReconciliation">
+            <RoivoIcon Name="RoivoIconName.Reconciliation" Size="16" /> @Shell.Rec_RunNow
+        </button>
+    </Action>
+</ModuleHeader>
+
+@if (_loading)
+{
+    <div class="reconcile-workspace">
+        <div class="reconcile-queue"><SkeletonCard /></div>
+        <div class="match-workspace"><SkeletonCard /></div>
+    </div>
+}
+else
+{
+    <section class="reconcile-stats">
+        <article>
+            <span class="metric-icon metric-icon--blue"><RoivoIcon Name="RoivoIconName.Obligations" /></span>
+            <div><strong>@_counts.TotalInvoices</strong><small>@Shell.Rec_Stat_Invoices</small></div>
+        </article>
+        <article>
+            <span class="metric-icon metric-icon--teal"><RoivoIcon Name="RoivoIconName.Bank" /></span>
+            <div><strong>@_counts.TotalTransactions</strong><small>@Shell.Rec_Stat_Transactions</small></div>
+        </article>
+        <article>
+            <span class="metric-icon metric-icon--amber"><RoivoIcon Name="RoivoIconName.Sparkle" /></span>
+            <div><strong>@_queue.Count</strong><small>@Shell.Rec_Stat_Pending</small></div>
+        </article>
+        <article>
+            <span class="metric-icon metric-icon--violet"><RoivoIcon Name="RoivoIconName.Reconciliation" /></span>
+            <div><strong>@MatchRate</strong><small>@Shell.Rec_Stat_Rate</small></div>
+        </article>
+    </section>
+
+    <section class="reconcile-workspace">
+        <aside class="reconcile-queue">
+            <div class="queue-head">
+                <div>
+                    <h2>@Shell.Rec_QueueTitle</h2>
+                    <span>@string.Format(Shell.Rec_QueueCount, Filtered.Count)</span>
+                </div>
+            </div>
+
+            <label class="queue-search">
+                <RoivoIcon Name="RoivoIconName.Search" Size="15" />
+                <input @bind="_query" @bind:event="oninput" placeholder="@Shell.Rec_QueueSearch" />
+            </label>
+
+            @foreach (var item in Filtered)
+            {
+                <button type="button" class="queue-item @(_selectedId == item.MatchId ? "is-active" : "")"
+                        @onclick="() => _selectedId = item.MatchId">
+                    <span class="@(item.TransactionAmount >= 0 ? "queue-in" : "queue-out")">
+                        @Initials(item.TransactionCounterpartyName ?? item.InvoiceCounterpartyName)
+                    </span>
+                    <div>
+                        <strong>@(item.TransactionCounterpartyName ?? item.InvoiceCounterpartyName ?? "—")</strong>
+                        <small>@item.TransactionBookingDate.ToString("dd MMM", Strings.FormatCulture)</small>
+                    </div>
+                    <b>@Money(item.TransactionAmount)</b>
+                </button>
+            }
+        </aside>
+
+        <div class="match-workspace">
+            @if (Selected is null)
+            {
+                <div class="no-match">
+                    <RoivoIcon Name="RoivoIconName.Search" />
+                    <strong>@(_queue.Count == 0 ? Shell.Rec_QueueEmpty : Shell.Rec_SelectPrompt)</strong>
+                    <span>@(_queue.Count == 0 ? Shell.Rec_QueueEmptyBody : "")</span>
+                </div>
+            }
+            else
+            {
+                <div class="match-header">
+                    <div>
+                        <span>@Shell.Rec_Suggested</span>
+                        <h2>@(Selected.TransactionCounterpartyName ?? Selected.InvoiceCounterpartyName ?? "—")</h2>
+                    </div>
+                    <span class="match-confidence">
+                        <RoivoIcon Name="RoivoIconName.Sparkle" Size="14" />
+                        @string.Format(Shell.Rec_Confidence, (int)Math.Round(Selected.Confidence * 100))
+                    </span>
+                </div>
+
+                <div class="match-columns">
+                    <article>
+                        <span class="match-source">
+                            <RoivoIcon Name="RoivoIconName.Bank" Size="16" /> @Shell.Rec_BankTransaction
+                        </span>
+                        <strong class="match-amount">@Money(Selected.TransactionAmount)</strong>
+                        <dl>
+                            <div>
+                                <dt>@Shell.Rec_Field_Date</dt>
+                                <dd>@Selected.TransactionBookingDate.ToString("dd MMM yyyy", Strings.FormatCulture)</dd>
+                            </div>
+                            <div>
+                                <dt>@Shell.Rec_Field_Counterparty</dt>
+                                <dd>@(Selected.TransactionCounterpartyName ?? "—")</dd>
+                            </div>
+                            <div>
+                                <dt>@Shell.Rec_Field_Amount</dt>
+                                <dd>@Money(Selected.TransactionAmount)</dd>
+                            </div>
+                        </dl>
+                    </article>
+
+                    <span class="match-link"><RoivoIcon Name="RoivoIconName.Link" /></span>
+
+                    <article>
+                        <span class="match-source">
+                            <RoivoIcon Name="RoivoIconName.Obligations" Size="16" /> @Shell.Rec_Invoice
+                        </span>
+                        <strong class="match-amount">@Money(Selected.InvoiceGrossAmount)</strong>
+                        <dl>
+                            <div>
+                                <dt>@Shell.Rec_Field_Issued</dt>
+                                <dd>@Selected.InvoiceIssueDate.ToString("dd MMM yyyy", Strings.FormatCulture)</dd>
+                            </div>
+                            <div>
+                                <dt>@Shell.Rec_Field_Counterparty</dt>
+                                <dd>@(Selected.InvoiceCounterpartyName ?? "—")</dd>
+                            </div>
+                            <div>
+                                <dt>@Shell.Rec_Field_Gross</dt>
+                                <dd>@Money(Selected.InvoiceGrossAmount)</dd>
+                            </div>
+                        </dl>
+                    </article>
+                </div>
+
+                @* The reasons are derived here rather than returned by the
+                   engine, which keeps only a single confidence score. They are
+                   recomputed from the same two records the engine compared, so
+                   they cannot claim agreement the figures do not show. *@
+                <div class="match-reasons">
+                    @foreach (var reason in ReasonsFor(Selected))
+                    {
+                        <span><RoivoIcon Name="RoivoIconName.Check" Size="13" /> @reason</span>
+                    }
+                </div>
+
+                <div class="match-actions">
+                    <button type="button" class="primary-button" disabled="@_acting"
+                            @onclick="() => Confirm(Selected.MatchId)">
+                        <RoivoIcon Name="RoivoIconName.Check" Size="15" /> @Shell.Rec_Approve
+                    </button>
+                    <button type="button" class="secondary-button" disabled="@_acting"
+                            @onclick="() => Reject(Selected.MatchId)">
+                        @Shell.Rec_Reject
+                    </button>
+                </div>
+            }
+        </div>
+    </section>
+}
+
+@code {
+    [CascadingParameter(Name = "SelectedBusinessId")] private Guid? SelectedBusinessId { get; set; }
+
+    private bool _loading = true;
+    private bool _running;
+    private bool _acting;
+    private string _query = "";
+    private Guid? _selectedId;
+    private Guid? _businessId;
+    private Guid? _loadedFor;
+    private bool _everLoaded;
+    private string _userId = "";
+
+    private ReconciliationCounts _counts = ReconciliationCounts.Empty;
+    private IReadOnlyList<ReconciliationMatchDetail> _queue = [];
+
+    private IReadOnlyList<ReconciliationMatchDetail> Filtered
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_query)) return _queue;
+
+            var needle = _query.Trim();
+            return
+            [
+                .. _queue.Where(m =>
+                    (m.TransactionCounterpartyName ?? "").Contains(needle, StringComparison.OrdinalIgnoreCase)
+                    || (m.InvoiceCounterpartyName ?? "").Contains(needle, StringComparison.OrdinalIgnoreCase))
+            ];
+        }
+    }
+
+    private ReconciliationMatchDetail? Selected =>
+        _queue.FirstOrDefault(m => m.MatchId == _selectedId);
+
+    private string MatchRate => _counts.TotalInvoices == 0
+        ? "—"
+        : ((decimal)_counts.ConfirmedMatches / _counts.TotalInvoices).ToString("P0", Strings.FormatCulture);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_everLoaded && _loadedFor == SelectedBusinessId) return;
+
+        _loadedFor = SelectedBusinessId;
+        _everLoaded = true;
+
+        var state = await AuthState.GetAuthenticationStateAsync();
+        _userId = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+
+        try
+        {
+            var businesses = await Businesses.ListActiveAsync();
+            var business = SelectedBusinessId is Guid id
+                ? businesses.FirstOrDefault(b => b.Id == id)
+                : businesses.FirstOrDefault();
+
+            if (business is null) return;
+
+            _businessId = business.Id;
+
+            // A year back: the queue is everything still awaiting a decision,
+            // not just this month's, or old suggestions would vanish unreviewed.
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            _counts = await Repository.GetCountsAsync(business.Id, today.AddYears(-1), today);
+
+            // A generous page rather than paging the queue: a review list the
+            // user scrolls through is useless if the highest-confidence
+            // suggestion sits on page two.
+            var all = await Repository.ListMatchDetailsAsync(
+                business.Id, ReconciliationMatchStatus.Pending, skip: 0, take: 200);
+            _queue = [.. all.OrderByDescending(m => m.Confidence)];
+
+            _selectedId = _queue.FirstOrDefault()?.MatchId;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task RunReconciliation()
+    {
+        if (_businessId is not Guid businessId) return;
+
+        _running = true;
+
+        try
+        {
+            // The same year-long window the queue is counted over, so running
+            // it cannot leave older unmatched items permanently invisible.
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var result = await RunHandler.Handle(
+                new RunReconciliationCommand(businessId, today.AddYears(-1), today),
+                CancellationToken.None);
+
+            Snackbar.Add(
+                result is RunReconciliationResult.Success success
+                    ? string.Format(Shell.Rec_RunDone, success.PersistedMatches)
+                    : Shell.Rec_ActionFailed,
+                result is RunReconciliationResult.Success ? Severity.Success : Severity.Warning);
+
+            await LoadAsync();
+        }
+        finally
+        {
+            _running = false;
+        }
+    }
+
+    private async Task Confirm(Guid matchId)
+    {
+        _acting = true;
+
+        try
+        {
+            var result = await ConfirmHandler.Handle(
+                new ConfirmSuggestedMatchCommand(matchId, _userId), CancellationToken.None);
+
+            if (result is ConfirmSuggestedMatchResult.Success)
+            {
+                Snackbar.Add(Shell.Rec_Approved, Severity.Success);
+                await LoadAsync();
+            }
+            else
+            {
+                Snackbar.Add(Shell.Rec_ActionFailed, Severity.Warning);
+            }
+        }
+        finally
+        {
+            _acting = false;
+        }
+    }
+
+    private async Task Reject(Guid matchId)
+    {
+        _acting = true;
+
+        try
+        {
+            var result = await RejectHandler.Handle(
+                new RejectSuggestedMatchCommand(matchId, _userId), CancellationToken.None);
+
+            if (result is RejectSuggestedMatchResult.Success)
+            {
+                Snackbar.Add(Shell.Rec_Rejected, Severity.Info);
+                await LoadAsync();
+            }
+            else
+            {
+                Snackbar.Add(Shell.Rec_ActionFailed, Severity.Warning);
+            }
+        }
+        finally
+        {
+            _acting = false;
+        }
+    }
+
+    /// <summary>
+    /// Why the engine paired these two, recomputed from the records themselves.
+    /// Only states what the figures actually support.
+    /// </summary>
+    private static IEnumerable<string> ReasonsFor(ReconciliationMatchDetail match)
+    {
+        var bank = Math.Abs(match.TransactionAmount);
+        var invoice = Math.Abs(match.InvoiceGrossAmount);
+
+        if (bank == invoice)
+        {
+            yield return Shell.Rec_Reason_SameAmount;
+        }
+        else if (invoice > 0 && Math.Abs(bank - invoice) / invoice <= 0.02m)
+        {
+            yield return Shell.Rec_Reason_CloseAmount;
+        }
+
+        if (!string.IsNullOrWhiteSpace(match.InvoiceCounterpartyName)
+            && !string.IsNullOrWhiteSpace(match.TransactionCounterpartyName)
+            && match.InvoiceCounterpartyName.Equals(
+                match.TransactionCounterpartyName, StringComparison.OrdinalIgnoreCase))
+        {
+            yield return Shell.Rec_Reason_SameParty;
+        }
+
+        if (Math.Abs(match.TransactionBookingDate.DayNumber - match.InvoiceIssueDate.DayNumber) <= 7)
+        {
+            yield return Shell.Rec_Reason_CloseDate;
+        }
+    }
+
+    private static string Money(decimal value) => value.ToString("C2", Strings.FormatCulture);
+
+    private static string Initials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "—";
+
+        return name.Trim()[..Math.Min(2, name.Trim().Length)].ToUpperInvariant();
+    }
+}

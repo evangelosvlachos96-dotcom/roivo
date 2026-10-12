@@ -1,0 +1,66 @@
+@*
+    Tells the signed-in user that this device is new to their account.
+
+    The shell asks the device tracker directly rather than having the login page
+    hand the state over: login is a Razor Page, and neither TempData nor
+    HttpContext.Items survives the redirect into a Blazor circuit.
+*@
+
+@using Roivo.Application.Abstractions.Security
+@using Roivo.Resources
+@inject NavigationManager Nav
+
+@if (_visible && Device is not null)
+{
+    <section class="device-alert @(_leaving ? "is-leaving" : "")" role="status">
+        <span class="device-alert-icon"><RoivoIcon Name="RoivoIconName.Bell" /></span>
+        <div>
+            <strong>@string.Format(Shell.Device_AlertTitle, Device.DeviceName)</strong>
+            <span>@Shell.Device_AlertBody</span>
+        </div>
+        <div class="device-alert-actions">
+            <button type="button" class="secondary-button" @onclick="Dismiss">
+                @Shell.Device_Dismiss
+            </button>
+            <button type="button" class="primary-button" @onclick="ChangePassword">
+                @Shell.Device_ChangePassword
+            </button>
+        </div>
+    </section>
+}
+
+@code {
+    /// <summary>The unacknowledged device, or null when there is nothing to say.</summary>
+    [Parameter] public UserDeviceView? Device { get; set; }
+
+    /// <summary>Raised once the user has seen it, so it is not shown again.</summary>
+    [Parameter] public EventCallback OnAcknowledge { get; set; }
+
+    private bool _visible = true;
+    private bool _leaving;
+
+    private async Task Dismiss()
+    {
+        // Let the slide-up play out before the element leaves the tree,
+        // otherwise the banner simply vanishes mid-animation.
+        _leaving = true;
+        StateHasChanged();
+
+        await Task.Delay(180);
+
+        _visible = false;
+        await OnAcknowledge.InvokeAsync();
+    }
+
+    /// <summary>
+    /// Acknowledges on the way out: someone acting on the warning has certainly
+    /// seen it, and leaving it unacknowledged would show it again on /settings.
+    /// </summary>
+    private async Task ChangePassword()
+    {
+        _visible = false;
+        await OnAcknowledge.InvokeAsync();
+
+        Nav.NavigateTo("/settings");
+    }
+}

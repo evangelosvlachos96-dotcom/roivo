@@ -9,7 +9,7 @@
 @inject NavigationManager Nav
 @inject ITenantContext TenantContext
 
-<PageTitle>@Roivo.Resources.Businesses.PageTitle_Create</PageTitle>
+<RoivoPageTitle Title="@(Roivo.Resources.Businesses.PageTitle_Create)" />
 
 <MudContainer MaxWidth="MaxWidth.Small" Class="mt-6">
 
@@ -25,36 +25,36 @@
         {
             <MudAlert Severity="Severity.Info" Class="mb-4" Icon="@Icons.Material.Outlined.Info">
                 <MudText Typo="Typo.subtitle2" Class="mb-2">
-                    Έχετε ήδη απενεργοποιημένη επιχείρηση με αυτό το ΑΦΜ
+                    @Roivo.Resources.Businesses.Dup_Heading
                 </MudText>
                 <MudText Typo="Typo.body2" Class="mb-3">
-                    Όνομα της προηγούμενης επιχείρησης: <strong>@inactiveDuplicate.OldName</strong>
+                    @Roivo.Resources.Businesses.Dup_PreviousNameLabel <strong>@inactiveDuplicate.OldName</strong>
                     @if (!string.IsNullOrEmpty(inactiveDuplicate.OldAddress))
                     {
                         <br />
-                        <span>Διεύθυνση: @inactiveDuplicate.OldAddress</span>
+                        <span>@string.Format(Roivo.Resources.Businesses.Dup_AddressPrefix, inactiveDuplicate.OldAddress)</span>
                     }
                 </MudText>
             </MudAlert>
 
             <MudText Typo="Typo.body2" Class="mb-4">
-                Τι θέλετε να κάνετε;
+                @Roivo.Resources.Businesses.Dup_WhatToDo
             </MudText>
 
             <MudPaper Outlined="true" Class="pa-4 mb-3">
                 <MudText Typo="Typo.subtitle2" Class="mb-2">
                     <MudIcon Icon="@Icons.Material.Outlined.Refresh" Size="Size.Small" Class="mr-1" />
-                    Επανενεργοποίηση της προηγούμενης
+                    @Roivo.Resources.Businesses.Dup_ReactivateOption
                 </MudText>
                 <MudText Typo="Typo.body2" Class="mb-3" Color="Color.Secondary">
-                    Διατηρείται όλη η ιστορία της επιχείρησης (παραστατικά, τραπεζικοί λογαριασμοί κλπ).
-                    Τα νέα στοιχεία που πληκτρολογήσατε θα ενημερώσουν την υπάρχουσα εγγραφή.
+                    @Roivo.Resources.Businesses.Dup_ReactivateExplain_History
+                    @Roivo.Resources.Businesses.Dup_ReactivateExplain_Update
                 </MudText>
                 <MudButton Variant="Variant.Filled" Color="Color.Primary"
                            OnClick="ReactivateExisting"
                            Disabled="@(state == FormState.Saving)"
                            FullWidth="true">
-                    @(state == FormState.Saving ? "Επανενεργοποίηση..." : Roivo.Resources.Businesses.ReactivateButton)
+                    @(state == FormState.Saving ? Roivo.Resources.Businesses.ReactivatingMessage : Roivo.Resources.Businesses.ReactivateButton)
                 </MudButton>
             </MudPaper>
 
@@ -70,32 +70,32 @@
             <MudForm @ref="form" Model="model" @bind-IsValid="isFormValid">
 
                 <MudTextField @bind-Value="model.Name"
-                              Label="Όνομα επιχείρησης"
+                              Label="@Roivo.Resources.Businesses.Form_NameLabel"
                               Required="true"
-                              RequiredError="Το όνομα είναι υποχρεωτικό"
+                              RequiredError="@Roivo.Resources.Businesses.Form_NameRequired"
                               MaxLength="200"
                               Immediate="true"
                               Class="mb-4" />
 
                 <MudTextField @bind-Value="model.Afm"
-                              Label="ΑΦΜ"
+                              Label="@Roivo.Resources.Businesses.AfmLabel"
                               Required="true"
-                              RequiredError="Το ΑΦΜ είναι υποχρεωτικό"
+                              RequiredError="@Roivo.Resources.Businesses.Form_AfmRequired"
                               Validation="@(new Func<string, string?>(ValidateAfm))"
                               MaxLength="9"
-                              HelperText="9 ψηφία"
+                              HelperText="@Roivo.Resources.Businesses.Form_AfmHelper"
                               Immediate="true"
                               Class="mb-4" />
 
                 <MudTextField @bind-Value="model.Kad"
-                              Label="ΚΑΔ (προαιρετικό)"
+                              Label="@Roivo.Resources.Businesses.Form_KadLabel"
                               MaxLength="20"
-                              HelperText="Κωδικός αριθμός δραστηριότητας"
+                              HelperText="@Roivo.Resources.Businesses.Form_KadHelper"
                               Immediate="true"
                               Class="mb-4" />
 
                 <MudTextField @bind-Value="model.Address"
-                              Label="Διεύθυνση (προαιρετικό)"
+                              Label="@Roivo.Resources.Businesses.Form_AddressLabel"
                               MaxLength="300"
                               Immediate="true"
                               Class="mb-4" />
@@ -149,7 +149,7 @@
             return null;
 
         if (!Roivo.Core.Domain.Validation.AfmValidator.IsValid(afm))
-            return "Μη έγκυρο ΑΦΜ";
+            return Roivo.Resources.Businesses.InvalidAfm_Short;
 
         return null;
     }
@@ -174,11 +174,11 @@
                 return;
             case CreateBusinessResult.InvalidAfm:
                 // Defensive — the form validator usually catches this first.
-                errorMessage = "Μη έγκυρο ΑΦΜ";
+                errorMessage = Roivo.Resources.Businesses.InvalidAfm_Short;
                 state = FormState.Editing;
                 return;
             case CreateBusinessResult.ActiveDuplicate:
-                errorMessage = "Υπάρχει ήδη ενεργή επιχείρηση με αυτό το ΑΦΜ.";
+                errorMessage = Roivo.Resources.Businesses.ActiveDuplicate_Error;
                 state = FormState.Editing;
                 return;
             case CreateBusinessResult.InactiveDuplicate dup:
@@ -205,15 +205,15 @@
                 Nav.NavigateTo("/businesses");
                 return;
             case ReactivateBusinessResult.NotFound:
-                errorMessage = "Η επιχείρηση δεν βρέθηκε.";
+                errorMessage = Roivo.Resources.Businesses.NotFound_Error;
                 BackToForm();
                 return;
             case ReactivateBusinessResult.AlreadyActive:
-                errorMessage = "Η επιχείρηση είναι ήδη ενεργή.";
+                errorMessage = Roivo.Resources.Businesses.AlreadyActive_Error;
                 BackToForm();
                 return;
             case ReactivateBusinessResult.ConflictsWithActive:
-                errorMessage = "Άλλη ενεργή επιχείρηση χρησιμοποιεί ήδη αυτό το ΑΦΜ.";
+                errorMessage = Roivo.Resources.Businesses.OtherActiveDuplicate_Error;
                 BackToForm();
                 return;
         }

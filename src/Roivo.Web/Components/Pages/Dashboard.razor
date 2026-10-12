@@ -1,102 +1,305 @@
 @page "/dashboard"
+@layout Roivo.Web.Components.Layout.RoivoAppLayout
 @attribute [Authorize]
 @using Microsoft.AspNetCore.Authorization
-@using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.AspNetCore.Identity
-@using Roivo.Application.Features.Businesses.Queries.ListActiveBusinesses
-@using Roivo.Application.Features.Tenants.Queries.GetCurrentTenant
-@inject AuthenticationStateProvider AuthState
-@inject UserManager<ApplicationUser> UserManager
-@inject GetCurrentTenantHandler GetTenantHandler
-@inject ListActiveBusinessesHandler ListBusinessesHandler
+@using Roivo.Application.Abstractions
+@using Roivo.Application.Features.Accountant.Queries.GetAccountantDashboard
+@* AccountantDashboard is also an existing page component, which wins here. *@
+@using ClientPortfolio = Roivo.Application.Features.Accountant.Queries.GetAccountantDashboard.AccountantDashboard
+@using Roivo.Application.Features.Cashflow.Queries.GetCashflowDashboard
+@* CashflowDashboard is also the name of an existing page component, which
+   wins in this scope. The alias keeps the handler result reachable. *@
+@using CashflowOverview = Roivo.Application.Features.Cashflow.Queries.GetCashflowDashboard.CashflowDashboard
+@using Roivo.Application.Features.Cashflow.Services
+@using Roivo.Core.Domain.Entities
+@using Roivo.Resources
+@using Roivo.Web.Components.Shared
+@inject GetCashflowDashboardHandler CashflowHandler
+@inject IBankAccountRepository BankAccounts
+@inject IBusinessRepository Businesses
+@inject GetAccountantDashboardHandler AccountantHandler
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
 
-<PageTitle>Dashboard — Roivo</PageTitle>
+<RoivoPageTitle Title="@(Shell.Nav_Overview)" />
 
 @if (_loading)
 {
-    <MudProgressCircular Indeterminate="true" />
+    <section class="page-intro owner-intro">
+        <div>
+            <SkeletonText Width="32%" Height="0.7rem" />
+            <SkeletonText Announce="false" Width="46%" Height="2rem" />
+        </div>
+    </section>
+
+    <div class="owner-dashboard-grid">
+        <div class="widget-shell widget-shell--metrics"><SkeletonCard /></div>
+        <div class="widget-shell widget-shell--forecast"><SkeletonChart /></div>
+        <div class="widget-shell"><SkeletonCard /></div>
+    </div>
 }
-else if (_error is not null)
+else if (_portfolio is not null)
 {
-    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    @* No client selected: the accountant's own landing view. *@
+    <AccountantPortfolio Dashboard="_portfolio" UserFullName="@UserFullName" />
 }
-else if (_tenant is not null)
+else if (_business is null)
 {
-    <MudPaper Class="pa-6 mb-4" Elevation="1">
-        <MudText Typo="Typo.h4" Class="mb-2">Καλωσήρθες, @_fullName</MudText>
-        <MudText Typo="Typo.body2" Class="mud-text-secondary">@_email</MudText>
-    </MudPaper>
+    <ModulePlaceholder Title="@Shell.Nav_Overview" Description="@Shell.Placeholder_Body" />
+}
+else
+{
+    <section class="page-intro owner-intro">
+        <div>
+            <span class="eyebrow">@_business.Name.ToUpperInvariant() · @Roivo.Resources.Businesses.AfmLabel @_business.Afm</span>
+            <h1>@string.Format(Shell.Greeting, FirstName)</h1>
+            <p>@Shell.GreetingSubtitle</p>
+        </div>
 
-    <MudPaper Class="pa-6 mb-4" Elevation="1">
-        <MudText Typo="Typo.h6" Class="mb-3">Ο οργανισμός σου</MudText>
-        <MudGrid>
-            <MudItem xs="12" sm="6">
-                <MudText Typo="Typo.caption" Class="mud-text-secondary">Tenant</MudText>
-                <MudText Typo="Typo.body1">@_tenant.Name</MudText>
-            </MudItem>
-            <MudItem xs="12" sm="3">
-                <MudText Typo="Typo.caption" Class="mud-text-secondary">Τύπος</MudText>
-                <MudText Typo="Typo.body1">@GetTenantTypeLabel(_tenant.Type)</MudText>
-            </MudItem>
-            <MudItem xs="12" sm="3">
-                <MudText Typo="Typo.caption" Class="mud-text-secondary">ΑΦΜ</MudText>
-                <MudText Typo="Typo.body1">@_tenant.Afm</MudText>
-            </MudItem>
-        </MudGrid>
-    </MudPaper>
+        @* Dashboard customisation is a Pro feature with no implementation
+           behind it yet, so the button says what it is and the toast is
+           honest about that rather than opening an editor that does nothing. *@
+        <div class="owner-actions">
+            <button type="button" class="customize-button" @onclick="ShowPremiumNotice">
+                <RoivoIcon Name="RoivoIconName.Settings" Size="16" />
+                @Shell.Owner_Customize
+                <span>@Shell.Owner_Premium</span>
+            </button>
+            <button type="button" class="period-button">
+                @Shell.Owner_Period90 <b>⌄</b>
+            </button>
+        </div>
+    </section>
 
-    <MudPaper Class="pa-6 mb-4" Elevation="1">
-        <MudText Typo="Typo.h6" Class="mb-2">Επιχειρήσεις</MudText>
-        <MudText Typo="Typo.body2" Class="mud-text-secondary">
-            Κάτω από αυτό το tenant: <strong>@_businessCount</strong>
-        </MudText>
-    </MudPaper>
+    <div class="owner-dashboard-grid">
+        <div class="widget-shell widget-shell--metrics">
+            <section class="owner-widget owner-widget--metrics">
+                <article>
+                    <span>@Shell.Metric_Available</span>
+                    <strong>@Money(Summary.CurrentBalance)</strong>
+                    <small class="@(IsHealthy ? "up" : null)">@RunwayNote</small>
+                </article>
+                <article>
+                    <span>@Shell.Metric_ExpectedInflow</span>
+                    <strong>@Money(Inflow30)</strong>
+                    <small>@Shell.Metric_Next30Days</small>
+                </article>
+                <article>
+                    <span>@Shell.Metric_PlannedOutflow</span>
+                    <strong>@Money(Outflow30)</strong>
+                    <small>@Shell.Metric_Next30Days</small>
+                </article>
+                <article>
+                    <span>@Shell.Metric_NetPosition90</span>
+                    <strong>@Signed(Net90)</strong>
+                    <small class="@(Net90 >= 0 ? "up" : null)">
+                        @(Net90 >= 0 ? Shell.Metric_HealthyForecast : Shell.Metric_TightForecast)
+                    </small>
+                </article>
+            </section>
+        </div>
 
-    <form action="/Account/Logout" method="post" class="d-inline">
-        <AntiforgeryToken />
-        <button type="submit" class="mud-button-root mud-button mud-button-outlined mud-button-outlined-secondary mud-button-outlined-size-medium mud-ripple">
-            <span class="mud-button-label">Αποσύνδεση</span>
-        </button>
-    </form>
+        <div class="widget-shell widget-shell--forecast">
+            <article class="owner-widget owner-widget--forecast">
+                <div class="widget-heading">
+                    <div>
+                        <h2>@Shell.Forecast_Title</h2>
+                        <span>@Shell.Forecast_Subtitle</span>
+                    </div>
+                    @if (HasForecast)
+                    {
+                        <span class="confidence-pill">
+                            <i></i> @string.Format(Shell.Forecast_Confidence, Confidence)
+                        </span>
+                    }
+                </div>
+
+                @if (HasForecast)
+                {
+                    <CashflowSparkline Points="_dashboard!.DailyForecasts" />
+
+                    <div class="chart-months">
+                        @foreach (var month in MonthLabels)
+                        {
+                            <span>@month</span>
+                        }
+                    </div>
+
+                    <div class="chart-legend">
+                        <span><i class="actual"></i> @Shell.Forecast_Actual</span>
+                        <span><i class="projected"></i> @Shell.Forecast_Projected</span>
+                    </div>
+                }
+                else
+                {
+                    <section class="empty-state">
+                        <strong>@Shell.Forecast_NotEnoughHistory</strong>
+                        <p>@Shell.Forecast_NotEnoughHistoryBody</p>
+                    </section>
+                }
+            </article>
+        </div>
+
+        <div class="widget-shell">
+            <article class="owner-widget owner-widget--obligations">
+                <div class="widget-heading">
+                    <div>
+                        <h2>@Shell.Obligations_Title</h2>
+                        <span>@string.Format(Shell.Obligations_Total, Money(ObligationsTotal))</span>
+                    </div>
+                    <button type="button" @onclick='() => Nav.NavigateTo("/obligations")'>
+                        @Shell.Obligations_All
+                    </button>
+                </div>
+
+                @if (_obligations.Count == 0)
+                {
+                    <section class="empty-state"><p>@Shell.Obligations_None</p></section>
+                }
+                else
+                {
+                    @foreach (var obligation in _obligations)
+                    {
+                        <div class="obligation-row">
+                            <span class="date-box">
+                                <b>@obligation.DueDate.Day.ToString("00")</b>
+                                <small>@MonthAbbrev(obligation.DueDate)</small>
+                            </span>
+                            <div>
+                                <strong>@TaxLabels.For(obligation.TaxType)</strong>
+                                <small>@DueNote(obligation.DueDate)</small>
+                            </div>
+                            <b>@Money(obligation.EstimatedAmount)</b>
+                        </div>
+                    }
+                }
+            </article>
+        </div>
+
+        <div class="widget-shell">
+            <article class="owner-widget owner-widget--insight">
+                <div class="insight-top">
+                    <span class="brand-mark brand-mark--small">
+                        <img src="icon-192.png" alt="" />
+                    </span>
+                    <span>@Shell.Insight_Title</span>
+                </div>
+                <p>@Insight</p>
+            </article>
+        </div>
+
+        <div class="widget-shell widget-shell--accounts">
+            <article class="owner-widget owner-widget--accounts">
+                <div class="widget-heading">
+                    <div>
+                        <h2>@Shell.Accounts_Title</h2>
+                        <span>@LastSyncNote</span>
+                    </div>
+                    <button type="button" @onclick='() => Nav.NavigateTo("/connections")'>
+                        @Shell.Accounts_Manage
+                    </button>
+                </div>
+
+                @if (_accounts.Count == 0)
+                {
+                    <section class="empty-state"><p>@Shell.Accounts_None</p></section>
+                }
+                else
+                {
+                    @foreach (var account in _accounts)
+                    {
+                        <div class="bank-account">
+                            <span class="bank-logo">@BankInitials(account.BankName)</span>
+                            <div>
+                                <strong>@account.BankName</strong>
+                                <small>@MaskIban(account.Iban) · @account.Currency</small>
+                            </div>
+                            <b>@Money(account.CurrentBalance)</b>
+                            <i>@Shell.Accounts_Connected</i>
+                        </div>
+                    }
+                }
+            </article>
+        </div>
+    </div>
 }
 
 @code {
-    private bool _loading = true;
-    private string? _error;
-    private string? _fullName;
-    private string? _email;
-    private Roivo.Core.Domain.Entities.Tenant? _tenant;
-    private int _businessCount;
+    /// <summary>Supplied by RoivoAppLayout, which already looked the user up.</summary>
+    [CascadingParameter(Name = "UserFullName")] private string? UserFullName { get; set; }
 
-    protected override async Task OnInitializedAsync()
+    /// <summary>
+    /// Which client the sidebar has selected. Null is the accountant's
+    /// consolidated workspace, which is a different view entirely.
+    /// </summary>
+    [CascadingParameter(Name = "SelectedBusinessId")] private Guid? SelectedBusinessId { get; set; }
+
+    private bool _loading = true;
+    private Business? _business;
+    private CashflowOverview? _dashboard;
+    private IReadOnlyList<BankAccount> _accounts = [];
+    private IReadOnlyList<TaxObligation> _obligations = [];
+    private ClientPortfolio? _portfolio;
+    private Guid? _loadedFor;
+
+    private CashflowSummary Summary =>
+        _dashboard?.Summary ?? new CashflowSummary(0m, 0m, 0m, 0m, 0m, 0m, 0m, 0);
+
+    private bool HasForecast =>
+        _dashboard?.HasSufficientHistory == true && _dashboard.DailyForecasts.Count > 0;
+
+    /// <summary>
+    /// Reloads whenever the sidebar's selection changes, not just on first
+    /// render: switching client has to re-fetch, and OnInitialized runs once.
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
     {
+        if (_loadedFor == SelectedBusinessId && !_loading) return;
+
+        _loadedFor = SelectedBusinessId;
+        _loading = true;
+        _portfolio = null;
+        _business = null;
+        _dashboard = null;
+        _accounts = [];
+        _obligations = [];
+
         try
         {
-            var state = await AuthState.GetAuthenticationStateAsync();
-            var currentUser = await UserManager.GetUserAsync(state.User);
-
-            if (currentUser is null)
+            if (SelectedBusinessId is null)
             {
-                _error = "Δεν βρέθηκε ο χρήστης.";
-                return;
+                // The consolidated workspace. Forbidden for a business owner,
+                // whose own single business is loaded instead.
+                var result = await AccountantHandler.Handle(
+                    new GetAccountantDashboardQuery(), CancellationToken.None);
+
+                if (result is GetAccountantDashboardResult.Success success)
+                {
+                    _portfolio = success.Dashboard;
+                    return;
+                }
             }
 
-            _fullName = currentUser.FullName;
-            _email = currentUser.Email;
+            var businesses = await Businesses.ListActiveAsync();
+            _business = SelectedBusinessId is Guid id
+                ? businesses.FirstOrDefault(b => b.Id == id)
+                : businesses.FirstOrDefault();
 
-            _tenant = await GetTenantHandler.Handle(new GetCurrentTenantQuery(), CancellationToken.None);
-            if (_tenant is null)
-            {
-                _error = "Δεν βρέθηκε tenant_id στο token σου.";
-                return;
-            }
+            if (_business is null) return;
 
-            var businesses = await ListBusinessesHandler.Handle(new ListActiveBusinessesQuery(), CancellationToken.None);
-            _businessCount = businesses.Count;
-        }
-        catch (Exception ex)
-        {
-            _error = ex.Message;
+            _dashboard = await CashflowHandler.Handle(
+                new GetCashflowDashboardQuery(_business.Id), CancellationToken.None);
+
+            _accounts = await BankAccounts.ListByBusinessAsync(_business.Id);
+
+            var horizon = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(30);
+            _obligations =
+            [
+                .. _dashboard.UpcomingTaxObligations
+                    .Where(o => !o.IsPaid && o.DueDate <= horizon)
+                    .OrderBy(o => o.DueDate)
+                    .Take(4)
+            ];
         }
         finally
         {
@@ -104,10 +307,130 @@ else if (_tenant is not null)
         }
     }
 
-    private static string GetTenantTypeLabel(Roivo.Core.Domain.Enums.TenantType type) => type switch
+    private void ShowPremiumNotice() =>
+        Snackbar.Add(Shell.Owner_PremiumToast, Severity.Info);
+
+    // ------------------------------------------------------------ formatting
+
+    private static string Money(decimal value) => value.ToString("C0", Strings.FormatCulture);
+
+    private static string Signed(decimal value) => (value >= 0 ? "+" : "") + Money(value);
+
+    /// <summary>
+    /// Read from the cascade on every render rather than snapshotted in
+    /// OnInitializedAsync. The layout resolves the name in its own
+    /// initialiser, which can finish after this page's, and a snapshot taken
+    /// first would leave the greeting permanently blank.
+    /// </summary>
+    private string FirstName =>
+        (UserFullName ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()
+        ?? "";
+
+    /// <summary>Thirty days of projected flow, read off the forecast itself.</summary>
+    private decimal Inflow30 => _dashboard?.DailyForecasts.Take(30).Sum(f => f.PredictedInflow) ?? 0m;
+
+    private decimal Outflow30 => _dashboard?.DailyForecasts.Take(30).Sum(f => f.PredictedOutflow) ?? 0m;
+
+    /// <summary>What the next ninety days add to, or take from, today's balance.</summary>
+    private decimal Net90 => Summary.Forecast90DayBalance - Summary.CurrentBalance;
+
+    private bool IsHealthy => Summary.DaysOfRunway >= 60;
+
+    private string RunwayNote => Summary.DaysOfRunway >= CashflowSummary.UnlimitedRunway
+        ? Shell.Metric_RunwayUnlimited
+        : string.Format(Shell.Metric_RunwayDays, Summary.DaysOfRunway);
+
+    /// <summary>
+    /// How tightly the confidence band hugs the projection, as a percentage.
+    /// Derived rather than a fixed number: a wide band on a small balance is
+    /// genuinely less certain, and the design shows this figure to the user.
+    /// </summary>
+    private int Confidence
     {
-        Roivo.Core.Domain.Enums.TenantType.Accountant => "Λογιστής",
-        Roivo.Core.Domain.Enums.TenantType.Business => "Ιδιοκτήτης επιχείρησης",
-        _ => "Άγνωστος τύπος"
-    };
+        get
+        {
+            var points = _dashboard?.DailyForecasts;
+            if (points is null || points.Count == 0) return 0;
+
+            var last = points[^1];
+            var spread = last.ConfidenceHigh - last.ConfidenceLow;
+            var scale = Math.Max(Math.Abs(last.PredictedBalance), 1m);
+
+            return (int)Math.Round(Math.Clamp(100m - (spread / scale * 100m), 40m, 99m));
+        }
+    }
+
+    private decimal ObligationsTotal => _obligations.Sum(o => o.EstimatedAmount);
+
+    private IEnumerable<string> MonthLabels =>
+        (_dashboard?.DailyForecasts ?? [])
+            .Select(f => f.Date)
+            .GroupBy(d => new { d.Year, d.Month })
+            .Take(4)
+            .Select(g => new DateOnly(g.Key.Year, g.Key.Month, 1)
+                .ToString("MMM", Strings.FormatCulture));
+
+    private static string MonthAbbrev(DateOnly date) =>
+        date.ToString("MMM", Strings.FormatCulture).TrimEnd('.').ToUpperInvariant();
+
+    private static string DueNote(DateOnly due)
+    {
+        var days = due.DayNumber - DateOnly.FromDateTime(DateTime.UtcNow).DayNumber;
+
+        return days switch
+        {
+            < 0 => Shell.Obligations_Overdue,
+            0 => Shell.Obligations_DueToday,
+            _ => string.Format(Shell.Obligations_DueInDays, days),
+        };
+    }
+
+    private string LastSyncNote
+    {
+        get
+        {
+            var latest = _accounts.Where(a => a.LastSyncedAt is not null).Max(a => a.LastSyncedAt);
+
+            return latest is null
+                ? Shell.Accounts_NeverSynced
+                : string.Format(
+                    Shell.Accounts_SyncedAt,
+                    latest.Value.ToLocalTime().ToString("dd/MM HH:mm", Strings.FormatCulture));
+        }
+    }
+
+    /// <summary>Up to three letters for the square bank badge.</summary>
+    private static string BankInitials(string bankName)
+    {
+        var words = bankName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        return words.Length == 1
+            ? words[0][..Math.Min(3, words[0].Length)].ToUpperInvariant()
+            : string.Concat(words.Take(3).Select(w => w[0])).ToUpperInvariant();
+    }
+
+    /// <summary>Last four digits only; the rest of an IBAN has no business on screen.</summary>
+    private static string MaskIban(string iban)
+    {
+        var compact = iban.Replace(" ", "");
+
+        return compact.Length <= 4 ? compact : "•••• " + compact[^4..];
+    }
+
+    private string Insight
+    {
+        get
+        {
+            if (!HasForecast) return Shell.Forecast_NotEnoughHistoryBody;
+
+            // An alert the engine already raised is the honest insight. A
+            // generated sentence that contradicted one would be worse than none.
+            var alert = _dashboard!.Alerts.FirstOrDefault();
+            if (alert is not null) return alert.Message;
+
+            return Net90 >= 0
+                ? string.Format(Shell.Insight_Positive, Money(Net90), Summary.DaysOfRunway)
+                : string.Format(Shell.Insight_Negative, Money(Math.Abs(Net90)));
+        }
+    }
 }

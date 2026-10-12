@@ -1,0 +1,291 @@
+@page "/connections"
+@layout Roivo.Web.Components.Layout.RoivoAppLayout
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using Roivo.Application.Abstractions
+@using Roivo.Core.Domain.Entities
+@using Roivo.Resources
+@using Roivo.Web.Components.Shared
+@inject IBusinessRepository Businesses
+@inject IBankAccountRepository BankAccounts
+@inject NavigationManager Nav
+
+<RoivoPageTitle Title="@(Shell.Nav_Connections)" />
+
+<ModuleHeader Eyebrow="@Shell.Con_Eyebrow"
+              Title="@Shell.Con_Title"
+              Description="@Shell.Con_Description">
+    <Action>
+        <button type="button" class="primary-button" @onclick="GoToNewConnection">
+            <RoivoIcon Name="RoivoIconName.Plus" Size="16" /> @Shell.Con_New
+        </button>
+    </Action>
+</ModuleHeader>
+
+@if (_loading)
+{
+    <section class="connections-grid"><SkeletonCard /><SkeletonCard /></section>
+}
+else if (_business is null)
+{
+    <section class="empty-state"><p>@Shell.Placeholder_Body</p></section>
+}
+else
+{
+    <section class="connection-health">
+        <RoivoIcon Name="@(Problems == 0 ? RoivoIconName.Check : RoivoIconName.Bell)" />
+        <div>
+            <strong>@HealthHeadline</strong>
+            <span>@LastSyncSentence</span>
+        </div>
+        <button type="button" @onclick="GoToAade">@Shell.Con_SyncNow</button>
+    </section>
+
+    <h2 class="section-label">@Shell.Con_BankSection</h2>
+
+    @if (_accounts.Count == 0)
+    {
+        <section class="empty-state">
+            <p>@Shell.Con_NoBanks</p>
+            <button type="button" class="primary-button" @onclick="GoToBanking">@Shell.Con_Connect</button>
+        </section>
+    }
+    else
+    {
+        <section class="connections-grid">
+            @* One card per bank, not per account: a bank is the thing you
+               connect and disconnect, and two accounts at the same bank share
+               a single consent. *@
+            @foreach (var bank in BanksGrouped)
+            {
+                <article class="connection-card">
+                    <div>
+                        <span class="bank-logo">@BankInitials(bank.Key)</span>
+                        <span>
+                            <strong>@bank.Key</strong>
+                            <small>
+                                @string.Format(Shell.Con_AccountsAndSync,
+                                    AccountsLabel(bank.Count()), Ago(bank.Max(a => a.LastSyncedAt)))
+                            </small>
+                        </span>
+                        <StatusPill Status="BankStatus" />
+                    </div>
+                    <dl>
+                        <div>
+                            <dt>@Shell.Con_Status</dt>
+                            <dd>@BankStatusLabel</dd>
+                        </div>
+                        <div>
+                            <dt>@Shell.Con_Balance</dt>
+                            <dd>@Money(bank.Sum(a => a.CurrentBalance))</dd>
+                        </div>
+                    </dl>
+                    <button type="button" @onclick="GoToBanking">
+                        @(BankingBroken ? Shell.Con_Reconnect : Shell.Con_Manage)
+                        <RoivoIcon Name="RoivoIconName.Arrow" Size="14" />
+                    </button>
+                </article>
+            }
+        </section>
+    }
+
+    <h2 class="section-label">@Shell.Con_TaxSection</h2>
+
+    <section class="connections-grid tax-connections">
+        <article class="connection-card">
+            <div>
+                <span class="service-logo">my</span>
+                <span>
+                    <strong>myDATA</strong>
+                    <small>@Shell.Con_MyDataSubtitle</small>
+                </span>
+                <StatusPill Status="AadeStatus" />
+            </div>
+            <dl>
+                <div>
+                    <dt>@Shell.Con_Status</dt>
+                    <dd>@AadeStatusLabel</dd>
+                </div>
+                <div>
+                    <dt>@Shell.Con_LastSyncLabel</dt>
+                    <dd>@Ago(_business.LastAadeSyncAt)</dd>
+                </div>
+            </dl>
+            <button type="button" @onclick="GoToAade">
+                @(_business.HasAadeFailure ? Shell.Con_Reconnect : Shell.Con_Settings)
+                <RoivoIcon Name="RoivoIconName.Arrow" Size="14" />
+            </button>
+        </article>
+    </section>
+}
+
+@code {
+    [CascadingParameter(Name = "SelectedBusinessId")] private Guid? SelectedBusinessId { get; set; }
+
+    private bool _loading = true;
+    private Business? _business;
+    private IReadOnlyList<BankAccount> _accounts = [];
+    private Guid? _loadedFor;
+    private bool _everLoaded;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_everLoaded && _loadedFor == SelectedBusinessId) return;
+
+        _loadedFor = SelectedBusinessId;
+        _everLoaded = true;
+        _loading = true;
+
+        try
+        {
+            var businesses = await Businesses.ListActiveAsync();
+            _business = SelectedBusinessId is Guid id
+                ? businesses.FirstOrDefault(b => b.Id == id)
+                : businesses.FirstOrDefault();
+
+            if (_business is null) return;
+
+            _accounts = await BankAccounts.ListByBusinessAsync(_business.Id);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private IEnumerable<IGrouping<string, BankAccount>> BanksGrouped =>
+        _accounts.GroupBy(a => a.BankName).OrderBy(g => g.Key);
+
+    /// <summary>How many connections are currently broken or lapsing.</summary>
+    private int Problems
+    {
+        get
+        {
+            if (_business is null) return 0;
+
+            var count = 0;
+            if (_business.HasAadeFailure) count++;
+            if (BankingBroken || ConsentLapsing) count++;
+
+            return count;
+        }
+    }
+
+    /// <summary>
+    /// Banking has no boolean failure flag: the error counter is reset by any
+    /// successful sync, so a non-zero value always means "currently broken"
+    /// rather than "broke once".
+    /// </summary>
+    private bool BankingBroken => _business?.BankingSyncErrorCount > 0;
+
+    /// <summary>
+    /// PSD2 consent runs out after 90 days and the sync dies silently when it
+    /// does, so a fortnight's warning counts as a problem worth surfacing.
+    /// </summary>
+    private bool ConsentLapsing =>
+        _business?.BankingConsentExpiresAt is DateTime expiry
+        && expiry - DateTime.UtcNow < TimeSpan.FromDays(14);
+
+    private int? ConsentDaysLeft =>
+        _business?.BankingConsentExpiresAt is DateTime expiry
+            ? Math.Max((int)(expiry - DateTime.UtcNow).TotalDays, 0)
+            : null;
+
+    private string HealthHeadline => Problems switch
+    {
+        0 => Shell.Con_AllHealthy,
+        1 => Shell.Con_OneBroken,
+        var n => string.Format(Shell.Con_SomeBroken, n),
+    };
+
+    private string LastSyncSentence
+    {
+        get
+        {
+            var latest = new[] { _business?.LastAadeSyncAt, _business?.LastBankingSyncAt }
+                .Concat(_accounts.Select(a => a.LastSyncedAt))
+                .Where(d => d is not null)
+                .Max();
+
+            return latest is null
+                ? Shell.Con_NeverSynced
+                : string.Format(Shell.Con_LastSync, Ago(latest));
+        }
+    }
+
+    private ClientStatus AadeStatus => _business switch
+    {
+        null => ClientStatus.Urgent,
+        { HasAadeFailure: true } => ClientStatus.Urgent,
+        { AadeUserIdEncrypted: null } => ClientStatus.Attention,
+        _ => ClientStatus.Healthy,
+    };
+
+    private string AadeStatusLabel => AadeStatus switch
+    {
+        ClientStatus.Urgent => Shell.Con_Broken,
+        ClientStatus.Attention => Shell.Con_NotConnected,
+        _ => Shell.Con_Connected,
+    };
+
+    private ClientStatus BankStatus
+    {
+        get
+        {
+            if (BankingBroken) return ClientStatus.Urgent;
+            if (ConsentLapsing) return ClientStatus.Attention;
+
+            return ClientStatus.Healthy;
+        }
+    }
+
+    private string BankStatusLabel
+    {
+        get
+        {
+            if (BankingBroken) return Shell.Con_Broken;
+
+            if (ConsentLapsing && ConsentDaysLeft is int days)
+                return string.Format(Shell.Con_ConsentExpiring, days);
+
+            return Shell.Con_Connected;
+        }
+    }
+
+    // The existing per-business pages own these flows and already work; this
+    // page is the overview that routes into them.
+    private void GoToAade() => Nav.NavigateTo($"/businesses/{_business!.Id}/aade");
+
+    private void GoToBanking() => Nav.NavigateTo($"/businesses/{_business!.Id}/banking");
+
+    private void GoToNewConnection() =>
+        Nav.NavigateTo(_business is null ? "/businesses" : $"/businesses/{_business.Id}/banking");
+
+    private static string AccountsLabel(int count) =>
+        count == 1 ? Shell.Con_AccountsOne : string.Format(Shell.Con_Accounts, count);
+
+    private static string Money(decimal value) => value.ToString("C0", Strings.FormatCulture);
+
+    private static string BankInitials(string bankName)
+    {
+        var words = bankName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        return words.Length == 1
+            ? words[0][..Math.Min(3, words[0].Length)].ToUpperInvariant()
+            : string.Concat(words.Take(3).Select(w => w[0])).ToUpperInvariant();
+    }
+
+    private static string Ago(DateTime? instant)
+    {
+        if (instant is null) return "—";
+
+        var elapsed = DateTime.UtcNow - instant.Value;
+
+        return elapsed switch
+        {
+            { TotalMinutes: < 60 } => string.Format(Shell.Con_Ago, Math.Max((int)elapsed.TotalMinutes, 1)),
+            { TotalHours: < 24 } => string.Format(Shell.Con_HoursAgo, (int)elapsed.TotalHours),
+            _ => string.Format(Shell.Con_DaysAgo, (int)elapsed.TotalDays),
+        };
+    }
+}

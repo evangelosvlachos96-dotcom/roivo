@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Roivo.Banking.Models;
@@ -159,5 +160,12 @@ internal sealed record ApiErrorDto
 {
     [JsonPropertyName("message")] public string? Message { get; init; }
     [JsonPropertyName("error")] public string? Error { get; init; }
-    [JsonPropertyName("code")] public string? Code { get; init; }
+
+    /// <summary>
+    /// JsonElement rather than string or int: Enable Banking sends this as a bare
+    /// number for HTTP-shaped errors (<c>{"code":403,…}</c>) and as a string for
+    /// domain errors, and binding it to either concrete type makes the whole
+    /// envelope fail to parse for the other half of the cases.
+    /// </summary>
+    [JsonPropertyName("code")] public JsonElement? Code { get; init; }
 }

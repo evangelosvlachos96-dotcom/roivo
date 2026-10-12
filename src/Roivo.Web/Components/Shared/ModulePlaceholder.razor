@@ -1,0 +1,29 @@
+@*
+    Stands in for a product module that the shell already links to but a later
+    phase still has to build.
+
+    Deliberately says so rather than showing invented numbers: a placeholder
+    that looks like a finished page is how a gap reaches a demo unnoticed.
+*@
+
+@using Roivo.Resources
+
+<div class="module-header">
+    <span class="module-eyebrow">@Eyebrow</span>
+    <h1>@Title</h1>
+    <p>@Description</p>
+</div>
+
+<section class="empty-state">
+    <strong>@Shell.Placeholder_Heading</strong>
+    <p>@Shell.Placeholder_Body</p>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    /// <summary>Small label above the title — the business or section this sits under.</summary>
+    [Parameter] public string? Eyebrow { get; set; }
+
+    [Parameter] public string? Description { get; set; }
+}

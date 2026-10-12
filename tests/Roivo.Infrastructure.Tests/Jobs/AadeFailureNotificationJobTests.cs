@@ -117,4 +117,26 @@ public class AadeFailureNotificationJobTests
         sut.EmailSender.Sent.Should().BeEmpty();
         sut.BusinessRepo.Store[b.Id].AadeFailureEmailSentAt.Should().BeNull();
     }
+
+    /// <summary>
+    /// Both failure jobs used to build their own plain-text body and convert
+    /// newlines to <c>&lt;br/&gt;</c>, which meant an unescaped business name
+    /// went straight into the HTML. They now render through the shared branded
+    /// template; this is the guard against that path coming back.
+    /// </summary>
+    [Fact]
+    public async Task EmailUsesTheBrandedLayoutAndEscapesTheBusinessName()
+    {
+        var sut = BuildSut();
+        var b = SeedBrokenBusiness(sut, TimeSpan.FromHours(25));
+        typeof(Business).GetProperty(nameof(Business.Name))!
+            .SetValue(b, """<script>alert(1)</script>""");
+
+        await sut.Job.Execute();
+
+        var body = sut.EmailSender.Sent.Should().ContainSingle().Subject.Body;
+        body.Should().Contain("roivo-cta", "the branded layout renders a CTA button");
+        body.Should().NotContain("<script>");
+        body.Should().Contain("&lt;script&gt;");
+    }
 }

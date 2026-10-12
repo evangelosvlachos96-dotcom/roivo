@@ -19,7 +19,11 @@ public sealed class IncomeBookEntryRepository : IIncomeBookEntryRepository
         ArgumentNullException.ThrowIfNull(entry);
 
         await using var db = await _factory.CreateDbContextAsync(cancellationToken);
+        // The unique index is (BusinessId, CounterpartyAfm, IssueDate,
+        // DocumentTypeCode) with no TenantId, so a filtered probe under the
+        // tenant-less cron misses and the insert violates it.
         var existing = await db.IncomeBookEntries
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(e =>
                 e.BusinessId == entry.BusinessId
                 && e.CounterpartyAfm == entry.CounterpartyAfm
@@ -51,8 +55,11 @@ public sealed class IncomeBookEntryRepository : IIncomeBookEntryRepository
         ArgumentNullException.ThrowIfNull(documentTypeCode);
 
         await using var db = await _factory.CreateDbContextAsync(cancellationToken);
+        // Business id already scopes this to one tenant; the filter only
+        // breaks the tenant-less cron. See UpsertAsync.
         return await db.IncomeBookEntries
             .AsNoTracking()
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(e =>
                 e.BusinessId == businessId
                 && e.CounterpartyAfm == counterpartyAfm

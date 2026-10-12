@@ -1,17 +1,18 @@
 @page
 @model Roivo.Web.Areas.Account.Pages.RegisterConfirmationModel
+@using Roivo.Resources
 @{
-    ViewData["Title"] = "Επιβεβαίωση email";
+    ViewData["Title"] = Auth.ConfirmEmail_PageTitle;
 }
 
-<h2 class="h4 mb-3">Έλεγξε το email σου</h2>
+<h2 class="h4 mb-3">@Auth.ForgotPassword_CheckInbox</h2>
 <p>
-    Στείλαμε ένα link επιβεβαίωσης στο
-    <strong>@(string.IsNullOrWhiteSpace(Model.Email) ? "email σου" : Model.Email)</strong>.
+    @Auth.RegisterConfirmation_SentTo
+    <strong>@(string.IsNullOrWhiteSpace(Model.Email) ? Auth.ConfirmEmail_Pending_YourEmailFallback : Model.Email)</strong>.
 </p>
 <p class="text-muted small">
-    Πάτησε το link στο email για να ενεργοποιήσεις τον λογαριασμό σου. Μπορεί να χρειαστούν μερικά λεπτά να φτάσει.
+    @Auth.RegisterConfirmation_Instructions
 </p>
 <p class="small mt-4">
-    Δεν λάβατε το email; <a asp-page="/Register">Εγγραφή ξανά</a>
+    @Auth.RegisterConfirmation_NotReceived <a asp-page="/Register">@Auth.RegisterAgainLink</a>
 </p>

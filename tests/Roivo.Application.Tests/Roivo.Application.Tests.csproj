@@ -22,6 +22,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Roivo.Application\Roivo.Application.csproj" />
     <ProjectReference Include="..\..\src\Roivo.Core\Roivo.Core.csproj" />
+    <!-- Needed by Features/Localization: the resource classes under test. -->
+    <ProjectReference Include="..\..\src\Roivo.Resources\Roivo.Resources.csproj" />
   </ItemGroup>
 
 </Project>

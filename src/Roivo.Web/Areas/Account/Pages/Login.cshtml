@@ -1,10 +1,11 @@
 @page
 @model Roivo.Web.Areas.Account.Pages.LoginModel
+@using Roivo.Resources
 @{
-    ViewData["Title"] = "Σύνδεση";
+    ViewData["Title"] = Auth.Login_PageTitle;
 }
 
-<h2 class="h4 mb-3">Σύνδεση</h2>
+<h2 class="h4 mb-3">@Auth.Login_PageTitle</h2>
 
 @if (!string.IsNullOrEmpty(Model.SuccessMessage))
 {
@@ -16,26 +17,26 @@
     <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert" style="display:@(ViewData.ModelState.IsValid ? "none" : "block")"></div>
 
     <div class="mb-3">
-        <label asp-for="Input.Email" class="form-label">Email</label>
+        <label asp-for="Input.Email" class="form-label">@Auth.Login_EmailLabel</label>
         <input asp-for="Input.Email" class="form-control" autocomplete="email" />
         <span asp-validation-for="Input.Email" class="text-danger small"></span>
     </div>
 
     <div class="mb-3">
-        <label asp-for="Input.Password" class="form-label">Κωδικός</label>
+        <label asp-for="Input.Password" class="form-label">@Auth.Login_PasswordLabel</label>
         <input asp-for="Input.Password" class="form-control" autocomplete="current-password" />
         <span asp-validation-for="Input.Password" class="text-danger small"></span>
     </div>
 
     <div class="form-check mb-3">
         <input asp-for="Input.RememberMe" class="form-check-input" />
-        <label asp-for="Input.RememberMe" class="form-check-label small">Να με θυμάσαι</label>
+        <label asp-for="Input.RememberMe" class="form-check-label small">@Auth.Login_RememberMe</label>
     </div>
 
-    <button type="submit" class="btn btn-primary w-100">Σύνδεση</button>
+    <button type="submit" class="btn btn-primary w-100">@Auth.Login_SignInButton</button>
 </form>
 
-<div class="d-flex justify-content-between mt-4 small">
-    <a asp-page="/ForgotPassword">Ξέχασες τον κωδικό?</a>
-    <a asp-page="/Register">Εγγραφή</a>
+<div class="roivo-auth-links">
+    <a asp-page="/ForgotPassword">@Auth.Login_ForgotPasswordLink</a>
+    <a asp-page="/Register">@Auth.Login_NoAccountLink</a>
 </div>

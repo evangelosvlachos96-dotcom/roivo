@@ -1,0 +1,288 @@
+@page "/cashflow"
+@layout Roivo.Web.Components.Layout.RoivoAppLayout
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using Roivo.Application.Abstractions
+@using Roivo.Application.Features.Cashflow.Queries.GetCashflowDashboard
+@* CashflowDashboard is also an existing page component, which wins here. *@
+@using CashflowOverview = Roivo.Application.Features.Cashflow.Queries.GetCashflowDashboard.CashflowDashboard
+@using Roivo.Application.Features.Cashflow.Services
+@using Roivo.Core.Domain.Entities
+@using Roivo.Resources
+@using Roivo.Web.Components.Shared
+@inject GetCashflowDashboardHandler CashflowHandler
+@inject IBusinessRepository Businesses
+
+<RoivoPageTitle Title="@(Shell.Nav_Cashflow)" />
+
+<ModuleHeader Eyebrow="@Shell.Cash_Eyebrow"
+              Title="@Shell.Cash_Title"
+              Description="@Shell.Cash_Description" />
+
+@if (_loading)
+{
+    <div class="cashflow-layout">
+        <div class="module-card forecast-workspace"><SkeletonChart /></div>
+        <div class="module-card events-panel"><SkeletonCard /></div>
+    </div>
+}
+else if (!HasForecast)
+{
+    <section class="empty-state">
+        <strong>@Shell.Cash_NoHistory</strong>
+        <p>@Shell.Forecast_NotEnoughHistoryBody</p>
+    </section>
+}
+else
+{
+    <div class="scenario-bar">
+        <div>
+            <span>@Shell.Cash_Scenario</span>
+            @foreach (var scenario in Scenarios)
+            {
+                <button type="button" class="@(_series == scenario.Series ? "is-active" : "")"
+                        @onclick="() => _series = scenario.Series">
+                    @scenario.Label
+                </button>
+            }
+        </div>
+        <span class="saved-state">@Shell.Cash_ScenarioNote</span>
+    </div>
+
+    <section class="flow-summary">
+        <article>
+            <span>@Shell.Cash_OpeningBalance</span>
+            <strong>@Money(Summary.CurrentBalance)</strong>
+            <small>@Shell.Cash_Today</small>
+        </article>
+
+        <i>+</i>
+
+        <article>
+            <span>@Shell.Cash_TotalInflow</span>
+            <strong class="forecast-up">@Money(TotalInflow)</strong>
+            <small>@string.Format(Shell.Cash_DailyAverage, Money(Summary.AverageDailyInflow))</small>
+        </article>
+
+        <i>−</i>
+
+        <article>
+            <span>@Shell.Cash_TotalOutflow</span>
+            <strong class="forecast-down">@Money(TotalOutflow)</strong>
+            <small>@string.Format(Shell.Cash_DailyAverage, Money(Summary.AverageDailyOutflow))</small>
+        </article>
+
+        <i>=</i>
+
+        <article class="is-result">
+            <span>@Shell.Cash_ProjectedBalance</span>
+            <strong>@Money(ProjectedEnd)</strong>
+            <small class="@(ProjectedEnd >= Summary.CurrentBalance ? "up" : "down")">
+                @string.Format(Shell.Cash_Over90Days, Signed(ProjectedEnd - Summary.CurrentBalance))
+            </small>
+        </article>
+    </section>
+
+    <section class="cashflow-layout">
+        <article class="module-card forecast-workspace">
+            <div class="widget-heading">
+                <div>
+                    <h2>@Shell.Cash_ForecastTitle</h2>
+                    <span>@string.Format(Shell.Cash_ForecastRange, ScenarioLabel, ShortDate(FirstDate), ShortDate(LastDate))</span>
+                </div>
+                <span class="confidence-pill"><i></i> @string.Format(Shell.Forecast_Confidence, Confidence)</span>
+            </div>
+
+            <CashflowSparkline Points="Points" Series="_series" AriaLabel="@Shell.Cash_ForecastTitle" />
+
+            <div class="chart-months">
+                @foreach (var label in AxisLabels)
+                {
+                    <span>@label</span>
+                }
+            </div>
+
+            <div class="forecast-floor">
+                <span>@Shell.Cash_Floor</span>
+                <strong>
+                    @Money(Floor.Balance) <small>@string.Format(Shell.Cash_FloorOn, LongDate(Floor.Date))</small>
+                </strong>
+            </div>
+        </article>
+
+        <aside class="module-card events-panel">
+            <div class="widget-heading">
+                <div>
+                    <h2>@Shell.Cash_EventsTitle</h2>
+                    <span>@string.Format(Shell.Cash_EventsSubtitle, _events.Count)</span>
+                </div>
+            </div>
+
+            @if (_events.Count == 0)
+            {
+                <section class="empty-state"><p>@Shell.Cash_EventsNone</p></section>
+            }
+            else
+            {
+                @* The design lets the user add manual assumptions here. There is
+                   no store for those yet, so the panel lists the scheduled
+                   outflows the forecast already accounts for — the tax calendar
+                   — rather than an empty frame or invented rows. *@
+                <div class="event-list">
+                    @foreach (var item in _events)
+                    {
+                        <div class="cash-event">
+                            <span class="event-out"><RoivoIcon Name="RoivoIconName.Arrow" Size="14" /></span>
+                            <div>
+                                <strong>@TaxLabels.For(item.TaxType)</strong>
+                                <small>@ShortDate(item.DueDate) · @Shell.Cash_Outflow</small>
+                            </div>
+                            <b class="forecast-down">@Signed(-item.EstimatedAmount)</b>
+                        </div>
+                    }
+                </div>
+            }
+        </aside>
+    </section>
+}
+
+@code {
+    [CascadingParameter(Name = "SelectedBusinessId")] private Guid? SelectedBusinessId { get; set; }
+
+    private bool _loading = true;
+    private CashflowOverview? _dashboard;
+    private IReadOnlyList<TaxObligation> _events = [];
+    private ForecastSeries _series = ForecastSeries.Expected;
+    private Guid? _loadedFor;
+    private bool _everLoaded;
+
+    private sealed record Scenario(ForecastSeries Series, string Label);
+
+    private CashflowSummary Summary =>
+        _dashboard?.Summary ?? new CashflowSummary(0m, 0m, 0m, 0m, 0m, 0m, 0m, 0);
+
+    private bool HasForecast =>
+        _dashboard?.HasSufficientHistory == true && _dashboard.DailyForecasts.Count > 0;
+
+    private Scenario[] Scenarios =>
+    [
+        new(ForecastSeries.Expected, Shell.Cash_Scenario_Base),
+        new(ForecastSeries.Optimistic, Shell.Cash_Scenario_Optimistic),
+        new(ForecastSeries.Conservative, Shell.Cash_Scenario_Conservative),
+    ];
+
+    private string ScenarioLabel => Scenarios.First(s => s.Series == _series).Label;
+
+    /// <summary>
+    /// Reloads when the sidebar's selection changes, not only on first render.
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_everLoaded && _loadedFor == SelectedBusinessId) return;
+
+        _loadedFor = SelectedBusinessId;
+        _everLoaded = true;
+        _loading = true;
+
+        try
+        {
+            var businesses = await Businesses.ListActiveAsync();
+            var business = SelectedBusinessId is Guid id
+                ? businesses.FirstOrDefault(b => b.Id == id)
+                : businesses.FirstOrDefault();
+
+            if (business is null) return;
+
+            _dashboard = await CashflowHandler.Handle(
+                new GetCashflowDashboardQuery(business.Id), CancellationToken.None);
+
+            _events =
+            [
+                .. _dashboard.UpcomingTaxObligations
+                    .Where(o => !o.IsPaid)
+                    .OrderBy(o => o.DueDate)
+                    .Take(8)
+            ];
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    // --------------------------------------------------------------- derived
+
+    private IReadOnlyList<DailyForecast> Points => _dashboard?.DailyForecasts ?? [];
+
+    private decimal TotalInflow => Points.Sum(p => p.PredictedInflow);
+
+    private decimal TotalOutflow => Points.Sum(p => p.PredictedOutflow);
+
+    /// <summary>Where the selected scenario lands at the end of the window.</summary>
+    private decimal ProjectedEnd => Points.Count == 0 ? 0m : ValueOf(Points[^1]);
+
+    private decimal ValueOf(DailyForecast point) => _series switch
+    {
+        ForecastSeries.Optimistic => point.ConfidenceHigh,
+        ForecastSeries.Conservative => point.ConfidenceLow,
+        _ => point.PredictedBalance,
+    };
+
+    /// <summary>
+    /// The low point of the selected scenario. That is the number that decides
+    /// whether the business can meet its obligations, not the closing balance.
+    /// </summary>
+    private (decimal Balance, DateOnly Date) Floor
+    {
+        get
+        {
+            if (Points.Count == 0) return (0m, DateOnly.FromDateTime(DateTime.UtcNow));
+
+            var lowest = Points.MinBy(ValueOf)!;
+            return (ValueOf(lowest), lowest.Date);
+        }
+    }
+
+    private DateOnly FirstDate =>
+        Points.Count == 0 ? DateOnly.FromDateTime(DateTime.UtcNow) : Points[0].Date;
+
+    private DateOnly LastDate =>
+        Points.Count == 0 ? DateOnly.FromDateTime(DateTime.UtcNow) : Points[^1].Date;
+
+    /// <summary>Five evenly spaced dates along the x-axis, as the design shows.</summary>
+    private IEnumerable<string> AxisLabels
+    {
+        get
+        {
+            if (Points.Count < 2) yield break;
+
+            for (var i = 0; i < 5; i++)
+            {
+                var index = (int)Math.Round(i / 4d * (Points.Count - 1));
+                yield return ShortDate(Points[index].Date);
+            }
+        }
+    }
+
+    private int Confidence
+    {
+        get
+        {
+            if (Points.Count == 0) return 0;
+
+            var last = Points[^1];
+            var spread = last.ConfidenceHigh - last.ConfidenceLow;
+            var scale = Math.Max(Math.Abs(last.PredictedBalance), 1m);
+
+            return (int)Math.Round(Math.Clamp(100m - (spread / scale * 100m), 40m, 99m));
+        }
+    }
+
+    private static string Money(decimal value) => value.ToString("C0", Strings.FormatCulture);
+
+    private static string Signed(decimal value) => (value >= 0 ? "+" : "") + Money(value);
+
+    private static string ShortDate(DateOnly date) => date.ToString("dd MMM", Strings.FormatCulture);
+
+    private static string LongDate(DateOnly date) => date.ToString("dd MMMM", Strings.FormatCulture);
+}

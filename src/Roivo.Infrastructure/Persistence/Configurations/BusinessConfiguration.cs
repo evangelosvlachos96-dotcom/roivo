@@ -33,5 +33,13 @@ public class BusinessConfiguration : IEntityTypeConfiguration<Business>
         // this it is a full table scan of Businesses on every run.
         builder.HasIndex(b => b.BankingAccessTokenEncrypted)
             .HasFilter("\"BankingAccessTokenEncrypted\" IS NOT NULL");
+
+        // Stored as a string so the column stays readable in pgAdmin, matching
+        // the other enums in this schema.
+        builder.Property(b => b.VatFrequency)
+            .HasConversion<string>()
+            .HasMaxLength(20);
+
+        builder.Property(b => b.EstimatedPropertyValue).HasPrecision(18, 2);
     }
 }

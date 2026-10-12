@@ -1,0 +1,20 @@
+@*
+    The traffic-light pill the portfolio table uses for a client's health.
+*@
+
+@using Roivo.Resources
+
+<span class="status status--@Status.ToString().ToLowerInvariant()">
+    <i></i>@Label
+</span>
+
+@code {
+    [Parameter, EditorRequired] public ClientStatus Status { get; set; }
+
+    private string Label => Status switch
+    {
+        ClientStatus.Healthy => Shell.Status_Healthy,
+        ClientStatus.Attention => Shell.Status_Attention,
+        _ => Shell.Status_Urgent,
+    };
+}

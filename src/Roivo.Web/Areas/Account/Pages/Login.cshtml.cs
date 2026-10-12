@@ -1,8 +1,13 @@
 using System.ComponentModel.DataAnnotations;
+using Roivo.Resources;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Roivo.Application.Abstractions;
+using Roivo.Application.Abstractions.Security;
+using Roivo.Infrastructure.Email;
+using Roivo.Infrastructure.Email.Templates;
+using Hangfire;
 using Roivo.Core.Domain.Auditing;
 using Roivo.Core.Domain.Entities;
 
@@ -13,19 +18,31 @@ public class LoginModel : PageModel
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IAuditWriter _audit;
+    private readonly IDeviceTrackingService _devices;
+    private readonly ILogger<LoginModel> _logger;
+    private readonly IBackgroundJobClient _backgroundJobs;
 
     public LoginModel(
         SignInManager<ApplicationUser> signInManager,
         UserManager<ApplicationUser> userManager,
-        IAuditWriter audit)
+        IAuditWriter audit,
+        IDeviceTrackingService devices,
+        ILogger<LoginModel> logger,
+        IBackgroundJobClient backgroundJobs)
     {
         ArgumentNullException.ThrowIfNull(signInManager);
         ArgumentNullException.ThrowIfNull(userManager);
         ArgumentNullException.ThrowIfNull(audit);
+        ArgumentNullException.ThrowIfNull(devices);
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(backgroundJobs);
 
         _signInManager = signInManager;
         _userManager = userManager;
         _audit = audit;
+        _devices = devices;
+        _logger = logger;
+        _backgroundJobs = backgroundJobs;
     }
 
     [BindProperty]
@@ -38,11 +55,11 @@ public class LoginModel : PageModel
 
     public class InputModel
     {
-        [Required(ErrorMessage = "Το email είναι υποχρεωτικό")]
-        [EmailAddress(ErrorMessage = "Μη έγκυρο email")]
+        [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.EmailRequired))]
+        [EmailAddress(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.EmailInvalid))]
         public string Email { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Ο κωδικός είναι υποχρεωτικός")]
+        [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordRequired))]
         [DataType(DataType.Password)]
         public string Password { get; set; } = string.Empty;
 
@@ -79,6 +96,8 @@ public class LoginModel : PageModel
                     entityType: nameof(ApplicationUser),
                     entityId: user.Id.ToString(),
                     cancellationToken: cancellationToken);
+
+                await NoticeNewDeviceAsync(user, cancellationToken);
             }
 
             if (!string.IsNullOrEmpty(ReturnUrl) && Url.IsLocalUrl(ReturnUrl))
@@ -130,5 +149,72 @@ public class LoginModel : PageModel
             cancellationToken: cancellationToken);
         ModelState.AddModelError(string.Empty, "Λάθος email ή κωδικός");
         return Page();
+    }
+
+    /// <summary>
+    /// Flags a sign-in from a device this account has not used before.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Deliberately cannot fail the sign-in. Device tracking is a courtesy
+    /// notice; if the lookup or the write throws, the right outcome is that the
+    /// user still gets in and we lose one notification, not that a working
+    /// password stops working.
+    /// </para>
+    /// <para>
+    /// Nothing is handed to the next page from here. TempData does not survive
+    /// the redirect into a Blazor circuit, so the shell asks the tracker itself
+    /// whether there is an unacknowledged device; all this does is record one
+    /// and send the mail.
+    /// </para>
+    /// </remarks>
+    private async Task NoticeNewDeviceAsync(ApplicationUser user, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userAgent = Request.Headers.UserAgent.ToString();
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+
+            if (await _devices.IsKnownDeviceAsync(user.Id, userAgent, ip, cancellationToken))
+                return;
+
+            var device = await _devices.RegisterDeviceAsync(user.Id, userAgent, ip, cancellationToken);
+
+            // The banner is raised by the shell, which asks the tracker itself.
+            // All that is left here is telling the owner out of band, in case
+            // the sign-in was not theirs and they never see the banner at all.
+            await SendNewDeviceEmailAsync(user, device, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Could not check the sign-in device for user {UserId}", user.Id);
+        }
+    }
+
+    /// <summary>
+    /// Emails the account owner about a sign-in from a device we have not seen.
+    /// </summary>
+    /// <remarks>
+    /// Queued through Hangfire rather than sent inline: the provider call can be
+    /// slow or down, and nobody should wait on it — or be refused a sign-in by
+    /// it — to reach their dashboard.
+    /// </remarks>
+    private async Task SendNewDeviceEmailAsync(
+        ApplicationUser user, UserDeviceView device, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(user.Email)) return;
+
+        var email = NewDeviceEmail.Render(
+            new NewDeviceEmail.Model(
+                device.DeviceName,
+                device.FirstSeenAt,
+                string.IsNullOrWhiteSpace(device.IpPrefix) ? "—" : device.IpPrefix),
+            baseUrl: $"{Request.Scheme}://{Request.Host}",
+            english: Strings.IsEnglish);
+
+        _backgroundJobs.Enqueue<EmailJob>(job =>
+            job.SendAsync(user.Email, email.Subject, email.HtmlBody));
+
+        await Task.CompletedTask;
     }
 }

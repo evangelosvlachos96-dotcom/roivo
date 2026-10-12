@@ -44,6 +44,15 @@ public class Invoice : ITenantScoped
     /// <summary>Mark of the cancellation document that voided this invoice, if any.</summary>
     public string? CancelledByMark { get; private set; }
 
+    /// <summary>
+    /// True once a confirmed <see cref="ReconciliationMatch"/> ties this invoice
+    /// to a bank transaction. Distinct from <see cref="Status"/>: an invoice can
+    /// be marked paid in AADE without Roivo having found the money yet.
+    /// </summary>
+    public bool IsReconciled { get; private set; }
+
+    public DateTime? ReconciledAt { get; private set; }
+
     // Required for EF Core materialization. Not callable externally — use Invoice.Create(...).
     private Invoice() { }
 
@@ -93,5 +102,26 @@ public class Invoice : ITenantScoped
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(cancelledByMark);
         CancelledByMark = cancelledByMark;
+    }
+
+    /// <summary>
+    /// Records that a confirmed match now accounts for this invoice. Idempotent:
+    /// re-confirming keeps the original timestamp, so the reconciliation date
+    /// reflects when the money was first identified.
+    /// </summary>
+    public void MarkReconciled(DateTime reconciledAtUtc)
+    {
+        if (IsReconciled)
+            return;
+
+        IsReconciled = true;
+        ReconciledAt = reconciledAtUtc;
+    }
+
+    /// <summary>Reverses <see cref="MarkReconciled"/> when its match is rejected or removed.</summary>
+    public void ClearReconciliation()
+    {
+        IsReconciled = false;
+        ReconciledAt = null;
     }
 }

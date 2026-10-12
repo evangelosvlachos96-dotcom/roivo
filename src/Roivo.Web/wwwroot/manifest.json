@@ -1,0 +1,48 @@
+{
+  "name": "Roivo — Cashflow Intelligence",
+  "short_name": "Roivo",
+  "description": "Αυτόματη αντιστοίχιση παραστατικών, πρόβλεψη ταμειακών ροών 90 ημερών και φορολογικό ημερολόγιο για ελληνικές επιχειρήσεις.",
+  "lang": "el",
+  "dir": "ltr",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#0B1F3A",
+  "background_color": "#F8FAFC",
+  "categories": [
+    "business",
+    "finance",
+    "productivity"
+  ],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Πίνακας ελέγχου",
+      "url": "/dashboard"
+    },
+    {
+      "name": "Επιχειρήσεις",
+      "url": "/businesses"
+    }
+  ]
+}

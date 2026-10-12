@@ -58,3 +58,34 @@ h1:focus {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+/* ---------------------------------------------------------------------------
+   Touch targets.
+
+   MudBlazor sizes its buttons for a mouse (36-38px tall). On a phone that is
+   under the 44px minimum that both Apple's and Google's guidance give, and the
+   accountant screens are dense with icon buttons in table rows.
+
+   Scoped to coarse pointers so desktop keeps its tighter density: a pointer:
+   coarse query matches touchscreens, not a mouse, so this never loosens the
+   layout for the people using the product at a desk all day.
+   --------------------------------------------------------------------------- */
+@media (pointer: coarse) {
+    .mud-button-root,
+    .mud-icon-button,
+    .mud-nav-link,
+    .mud-input-control .mud-input-slot {
+        min-height: 44px;
+    }
+
+    /* Icon buttons are square; height alone would leave them narrow. */
+    .mud-icon-button {
+        min-width: 44px;
+    }
+
+    /* Bootstrap-based Account pages get the same floor. */
+    .btn,
+    .form-control,
+    .form-select {
+        min-height: 44px;
+    }
+}

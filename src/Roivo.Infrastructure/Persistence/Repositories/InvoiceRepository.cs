@@ -29,7 +29,11 @@ public sealed class InvoiceRepository : IInvoiceRepository
         ArgumentNullException.ThrowIfNull(invoice);
 
         await using var db = await _factory.CreateDbContextAsync(cancellationToken);
+        // AadeMark is globally unique, and the nightly cron has no ambient
+        // tenant: with the filter applied this probe always misses and the
+        // insert then collides with the (TenantId, AadeMark) unique index.
         var existing = await db.Invoices
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(i => i.AadeMark == invoice.AadeMark, cancellationToken);
 
         if (existing is null)

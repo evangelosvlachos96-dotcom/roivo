@@ -47,7 +47,9 @@ public sealed class SyncBusinessInvoicesHandler
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        var business = await _businesses.GetByIdActiveOnlyAsync(command.BusinessId, cancellationToken).ConfigureAwait(false);
+        var business = command.BypassTenantScope
+            ? await _businesses.GetByIdActiveOnlyAcrossAllTenantsAsync(command.BusinessId, cancellationToken).ConfigureAwait(false)
+            : await _businesses.GetByIdActiveOnlyAsync(command.BusinessId, cancellationToken).ConfigureAwait(false);
         if (business is null)
             return new SyncBusinessInvoicesResult.BusinessNotFound();
 
@@ -75,7 +77,12 @@ public sealed class SyncBusinessInvoicesHandler
         }
 
         var success = (AadeFetchResult.Success)fetch;
-        var tenantId = _tenant.CurrentTenantId;
+
+        // From the loaded aggregate, not the ambient context: the nightly cron
+        // runs in a background scope with no tenant, so CurrentTenantId is
+        // Guid.Empty there and every row written would be orphaned from its
+        // owner. Same reasoning as the banking sync.
+        var tenantId = business.TenantId;
 
         // Heal failure state before applying sync progress — if the connection
         // was previously broken and is now working, clear the banner.
@@ -97,6 +104,10 @@ public sealed class SyncBusinessInvoicesHandler
                 grossAmount: dto.GrossAmount,
                 currency: ParseCurrency(dto.Currency),
                 cancelledByMark: dto.CancelledByMark);
+
+            // The DbContext stamping hook no-ops without an ambient tenant, so
+            // the cron would otherwise insert this with TenantId = Guid.Empty.
+            invoice.TenantId = tenantId;
 
             await _invoices.UpsertAsync(invoice, cancellationToken).ConfigureAwait(false);
         }

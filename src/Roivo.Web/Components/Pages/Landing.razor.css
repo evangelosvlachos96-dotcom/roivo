@@ -1,0 +1,895 @@
+/* M12 landing page.
+
+   Scoped to Landing.razor, so none of these class names can collide with the
+   authenticated app's styles. Brand tokens are declared on .landing rather
+   than :root for the same reason — this file must not reach outside the page.
+
+   The gradients and the CTA animation are the reason this is hand-written CSS
+   instead of MudBlazor: a gradient-bordered card and a gradient button with a
+   sliding arrow are both fights MudBlazor wins by overriding you. */
+
+.landing {
+    /* brand */
+    --navy: #0B1F3A;
+    --navy-deep: #06142A;
+    --blue: #1E88E5;
+    --teal: #2DD4BF;
+    --light: #F8FAFC;
+    --ink: #0B1F3A;
+    --ink-soft: #475569;
+    --line: #E2E8F0;
+
+    font-family: Inter, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    color: var(--ink);
+    background: var(--light);
+    /* Belt and braces against the "no horizontal scroll at any width" rule:
+       nothing in here may ever push the page sideways. */
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+}
+
+.landing *,
+.landing *::before,
+.landing *::after {
+    box-sizing: border-box;
+}
+
+/* The single source of the side gutter. Every section puts its content in a
+   .shell, so the gutter can never be forgotten in one place and not another. */
+.shell {
+    width: 100%;
+    max-width: 1120px;
+    margin-inline: auto;
+    padding-inline: 20px;
+}
+
+.skip {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 100;
+    background: #fff;
+    color: var(--navy);
+    padding: 12px 18px;
+    border-radius: 0 0 10px 0;
+    font-weight: 600;
+}
+
+.skip:focus {
+    left: 0;
+}
+
+/* ------------------------------------------------------------- buttons */
+
+.btn-grad,
+.btn-outline,
+.btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 12px 24px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 1rem;
+    text-decoration: none;
+    cursor: pointer;
+    border: 0;
+    transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease;
+}
+
+.btn-grad {
+    background: linear-gradient(135deg, #1E88E5, #2DD4BF);
+    color: #fff;
+    box-shadow: 0 6px 18px rgba(30, 136, 229, .32);
+}
+
+.btn-grad:hover,
+.btn-grad:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(45, 212, 191, .4);
+}
+
+.btn-grad:active {
+    transform: translateY(0);
+}
+
+.btn-arrow {
+    width: 20px;
+    height: 20px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform .18s ease;
+}
+
+.btn-grad:hover .btn-arrow,
+.btn-grad:focus-visible .btn-arrow {
+    transform: translateX(4px);
+}
+
+.btn-lg {
+    min-height: 56px;
+    padding: 16px 34px;
+    font-size: 1.0625rem;
+}
+
+.btn-sm {
+    min-height: 44px;
+    padding: 10px 20px;
+    font-size: .9375rem;
+}
+
+.btn-outline {
+    background: transparent;
+    color: #fff;
+    border: 1.5px solid rgba(255, 255, 255, .45);
+}
+
+.btn-outline:hover,
+.btn-outline:focus-visible {
+    border-color: var(--teal);
+    background: rgba(45, 212, 191, .12);
+}
+
+.btn-ghost {
+    background: transparent;
+    color: rgba(255, 255, 255, .88);
+    padding: 10px 14px;
+}
+
+.btn-ghost:hover,
+.btn-ghost:focus-visible {
+    color: #fff;
+}
+
+/* -------------------------------------------------------------- top bar */
+
+.topbar {
+    background: var(--navy);
+    border-bottom: 1px solid rgba(255, 255, 255, .08);
+}
+
+.topbar-inner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-height: 68px;
+    padding-block: 10px;
+}
+
+.topbar-brand {
+    text-decoration: none;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+}
+
+.topnav {
+    display: flex;
+    gap: 4px;
+    margin-inline: auto;
+    flex-wrap: wrap;
+}
+
+.topnav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 14px;
+    color: rgba(255, 255, 255, .78);
+    text-decoration: none;
+    font-size: .9375rem;
+    font-weight: 500;
+    border-radius: 8px;
+}
+
+.topnav a:hover,
+.topnav a:focus-visible {
+    color: #fff;
+    background: rgba(255, 255, 255, .07);
+}
+
+.topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+}
+
+/* ----------------------------------------------------------------- hero */
+
+.hero {
+    position: relative;
+    background: linear-gradient(160deg, var(--navy) 0%, var(--navy-deep) 100%);
+    color: #fff;
+    overflow: hidden;
+}
+
+/* Two soft glows in the brand colours, so the navy does not read as flat
+   black on a large screen. Pointer-events off: purely decorative. */
+.hero::before,
+.hero::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(90px);
+    pointer-events: none;
+}
+
+.hero::before {
+    width: 520px;
+    height: 520px;
+    top: -220px;
+    right: -140px;
+    background: rgba(30, 136, 229, .34);
+}
+
+.hero::after {
+    width: 420px;
+    height: 420px;
+    bottom: -240px;
+    left: -120px;
+    background: rgba(45, 212, 191, .22);
+}
+
+.hero-inner {
+    position: relative;
+    z-index: 1;
+    padding-block: 84px 96px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.hero-logo {
+    margin-bottom: 30px;
+}
+
+.hero-title {
+    margin: 0 0 20px;
+    font-size: clamp(2rem, 6vw, 3.5rem);
+    line-height: 1.08;
+    letter-spacing: -0.025em;
+    font-weight: 800;
+    max-width: 18ch;
+}
+
+.hero-sub {
+    margin: 0 0 36px;
+    font-size: clamp(1rem, 2.1vw, 1.1875rem);
+    line-height: 1.62;
+    color: rgba(255, 255, 255, .8);
+    max-width: 62ch;
+}
+
+.hero-cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    justify-content: center;
+}
+
+.hero-note {
+    margin: 26px 0 0;
+    font-size: .875rem;
+    color: rgba(255, 255, 255, .6);
+}
+
+/* ------------------------------------------------------------- sections */
+
+.section {
+    padding-block: 80px;
+}
+
+.section-alt {
+    background: #fff;
+    border-block: 1px solid var(--line);
+}
+
+.section-title {
+    margin: 0 0 12px;
+    text-align: center;
+    font-size: clamp(1.625rem, 3.6vw, 2.25rem);
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    font-weight: 800;
+}
+
+.section-title.left {
+    text-align: left;
+}
+
+.section-sub {
+    margin: 0 auto 48px;
+    text-align: center;
+    max-width: 58ch;
+    color: var(--ink-soft);
+    font-size: 1.0625rem;
+    line-height: 1.6;
+}
+
+/* -------------------------------------------------------- feature cards */
+
+.cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+}
+
+.card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--teal);
+    border-radius: 16px;
+    padding: 26px 24px;
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.section-alt .card {
+    background: var(--light);
+}
+
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 14px 34px rgba(11, 31, 58, .1);
+}
+
+.card-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(30, 136, 229, .12), rgba(45, 212, 191, .18));
+    color: var(--blue);
+    margin-bottom: 18px;
+}
+
+.ico {
+    width: 26px;
+    height: 26px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.card-title {
+    margin: 0 0 8px;
+    font-size: 1.0625rem;
+    font-weight: 700;
+}
+
+.card-text {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: .9375rem;
+    line-height: 1.6;
+}
+
+/* ---------------------------------------------------------------- steps */
+
+.steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 24px;
+}
+
+.step {
+    background: var(--light);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 28px 24px;
+}
+
+.step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1E88E5, #2DD4BF);
+    color: #fff;
+    font-weight: 800;
+    font-size: 1.125rem;
+    margin-bottom: 16px;
+}
+
+.step-title {
+    margin: 0 0 8px;
+    font-size: 1.125rem;
+    font-weight: 700;
+}
+
+/* ---------------------------------------------------------- accountants */
+
+.split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 56px;
+    align-items: center;
+}
+
+.eyebrow {
+    margin: 0 0 10px;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    font-size: .75rem;
+    font-weight: 700;
+    color: var(--blue);
+}
+
+.lead {
+    margin: 0 0 26px;
+    color: var(--ink-soft);
+    font-size: 1.0625rem;
+    line-height: 1.65;
+}
+
+.points {
+    list-style: none;
+    margin: 0 0 30px;
+    padding: 0;
+    display: grid;
+    gap: 18px;
+}
+
+.points li {
+    position: relative;
+    padding-left: 30px;
+}
+
+.points li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 7px;
+    width: 12px;
+    height: 12px;
+    border-radius: 4px;
+    background: linear-gradient(135deg, #1E88E5, #2DD4BF);
+}
+
+.points strong {
+    display: block;
+    font-size: 1rem;
+    margin-bottom: 3px;
+}
+
+.points span {
+    display: block;
+    color: var(--ink-soft);
+    font-size: .9375rem;
+    line-height: 1.55;
+}
+
+/* Dashboard mock-up: all CSS and inline SVG, no screenshot to go stale. */
+.mock {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 20px 48px rgba(11, 31, 58, .12);
+    overflow: hidden;
+}
+
+.mock-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 16px;
+    background: var(--navy);
+}
+
+.mock-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .26);
+}
+
+.mock-bar-title {
+    margin-left: 10px;
+    color: rgba(255, 255, 255, .72);
+    font-size: .75rem;
+    font-weight: 600;
+}
+
+.mock-head,
+.mock-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, .9fr) 64px auto;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+}
+
+.mock-head {
+    background: var(--light);
+    border-bottom: 1px solid var(--line);
+    font-size: .6875rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    font-weight: 700;
+    color: var(--ink-soft);
+}
+
+.mock-head span:nth-child(3) {
+    grid-column: 3 / span 2;
+}
+
+.mock-row + .mock-row {
+    border-top: 1px solid var(--line);
+}
+
+.mock-name {
+    font-size: .875rem;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mock-val {
+    font-size: .875rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-soft);
+}
+
+.mock-spark {
+    display: block;
+    min-width: 0;
+}
+
+/* A line with a dashed projection, never bars: this is a forecast. */
+.spark {
+    display: block;
+    width: 100%;
+    height: 22px;
+    fill: none;
+    stroke: var(--teal);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.spark-watch {
+    stroke: #F59E0B;
+}
+
+.spark-risk {
+    stroke: #EF4444;
+}
+
+.pill {
+    justify-self: end;
+    white-space: nowrap;
+    font-size: .6875rem;
+    font-weight: 700;
+    padding: 5px 10px;
+    border-radius: 999px;
+}
+
+.pill-ok {
+    background: rgba(45, 212, 191, .16);
+    color: #0F766E;
+}
+
+.pill-watch {
+    background: rgba(245, 158, 11, .16);
+    color: #92400E;
+}
+
+.pill-risk {
+    background: rgba(239, 68, 68, .14);
+    color: #B91C1C;
+}
+
+.mock-caption {
+    margin: 12px 0 0;
+    text-align: center;
+    font-size: .75rem;
+    color: #94A3B8;
+}
+
+/* -------------------------------------------------------------- pricing */
+
+.plans {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    gap: 24px;
+    align-items: start;
+}
+
+.plan {
+    position: relative;
+    background: var(--light);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 30px 26px;
+    height: 100%;
+}
+
+.section-alt .plan {
+    background: var(--light);
+}
+
+/* The recommended plan's gradient border: a 2px gradient pad behind a solid
+   inner card. border-image cannot be combined with border-radius. */
+.plan-featured {
+    background: linear-gradient(135deg, #1E88E5, #2DD4BF);
+    padding: 2px;
+    border-radius: 20px;
+    box-shadow: 0 16px 40px rgba(30, 136, 229, .2);
+}
+
+.plan-inner {
+    background: #fff;
+    border: 0;
+    border-radius: 18px;
+    padding-top: 36px;
+}
+
+.plan-badge {
+    position: absolute;
+    top: -13px;
+    left: 26px;
+    background: linear-gradient(135deg, #1E88E5, #2DD4BF);
+    color: #fff;
+    font-size: .6875rem;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 999px;
+}
+
+.plan-name {
+    margin: 0 0 12px;
+    font-size: 1.125rem;
+    font-weight: 700;
+}
+
+.plan-price {
+    margin: 0 0 10px;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.plan-amount {
+    font-size: 2.375rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+}
+
+.plan-amount-sm {
+    font-size: 1.375rem;
+}
+
+.plan-period {
+    color: var(--ink-soft);
+    font-size: .9375rem;
+    font-weight: 500;
+}
+
+.plan-desc {
+    margin: 0 0 20px;
+    color: var(--ink-soft);
+    font-size: .9375rem;
+    line-height: 1.55;
+}
+
+.plan-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 11px;
+}
+
+.plan-list li {
+    position: relative;
+    padding-left: 26px;
+    font-size: .9375rem;
+    line-height: 1.5;
+    color: var(--ink);
+}
+
+/* Tick drawn from two borders rather than a glyph, so it cannot be copied
+   into a paste of the page text. */
+.plan-list li::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 5px;
+    width: 11px;
+    height: 6px;
+    border-left: 2px solid var(--teal);
+    border-bottom: 2px solid var(--teal);
+    transform: rotate(-45deg);
+}
+
+.plans-note {
+    margin: 32px auto 0;
+    max-width: 62ch;
+    text-align: center;
+    font-size: .8125rem;
+    line-height: 1.6;
+    color: var(--ink-soft);
+}
+
+/* --------------------------------------------------------------- footer */
+
+.footer {
+    background: var(--navy);
+    color: rgba(255, 255, 255, .72);
+    padding-block: 52px 24px;
+}
+
+.footer-inner {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 32px;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.footer-blurb {
+    margin: 16px 0 0;
+    max-width: 38ch;
+    font-size: .875rem;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, .6);
+}
+
+.footer-links {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.footer-links a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    color: rgba(255, 255, 255, .78);
+    text-decoration: none;
+    font-size: .9375rem;
+}
+
+.footer-links a:hover,
+.footer-links a:focus-visible {
+    color: var(--teal);
+    text-decoration: underline;
+}
+
+.footer-legal {
+    margin-top: 36px;
+    padding-top: 22px;
+    border-top: 1px solid rgba(255, 255, 255, .1);
+    font-size: .8125rem;
+    color: rgba(255, 255, 255, .52);
+}
+
+/* --------------------------------------------------------- narrow views */
+
+@media (max-width: 900px) {
+    /* The anchor nav is the first thing to go: the two actions and the logo
+       are what a phone visitor needs, and the sections are a scroll away. */
+    .topnav {
+        display: none;
+    }
+
+    .topbar-inner {
+        justify-content: space-between;
+    }
+
+    .split {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 40px;
+    }
+
+    .section {
+        padding-block: 60px;
+    }
+}
+
+@media (max-width: 560px) {
+    .shell {
+        padding-inline: 16px;
+    }
+
+    .hero-inner {
+        padding-block: 56px 64px;
+    }
+
+    .hero-logo {
+        margin-bottom: 22px;
+    }
+
+    .hero-title {
+        max-width: none;
+    }
+
+    .hero-cta {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .hero-cta .btn-grad,
+    .hero-cta .btn-outline {
+        width: 100%;
+    }
+
+    .btn-ghost {
+        padding: 10px 8px;
+    }
+
+    .topbar-actions .btn-sm {
+        padding: 10px 14px;
+        font-size: .875rem;
+    }
+
+    .section {
+        padding-block: 52px;
+    }
+
+    .section-sub {
+        margin-bottom: 32px;
+    }
+
+    .card,
+    .step,
+    .plan {
+        padding: 22px 18px;
+    }
+
+    .plan-inner {
+        padding-top: 30px;
+    }
+
+    /* The mock-up drops its balance column rather than scrolling sideways. */
+    .mock-head,
+    .mock-row {
+        grid-template-columns: minmax(0, 1fr) 54px auto;
+        padding: 11px 12px;
+    }
+
+    .mock-val {
+        display: none;
+    }
+
+    .mock-head span:nth-child(2) {
+        display: none;
+    }
+
+    .mock-head span:nth-child(3) {
+        grid-column: 2 / span 2;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .landing *,
+    .landing *::before,
+    .landing *::after {
+        transition: none !important;
+        animation: none !important;
+    }
+}

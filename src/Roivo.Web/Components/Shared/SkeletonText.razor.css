@@ -1,0 +1,37 @@
+.rv-sk {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+    max-width: 100%;
+}
+
+.rv-sk-line {
+    border-radius: 4px;
+    flex: 0 0 auto;
+    /* Navy at low alpha rather than neutral grey, so a loading page reads as
+       the same product as the loaded one. Matches SkeletonChart. */
+    background: linear-gradient(-90deg,
+            rgba(11, 31, 58, 0.07) 25%,
+            rgba(11, 31, 58, 0.14) 50%,
+            rgba(11, 31, 58, 0.07) 75%);
+    background-size: 400% 100%;
+    animation: rv-shimmer-text 1.5s ease-in-out infinite;
+}
+
+@keyframes rv-shimmer-text {
+    0% {
+        background-position: 0% 0;
+    }
+
+    100% {
+        background-position: -135% 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rv-sk-line {
+        animation: none;
+        background: rgba(11, 31, 58, 0.09);
+    }
+}
