@@ -20,6 +20,7 @@
 @inject GetAccountantDashboardHandler AccountantHandler
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
+@inject IEntitlementService Entitlements
 
 <RoivoPageTitle Title="@(Shell.Nav_Overview)" />
 
@@ -65,9 +66,25 @@ else
                 @Shell.Owner_Customize
                 <span>@Shell.Owner_Premium</span>
             </button>
-            <button type="button" class="period-button">
-                @Shell.Owner_Period90 <b>⌄</b>
-            </button>
+            @* The design replaced the dropdown with a segmented control, which
+               is also why the badly drawn chevron is gone rather than restyled.
+               60 and 90 days carry their plan badge inline, so the limit is
+               legible before it is reached. *@
+            <div class="forecast-period" role="group" aria-label="@Shell.Owner_PeriodLabel">
+                @foreach (var option in HorizonOptions)
+                {
+                    <button type="button"
+                            class="@(_horizon == option.Days ? "is-active" : "")"
+                            aria-pressed="@((_horizon == option.Days).ToString().ToLowerInvariant())"
+                            @onclick="() => ChooseHorizon(option)">
+                        @Shell.Owner_PeriodDays.Format(option.Days)
+                        @if (option.Badge is not null)
+                        {
+                            <span>@option.Badge</span>
+                        }
+                    </button>
+                }
+            </div>
         </div>
     </section>
 
@@ -116,7 +133,7 @@ else
 
                 @if (HasForecast)
                 {
-                    <CashflowSparkline Points="_dashboard!.DailyForecasts" />
+                    <CashflowSparkline Points="HorizonPoints" />
 
                     <div class="chart-months">
                         @foreach (var month in MonthLabels)
@@ -258,6 +275,11 @@ else
 
         _loadedFor = SelectedBusinessId;
         _loading = true;
+
+        // The plan does not change while the page is open, and both answers are
+        // needed before the horizon control can render its badges.
+        _canSee60 = await Entitlements.CanAccessFeatureAsync(Features.ForecastDays60);
+        _canSee90 = await Entitlements.CanAccessFeatureAsync(Features.ForecastDays90);
         _portfolio = null;
         _business = null;
         _dashboard = null;
@@ -309,6 +331,44 @@ else
 
     private void ShowPremiumNotice() =>
         Snackbar.Add(Shell.Owner_PremiumToast, Severity.Info);
+
+    // ------------------------------------------------------- forecast horizon
+
+    /// <summary>How many days of projection the chart shows. Thirty is free.</summary>
+    private int _horizon = 30;
+
+    /// <summary>Which longer horizons this tenant has paid for.</summary>
+    private bool _canSee60;
+    private bool _canSee90;
+
+    private sealed record HorizonOption(int Days, string? Badge, bool Allowed, string UpgradeMessage);
+
+    private HorizonOption[] HorizonOptions =>
+    [
+        new(30, null, true, ""),
+        new(60, _canSee60 ? null : Shell.Plan_Pro, _canSee60, Shell.Plan_UpgradeToPro),
+        new(90, _canSee90 ? null : Shell.Plan_Premium, _canSee90, Shell.Plan_UpgradeToPremium),
+    ];
+
+    /// <summary>
+    /// The projection truncated to the chosen horizon. The engine always
+    /// computes the full run, so narrowing the chart is a slice rather than
+    /// another query — and the gate is about what is shown, not what is spent
+    /// computing it.
+    /// </summary>
+    private IReadOnlyList<DailyForecast> HorizonPoints =>
+        (_dashboard?.DailyForecasts ?? []).Take(_horizon).ToList();
+
+    private void ChooseHorizon(HorizonOption option)
+    {
+        if (!option.Allowed)
+        {
+            Snackbar.Add(option.UpgradeMessage, Severity.Info);
+            return;
+        }
+
+        _horizon = option.Days;
+    }
 
     // ------------------------------------------------------------ formatting
 

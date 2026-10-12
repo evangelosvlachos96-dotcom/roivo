@@ -342,6 +342,15 @@ public static class Shell
     public static string Sidebar_Collapse => Strings.Get("Shell.Sidebar_Collapse", "Σύμπτυξη μενού");
     public static string Sidebar_Expand => Strings.Get("Shell.Sidebar_Expand", "Ανάπτυξη μενού");
 
+    public static string Owner_PeriodDays => Strings.Get("Shell.Owner_PeriodDays", "{0} ημέρες");
+    public static string Owner_PeriodLabel => Strings.Get("Shell.Owner_PeriodLabel", "Ορίζοντας πρόβλεψης");
+    public static string Plan_Pro => Strings.Get("Shell.Plan_Pro", "PRO");
+    public static string Plan_Premium => Strings.Get("Shell.Plan_Premium", "PREMIUM");
+    public static string Plan_Starter => Strings.Get("Shell.Plan_Starter", "Starter");
+    public static string Plan_UpgradeToPro => Strings.Get("Shell.Plan_UpgradeToPro", "Αναβαθμίστε στο πλάνο Pro — σύντομα διαθέσιμο");
+    public static string Plan_UpgradeToPremium => Strings.Get("Shell.Plan_UpgradeToPremium", "Αναβαθμίστε στο πλάνο Premium — σύντομα διαθέσιμο");
+    public static string Plan_ComingSoon => Strings.Get("Shell.Plan_ComingSoon", "Σύντομα διαθέσιμο");
+
     /// <summary>English overrides. Keys absent here fall back to Greek.</summary>
     static Shell() => Strings.RegisterEnglish(new Dictionary<string, string>(StringComparer.Ordinal)
     {
@@ -657,5 +666,13 @@ public static class Shell
         ["Shell.Set_Language_Sub"] = "Switching language reloads the page.",
         ["Shell.Sidebar_Collapse"] = "Collapse menu",
         ["Shell.Sidebar_Expand"] = "Expand menu",
+        ["Shell.Owner_PeriodDays"] = "{0} days",
+        ["Shell.Owner_PeriodLabel"] = "Forecast horizon",
+        ["Shell.Plan_Pro"] = "PRO",
+        ["Shell.Plan_Premium"] = "PREMIUM",
+        ["Shell.Plan_Starter"] = "Starter",
+        ["Shell.Plan_UpgradeToPro"] = "Upgrade to the Pro plan — coming soon",
+        ["Shell.Plan_UpgradeToPremium"] = "Upgrade to the Premium plan — coming soon",
+        ["Shell.Plan_ComingSoon"] = "Coming soon",
     });
 }
