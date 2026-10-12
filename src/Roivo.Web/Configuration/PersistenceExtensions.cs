@@ -8,6 +8,7 @@ using Roivo.Infrastructure.Auditing;
 using Roivo.Application.Features.Notifications;
 using Roivo.Infrastructure.Email;
 using Roivo.Infrastructure.Email.Templates;
+using Roivo.Infrastructure.Entitlements;
 using Roivo.Infrastructure.MultiTenancy;
 using Roivo.Infrastructure.Persistence;
 using Roivo.Infrastructure.Persistence.Repositories;
@@ -62,6 +63,8 @@ public static class PersistenceExtensions
             .RedactLoggedHeaders(["Authorization"])
             .AddPolicyHandler(GetEmailRetryPolicy());
         }
+
+        services.AddScoped<IEntitlementService, EntitlementService>();
 
         services.AddScoped<IBusinessRepository, BusinessRepository>();
         services.AddScoped<ITenantRepository, TenantRepository>();
