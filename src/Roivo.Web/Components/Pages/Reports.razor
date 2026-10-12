@@ -16,6 +16,8 @@
 @inject IReconciliationRepository Reconciliation
 @inject IBusinessRepository Businesses
 @inject IBankAccountRepository BankAccounts
+@inject IEntitlementService Entitlements
+@inject ISnackbar Snackbar
 @inject IJSRuntime JS
 
 <RoivoPageTitle Title="@(Shell.Nav_Reports)" />
@@ -23,15 +25,38 @@
 <ModuleHeader Eyebrow="@Shell.Rep_Eyebrow"
               Title="@Shell.Rep_Title"
               Description="@Shell.Rep_Description">
-    <Action>
-        <select class="period-button" @bind="_period" @bind:after="Regenerate">
+</ModuleHeader>
+
+@* The design gives the period its own bar under the heading rather than a bare
+   control in the corner, and states in words what the reports will cover. *@
+<section class="report-period-bar">
+    <div>
+        <span>@Shell.Rep_PeriodLabel</span>
+        <select @bind="_period" @bind:after="PeriodChanged">
             @foreach (var option in Periods)
             {
                 <option value="@option.Key">@option.Label</option>
             }
         </select>
-    </Action>
-</ModuleHeader>
+    </div>
+
+    @if (_period == CustomPeriod)
+    {
+        <div class="custom-range">
+            <input type="date" @bind="_customFrom" max="@Today.ToString("yyyy-MM-dd")" />
+            <span>@Shell.Rep_RangeTo</span>
+            <input type="date" @bind="_customTo" max="@Today.ToString("yyyy-MM-dd")" />
+            <button type="button" class="primary-button" @onclick="ApplyCustomRange">
+                @Shell.Rep_RangeApply
+            </button>
+            <button type="button" class="secondary-button" @onclick="CancelCustomRange">
+                @Shell.Rep_RangeCancel
+            </button>
+        </div>
+    }
+
+    <small>@Shell.Rep_GeneratedFor.Format(WindowLabel)</small>
+</section>
 
 <section class="report-grid">
     @foreach (var definition in Definitions)
@@ -113,13 +138,30 @@ else if (_result is not null)
         new("overview", Shell.Rep_Overview, Shell.Rep_OverviewDesc, RoivoIconName.Reports),
     ];
 
+    private const string CustomPeriod = "custom";
+
     private PeriodOption[] Periods =>
     [
         new("month", Shell.Rep_Period_ThisMonth),
         new("lastMonth", Shell.Rep_Period_LastMonth),
         new("quarter", Shell.Rep_Period_Quarter),
         new("year", Shell.Rep_Period_Year),
+        new(CustomPeriod, Shell.Rep_Period_Custom),
     ];
+
+    private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
+
+    /// <summary>Whether this tenant may pick its own window.</summary>
+    private bool _canUseCustomRange;
+
+    /// <summary>The period in force before custom was picked, to fall back to.</summary>
+    private string _previousPeriod = "month";
+
+    private DateOnly _customFrom = Today.AddDays(-30);
+    private DateOnly _customTo = Today;
+
+    /// <summary>Applied only on Apply, so half-typed dates never run a report.</summary>
+    private (DateOnly From, DateOnly To)? _appliedRange;
 
     /// <summary>The window the selected period covers, inclusive.</summary>
     private (DateOnly From, DateOnly To) Window
@@ -127,6 +169,8 @@ else if (_result is not null)
         get
         {
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+            if (_period == CustomPeriod && _appliedRange is { } applied) return applied;
 
             return _period switch
             {
@@ -140,6 +184,73 @@ else if (_result is not null)
     }
 
     private string PeriodLabel => Periods.First(p => p.Key == _period).Label;
+
+    /// <summary>
+    /// The window in words. A named period says its name; a custom one spells
+    /// out its dates, because "custom range" tells the reader nothing.
+    /// </summary>
+    private string WindowLabel
+    {
+        get
+        {
+            if (_period != CustomPeriod) return PeriodLabel;
+
+            var (from, to) = Window;
+
+            return from.Year == to.Year
+                ? $"{from.ToString("d MMM", Strings.FormatCulture)} — {to.ToString("d MMM yyyy", Strings.FormatCulture)}"
+                : $"{from.ToString("d MMM yyyy", Strings.FormatCulture)} — {to.ToString("d MMM yyyy", Strings.FormatCulture)}";
+        }
+    }
+
+    /// <summary>
+    /// Picking a period. Custom is gated, and a refused pick puts the previous
+    /// choice back rather than leaving the control showing something that is
+    /// not in force.
+    /// </summary>
+    /// <summary>
+    /// The plan does not change while the page is open, and the period control
+    /// needs the answer before its first interaction.
+    /// </summary>
+    protected override async Task OnInitializedAsync() =>
+        _canUseCustomRange = await Entitlements.CanAccessFeatureAsync(Features.CustomReportRange);
+
+    private async Task PeriodChanged()
+    {
+        if (_period == CustomPeriod && !_canUseCustomRange)
+        {
+            Snackbar.Add(Shell.Plan_UpgradeToPro, Severity.Info);
+            _period = _previousPeriod;
+            return;
+        }
+
+        if (_period != CustomPeriod)
+        {
+            _previousPeriod = _period;
+            _appliedRange = null;
+        }
+
+        await Regenerate();
+    }
+
+    private async Task ApplyCustomRange()
+    {
+        if (_customFrom > _customTo)
+        {
+            Snackbar.Add(Shell.Rep_RangeInvalid, Severity.Warning);
+            return;
+        }
+
+        _appliedRange = (_customFrom, _customTo);
+        await Regenerate();
+    }
+
+    private async Task CancelCustomRange()
+    {
+        _period = _previousPeriod;
+        _appliedRange = null;
+        await Regenerate();
+    }
 
     /// <summary>Re-runs whichever report is open when the period changes.</summary>
     private async Task Regenerate()

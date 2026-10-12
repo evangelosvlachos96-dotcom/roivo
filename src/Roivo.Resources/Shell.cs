@@ -50,7 +50,6 @@ public static class Shell
     public static string Metric_Available => Strings.Get("Shell.Metric_Available", "Συνολικά διαθέσιμα");
     public static string Metric_ExpectedInflow => Strings.Get("Shell.Metric_ExpectedInflow", "Αναμενόμενες εισροές");
     public static string Metric_PlannedOutflow => Strings.Get("Shell.Metric_PlannedOutflow", "Προγραμματισμένες εκροές");
-    public static string Metric_NetPosition90 => Strings.Get("Shell.Metric_NetPosition90", "Καθαρή θέση 90 ημερών");
     public static string Metric_Next30Days => Strings.Get("Shell.Metric_Next30Days", "Επόμενες 30 ημέρες");
     public static string Metric_HealthyForecast => Strings.Get("Shell.Metric_HealthyForecast", "Υγιής πρόβλεψη");
     public static string Metric_TightForecast => Strings.Get("Shell.Metric_TightForecast", "Οριακή πρόβλεψη");
@@ -351,6 +350,34 @@ public static class Shell
     public static string Plan_UpgradeToPremium => Strings.Get("Shell.Plan_UpgradeToPremium", "Αναβαθμίστε στο πλάνο Premium — σύντομα διαθέσιμο");
     public static string Plan_ComingSoon => Strings.Get("Shell.Plan_ComingSoon", "Σύντομα διαθέσιμο");
 
+    public static string Metric_NetPositionDays => Strings.Get("Shell.Metric_NetPositionDays", "Καθαρή θέση {0} ημερών");
+    public static string Insight_PositiveMonth => Strings.Get("Shell.Insight_PositiveMonth", "Η πρόβλεψη δείχνει {0} επιπλέον ρευστότητα τον επόμενο μήνα, με αυτονομία {1} ημερών. Καλή στιγμή για προγραμματισμό.");
+    public static string Insight_NegativeMonth => Strings.Get("Shell.Insight_NegativeMonth", "Η πρόβλεψη δείχνει μείωση {0} τον επόμενο μήνα. Ελέγξτε τις επερχόμενες υποχρεώσεις και τα ανοιχτά τιμολόγια.");
+
+    public static string Rep_PeriodLabel => Strings.Get("Shell.Rep_PeriodLabel", "ΠΕΡΙΟΔΟΣ ΑΝΑΦΟΡΑΣ");
+    public static string Rep_Period_Custom => Strings.Get("Shell.Rep_Period_Custom", "Προσαρμοσμένο εύρος");
+    public static string Rep_RangeTo => Strings.Get("Shell.Rep_RangeTo", "έως");
+    public static string Rep_RangeApply => Strings.Get("Shell.Rep_RangeApply", "Εφαρμογή");
+    public static string Rep_RangeCancel => Strings.Get("Shell.Rep_RangeCancel", "Ακύρωση");
+    public static string Rep_GeneratedFor => Strings.Get("Shell.Rep_GeneratedFor", "Οι αναφορές θα δημιουργηθούν για {0}");
+    public static string Rep_RangeInvalid => Strings.Get("Shell.Rep_RangeInvalid", "Η ημερομηνία έναρξης πρέπει να προηγείται της λήξης");
+
+    public static string Set_Nav_Subscription => Strings.Get("Shell.Set_Nav_Subscription", "Συνδρομή");
+    public static string Set_Plan_Current => Strings.Get("Shell.Set_Plan_Current", "ΤΡΕΧΟΝ ΠΡΟΓΡΑΜΜΑ");
+    public static string Set_Plan_Title => Strings.Get("Shell.Set_Plan_Title", "Συνδρομή");
+    public static string Set_Plan_Sub => Strings.Get("Shell.Set_Plan_Sub", "Το πρόγραμμά σας και τι περιλαμβάνει.");
+    public static string Set_Plan_PerMonth => Strings.Get("Shell.Set_Plan_PerMonth", "/μήνα");
+    public static string Set_Plan_StarterBlurb => Strings.Get("Shell.Set_Plan_StarterBlurb", "Βασική εικόνα ρευστότητας, πρόβλεψη 30 ημερών και αναφορές για τυπικές περιόδους.");
+    public static string Set_Plan_ProBlurb => Strings.Get("Shell.Set_Plan_ProBlurb", "Πρόβλεψη 60 ημερών, προσαρμοσμένο εύρος αναφορών, αποθήκευση dashboard και σημειώσεις ημερολογίου.");
+    public static string Set_Plan_PremiumBlurb => Strings.Get("Shell.Set_Plan_PremiumBlurb", "Όλα όσα περιλαμβάνει το Pro, μαζί με πρόβλεψη 90 ημερών.");
+    public static string Set_Plan_UnlockPro => Strings.Get("Shell.Set_Plan_UnlockPro", "Ξεκλειδώστε το Roivo Pro");
+    public static string Set_Plan_UnlockProBody => Strings.Get("Shell.Set_Plan_UnlockProBody", "Πρόβλεψη 60 ημερών, προσαρμοσμένο εύρος αναφορών και αποθήκευση dashboard.");
+    public static string Set_Plan_UnlockPremium => Strings.Get("Shell.Set_Plan_UnlockPremium", "Ξεκλειδώστε το Roivo Premium");
+    public static string Set_Plan_UnlockPremiumBody => Strings.Get("Shell.Set_Plan_UnlockPremiumBody", "Προσθέτει πρόβλεψη 90 ημερών στα όσα ήδη έχετε.");
+    public static string Set_Plan_UpgradePro => Strings.Get("Shell.Set_Plan_UpgradePro", "Αναβάθμιση σε Pro");
+    public static string Set_Plan_UpgradePremium => Strings.Get("Shell.Set_Plan_UpgradePremium", "Αναβάθμιση σε Premium");
+    public static string Set_Plan_AllIncluded => Strings.Get("Shell.Set_Plan_AllIncluded", "Έχετε ήδη πρόσβαση σε όλες τις δυνατότητες.");
+
     /// <summary>English overrides. Keys absent here fall back to Greek.</summary>
     static Shell() => Strings.RegisterEnglish(new Dictionary<string, string>(StringComparer.Ordinal)
     {
@@ -387,7 +414,6 @@ public static class Shell
         ["Shell.Metric_Available"] = "Total available",
         ["Shell.Metric_ExpectedInflow"] = "Expected inflows",
         ["Shell.Metric_PlannedOutflow"] = "Planned outflows",
-        ["Shell.Metric_NetPosition90"] = "90-day net position",
         ["Shell.Metric_Next30Days"] = "Next 30 days",
         ["Shell.Metric_HealthyForecast"] = "Healthy forecast",
         ["Shell.Metric_TightForecast"] = "Tight forecast",
@@ -674,5 +700,30 @@ public static class Shell
         ["Shell.Plan_UpgradeToPro"] = "Upgrade to the Pro plan — coming soon",
         ["Shell.Plan_UpgradeToPremium"] = "Upgrade to the Premium plan — coming soon",
         ["Shell.Plan_ComingSoon"] = "Coming soon",
+        ["Shell.Metric_NetPositionDays"] = "{0}-day net position",
+        ["Shell.Insight_PositiveMonth"] = "The forecast adds {0} over the next month, with {1} days of runway. A good moment to plan ahead.",
+        ["Shell.Insight_NegativeMonth"] = "The forecast is down {0} over the next month. Check the upcoming obligations and your open invoices.",
+        ["Shell.Rep_PeriodLabel"] = "REPORT PERIOD",
+        ["Shell.Rep_Period_Custom"] = "Custom range",
+        ["Shell.Rep_RangeTo"] = "to",
+        ["Shell.Rep_RangeApply"] = "Apply",
+        ["Shell.Rep_RangeCancel"] = "Cancel",
+        ["Shell.Rep_GeneratedFor"] = "Reports will cover {0}",
+        ["Shell.Rep_RangeInvalid"] = "The start date must come before the end date",
+        ["Shell.Set_Nav_Subscription"] = "Subscription",
+        ["Shell.Set_Plan_Current"] = "CURRENT PLAN",
+        ["Shell.Set_Plan_Title"] = "Subscription",
+        ["Shell.Set_Plan_Sub"] = "Your plan and what it includes.",
+        ["Shell.Set_Plan_PerMonth"] = "/month",
+        ["Shell.Set_Plan_StarterBlurb"] = "The core cashflow picture, a 30-day forecast and reports over the standard periods.",
+        ["Shell.Set_Plan_ProBlurb"] = "A 60-day forecast, custom report ranges, saved dashboards and calendar notes.",
+        ["Shell.Set_Plan_PremiumBlurb"] = "Everything in Pro, plus the 90-day forecast.",
+        ["Shell.Set_Plan_UnlockPro"] = "Unlock Roivo Pro",
+        ["Shell.Set_Plan_UnlockProBody"] = "A 60-day forecast, custom report ranges and saved dashboards.",
+        ["Shell.Set_Plan_UnlockPremium"] = "Unlock Roivo Premium",
+        ["Shell.Set_Plan_UnlockPremiumBody"] = "Adds the 90-day forecast to everything you already have.",
+        ["Shell.Set_Plan_UpgradePro"] = "Upgrade to Pro",
+        ["Shell.Set_Plan_UpgradePremium"] = "Upgrade to Premium",
+        ["Shell.Set_Plan_AllIncluded"] = "You already have every feature.",
     });
 }

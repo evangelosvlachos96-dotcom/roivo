@@ -280,6 +280,35 @@ LOCAL_OVERRIDES = """
     justify-content: flex-start;
 }
 
+/* The design draws the custom report range as two buttons, standing in for a
+   date picker it never had to build. Ours are real date inputs, so they take
+   the same treatment the design gave those buttons. */
+.custom-range input[type="date"] {
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text);
+    background: var(--surface-subtle);
+    font-size: 12px;
+}
+
+/* The native picker indicator is near-black on a dark field. */
+.app[data-theme="dark"] .custom-range input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) opacity(.65);
+}
+
+.custom-range .primary-button,
+.custom-range .secondary-button {
+    height: 34px;
+    min-height: 34px;
+}
+
+/* The bar wraps rather than overflowing once the range controls appear. */
+.report-period-bar {
+    flex-wrap: wrap;
+}
+
 /* Settings. The design hangs its width cap on `settings-content`, a class on
    the page's own <main>; ours is the shared shell's, so the cap is hung on the
    content column when a settings layout is what it is holding. */

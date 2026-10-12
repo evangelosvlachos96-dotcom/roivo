@@ -17,6 +17,7 @@
 @using Roivo.Application.Abstractions.Security
 @using Roivo.Application.Features.Businesses.Commands.UpdateBusiness
 @using Roivo.Core.Domain.Entities
+@using Roivo.Core.Domain.Enums
 @using Roivo.Infrastructure.Persistence
 @using Roivo.Resources
 @using Roivo.Web.Components.Shared
@@ -27,6 +28,8 @@
 @inject UpdateBusinessHandler UpdateBusiness
 @inject IDbContextFactory<ApplicationDbContext> DbFactory
 @inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IEntitlementService Entitlements
 
 <RoivoPageTitle Title="@(Shell.Nav_Settings)" />
 
@@ -42,6 +45,7 @@
                     class="@(_section == option.Key ? "is-active" : "")"
                     @onclick="() => Show(option.Key)">
                 @option.Label
+                <RoivoIcon Name="RoivoIconName.Arrow" Size="12" />
             </button>
         }
     </aside>
@@ -217,6 +221,45 @@
                 <p>@Shell.Set_Team_InviteNote</p>
             </div>
         }
+        else if (_section == Section.Subscription)
+        {
+            <div class="settings-section">
+                <h2>@Shell.Set_Plan_Title</h2>
+                <p>@Shell.Set_Plan_Sub</p>
+            </div>
+
+            <div class="plan-card">
+                <span>
+                    <small>@Shell.Set_Plan_Current</small>
+                    <strong>@PlanName</strong>
+                    <p>@PlanBlurb</p>
+                </span>
+                @* Only Starter has a price anyone can state. There is no billing
+                   yet, so quoting one for the paid tiers would be inventing it. *@
+                @if (_plan == PlanTier.Starter)
+                {
+                    <b>€0<small>@Shell.Set_Plan_PerMonth</small></b>
+                }
+            </div>
+
+            @if (NextTier is not null)
+            {
+                <div class="upgrade-callout">
+                    <RoivoIcon Name="RoivoIconName.Sparkle" />
+                    <span>
+                        <strong>@NextTier.Heading</strong>
+                        <small>@NextTier.Body</small>
+                    </span>
+                    <button type="button" class="primary-button" @onclick="ShowUpgradeNotice">
+                        @NextTier.Cta
+                    </button>
+                </div>
+            }
+            else
+            {
+                <p class="settings-note">@Shell.Set_Plan_AllIncluded</p>
+            }
+        }
         else
         {
             <div class="settings-section">
@@ -268,7 +311,7 @@
     /// <summary>Set by the round trip a password change takes through Identity.</summary>
     [SupplyParameterFromQuery(Name = "passwordchanged")] private bool PasswordChanged { get; set; }
 
-    private enum Section { Profile, Business, Team, Appearance }
+    private enum Section { Profile, Business, Team, Appearance, Subscription }
 
     private Section _section = Section.Profile;
 
@@ -287,6 +330,9 @@
     private string _businessKad = "";
     private string _businessAddress = "";
     private bool _aadeConnected;
+
+    /// <summary>What the tenant is on. Everyone is Starter until billing exists.</summary>
+    private PlanTier _plan = PlanTier.Starter;
 
     /// <summary>Which client the business panel is currently showing, and whether it has loaded at all.</summary>
     private Guid? _loadedBusinessId;
@@ -312,6 +358,7 @@
         new(Section.Business, Shell.Set_Nav_Business),
         new(Section.Team, Shell.Set_Nav_Team),
         new(Section.Appearance, Shell.Set_Nav_Appearance),
+        new(Section.Subscription, Shell.Set_Nav_Subscription),
     ];
 
     /// <summary>
@@ -370,6 +417,7 @@
         ];
 
         _devices = await Devices.ListDevicesAsync(_userId);
+        _plan = await Entitlements.GetCurrentPlanAsync();
 
         // The password change goes out through a full request so the auth
         // cookie can be re-issued; the confirmation rides back in the query.
@@ -431,6 +479,41 @@
         _message = null;
         _messageIsError = false;
     }
+
+    // --------------------------------------------------------- subscription
+
+    private sealed record UpgradeOffer(string Heading, string Body, string Cta);
+
+    private string PlanName => _plan switch
+    {
+        PlanTier.Pro => "Pro",
+        PlanTier.Premium => "Premium",
+        _ => Shell.Plan_Starter,
+    };
+
+    private string PlanBlurb => _plan switch
+    {
+        PlanTier.Pro => Shell.Set_Plan_ProBlurb,
+        PlanTier.Premium => Shell.Set_Plan_PremiumBlurb,
+        _ => Shell.Set_Plan_StarterBlurb,
+    };
+
+    /// <summary>The one tier up, or null at the top.</summary>
+    private UpgradeOffer? NextTier => _plan switch
+    {
+        PlanTier.Starter => new(
+            Shell.Set_Plan_UnlockPro, Shell.Set_Plan_UnlockProBody, Shell.Set_Plan_UpgradePro),
+        PlanTier.Pro => new(
+            Shell.Set_Plan_UnlockPremium, Shell.Set_Plan_UnlockPremiumBody, Shell.Set_Plan_UpgradePremium),
+        _ => null,
+    };
+
+    /// <summary>
+    /// There is no checkout to send anyone to, so the button says so rather
+    /// than opening something that cannot complete.
+    /// </summary>
+    private void ShowUpgradeNotice() =>
+        Snackbar.Add(Shell.Plan_ComingSoon, Severity.Info);
 
     private void Report(string text, bool isError)
     {

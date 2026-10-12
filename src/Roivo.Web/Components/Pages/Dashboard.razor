@@ -107,10 +107,14 @@ else
                     <small>@Shell.Metric_Next30Days</small>
                 </article>
                 <article>
-                    <span>@Shell.Metric_NetPosition90</span>
-                    <strong>@Signed(Net90)</strong>
-                    <small class="@(Net90 >= 0 ? "up" : null)">
-                        @(Net90 >= 0 ? Shell.Metric_HealthyForecast : Shell.Metric_TightForecast)
+                    @* Headline and chart have to agree about how far ahead
+                       this tenant can see. Quoting a quarter here while the
+                       chart stops at a month would hand out the gated figure
+                       in the one place nobody thinks to gate. *@
+                    <span>@Shell.Metric_NetPositionDays.Format(HeadlineDays)</span>
+                    <strong>@Signed(HeadlineNet)</strong>
+                    <small class="@(HeadlineNet >= 0 ? "up" : null)">
+                        @(HeadlineNet >= 0 ? Shell.Metric_HealthyForecast : Shell.Metric_TightForecast)
                     </small>
                 </article>
             </section>
@@ -392,7 +396,27 @@ else
     private decimal Outflow30 => _dashboard?.DailyForecasts.Take(30).Sum(f => f.PredictedOutflow) ?? 0m;
 
     /// <summary>What the next ninety days add to, or take from, today's balance.</summary>
-    private decimal Net90 => Summary.Forecast90DayBalance - Summary.CurrentBalance;
+    /// <summary>
+    /// How far ahead the headline figures look: a quarter for a tenant with the
+    /// 90-day entitlement, a month for everyone else.
+    /// </summary>
+    private int HeadlineDays => _canSee90 ? 90 : 30;
+
+    /// <summary>The change in balance over <see cref="HeadlineDays"/>.</summary>
+    private decimal HeadlineNet => NetOver(HeadlineDays);
+
+    /// <summary>
+    /// Balance change across a horizon, read off the same projection the chart
+    /// draws. Mirrors the engine's own BalanceAt, including its habit of
+    /// reporting a short run's last day rather than nothing.
+    /// </summary>
+    private decimal NetOver(int days)
+    {
+        var points = _dashboard?.DailyForecasts;
+        if (points is null || points.Count == 0) return 0m;
+
+        return points[Math.Min(days, points.Count) - 1].PredictedBalance - Summary.CurrentBalance;
+    }
 
     private bool IsHealthy => Summary.DaysOfRunway >= 60;
 
@@ -488,9 +512,17 @@ else
             var alert = _dashboard!.Alerts.FirstOrDefault();
             if (alert is not null) return alert.Message;
 
-            return Net90 >= 0
-                ? string.Format(Shell.Insight_Positive, Money(Net90), Summary.DaysOfRunway)
-                : string.Format(Shell.Insight_Negative, Money(Math.Abs(Net90)));
+            // The copy names the span in words, so the sentence changes with
+            // the horizon rather than claiming a quarter it cannot show.
+            var quarter = HeadlineDays >= 90;
+
+            return HeadlineNet >= 0
+                ? string.Format(
+                    quarter ? Shell.Insight_Positive : Shell.Insight_PositiveMonth,
+                    Money(HeadlineNet), Summary.DaysOfRunway)
+                : string.Format(
+                    quarter ? Shell.Insight_Negative : Shell.Insight_NegativeMonth,
+                    Money(Math.Abs(HeadlineNet)));
         }
     }
 }
