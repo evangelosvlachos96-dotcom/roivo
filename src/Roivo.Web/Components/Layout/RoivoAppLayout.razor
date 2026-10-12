@@ -26,6 +26,7 @@
 @inject IReconciliationRepository Reconciliation
 @inject ICashflowRepository Cashflow
 @inject IDeviceTrackingService Devices
+@inject ILogger<RoivoAppLayout> Logger
 
 <MudThemeProvider Theme="@RoivoTheme.Build()" IsDarkMode="@_isDark" />
 <MudPopoverProvider />
@@ -163,7 +164,7 @@
         if (Guid.TryParse(userIdValue, out var userId))
         {
             _userId = userId;
-            _newDevice = await Devices.GetUnacknowledgedDeviceAsync(userId, NewDeviceWindow);
+            _newDevice = await UnacknowledgedDeviceAsync(userId);
 
             var user = await db.Users
                 .Where(u => u.Id == userId)
@@ -217,12 +218,45 @@
         _upcomingObligations = obligations.Count(o => !o.IsPaid);
     }
 
+    /// <summary>
+    /// The new-device notice, or null when there is nothing to say — including
+    /// when the tracker itself cannot answer.
+    /// </summary>
+    /// <remarks>
+    /// Device tracking is a courtesy notice, and the same rule applies here as
+    /// at sign-in: it must never be the reason someone cannot use the product.
+    /// Unguarded, one unavailable table took down every authenticated page,
+    /// because this runs in the layout that every one of them renders inside.
+    /// </remarks>
+    private async Task<UserDeviceView?> UnacknowledgedDeviceAsync(Guid userId)
+    {
+        try
+        {
+            return await Devices.GetUnacknowledgedDeviceAsync(userId, NewDeviceWindow);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Logger.LogError(ex, "Could not read the device notice for user {UserId}", userId);
+            return null;
+        }
+    }
+
     /// <summary>Retires the notice so it does not reappear on the next page.</summary>
     private async Task AcknowledgeDevice()
     {
         if (_newDevice is null) return;
 
-        await Devices.AcknowledgeDeviceAsync(_userId, _newDevice.Id);
+        try
+        {
+            await Devices.AcknowledgeDeviceAsync(_userId, _newDevice.Id);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Dismissing is the user's instruction either way; losing the write
+            // only means the notice may return, which beats an error dialog.
+            Logger.LogError(ex, "Could not acknowledge device {DeviceId}", _newDevice.Id);
+        }
+
         _newDevice = null;
     }
 
