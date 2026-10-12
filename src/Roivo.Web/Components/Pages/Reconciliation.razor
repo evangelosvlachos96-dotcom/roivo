@@ -169,14 +169,18 @@ else
                     }
                 </div>
 
+                @* Reject carries the design's danger treatment and sits away
+                   from Approve, which stays rightmost: the row is read left to
+                   right, so the confirming action is the one the hand lands on
+                   and the destructive one takes a deliberate reach. *@
                 <div class="match-actions">
+                    <button type="button" class="secondary-button danger-button" disabled="@_acting"
+                            @onclick="() => Reject(Selected.MatchId)">
+                        @Shell.Rec_Reject
+                    </button>
                     <button type="button" class="primary-button" disabled="@_acting"
                             @onclick="() => Confirm(Selected.MatchId)">
                         <RoivoIcon Name="RoivoIconName.Check" Size="15" /> @Shell.Rec_Approve
-                    </button>
-                    <button type="button" class="secondary-button" disabled="@_acting"
-                            @onclick="() => Reject(Selected.MatchId)">
-                        @Shell.Rec_Reject
                     </button>
                 </div>
             }
