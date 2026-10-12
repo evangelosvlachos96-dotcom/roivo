@@ -333,6 +333,37 @@ app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = Dat
     .WithName("Health")
     .AllowAnonymous();
 
+// Schema state, so the deploy can be checked without database access. It names
+// migrations — timestamps and descriptions — and never reads a row, so there is
+// nothing here to authenticate.
+app.MapGet("/health/db", async (IDbContextFactory<ApplicationDbContext> factory) =>
+{
+    try
+    {
+        await using var db = await factory.CreateDbContextAsync();
+
+        var applied = (await db.Database.GetAppliedMigrationsAsync()).ToList();
+        var pending = (await db.Database.GetPendingMigrationsAsync()).ToList();
+
+        return Results.Ok(new
+        {
+            status = pending.Count == 0 ? "healthy" : "pending_migrations",
+            applied = applied.Count,
+            pending = pending.Count,
+            pendingMigrations = pending,
+            lastApplied = applied.LastOrDefault(),
+        });
+    }
+    catch (Exception ex)
+    {
+        // 503 rather than 500: the schema is unreachable or unreadable, which is
+        // exactly what a health probe should report as unavailable.
+        return Results.Json(new { status = "error", message = ex.Message }, statusCode: 503);
+    }
+})
+    .WithName("DatabaseHealth")
+    .AllowAnonymous();
+
 app.MapRazorPages();
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 
