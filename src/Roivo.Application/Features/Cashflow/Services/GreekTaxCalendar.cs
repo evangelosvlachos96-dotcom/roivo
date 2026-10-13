@@ -33,6 +33,8 @@ public interface IGreekTaxCalendar
     /// statutory, but Roivo only knows a business owns property when the owner
     /// has told it a value, so the default assumes it does not.
     /// </param>
+    /// <param name="from">First day of the window, inclusive.</param>
+    /// <param name="to">Last day of the window, inclusive.</param>
     IReadOnlyList<TaxDueDate> DueDatesIn(
         DateOnly from,
         DateOnly to,

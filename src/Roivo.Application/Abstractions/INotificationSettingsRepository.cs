@@ -53,6 +53,8 @@ public interface INotificationSettingsRepository
     /// lookup would otherwise resolve any user id in the system, and the test
     /// notification reports the address it resolved back to the caller.
     /// </param>
+    /// <param name="userId">The account whose address to resolve.</param>
+    /// <param name="cancellationToken">Cancels the lookup.</param>
     Task<string?> GetConfirmedEmailAsync(
         string userId,
         Guid tenantId,
@@ -65,7 +67,13 @@ public interface INotificationSettingsRepository
 /// jobs do not fan out into per-recipient lookups.
 /// </summary>
 /// <param name="SettingsId">Identifies the preference row, used as the dispatch-dedupe key.</param>
+/// <param name="TenantId">The tenant the business and recipient belong to.</param>
+/// <param name="BusinessId">The business the notification is about.</param>
+/// <param name="BusinessName">The business's display name, for the email subject and body.</param>
+/// <param name="UserId">The account that will receive the email.</param>
 /// <param name="Email">A confirmed address; the query never returns unconfirmed ones.</param>
+/// <param name="TaxReminderDaysBefore">How many days ahead of a due date the tax reminder goes out.</param>
+/// <param name="CashflowAlertThreshold">Projected balance at or below which the cashflow alert fires.</param>
 public sealed record NotificationRecipient(
     Guid SettingsId,
     Guid TenantId,

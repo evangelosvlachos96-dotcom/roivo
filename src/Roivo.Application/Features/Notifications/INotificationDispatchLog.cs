@@ -34,6 +34,8 @@ public interface INotificationDispatchLog
     /// How far back to look. Doubles as a cooldown: a seven-day window on a
     /// cashflow alert means at most one such alert per week.
     /// </param>
+    /// <param name="dispatchKey">Identifies the one send being deduped.</param>
+    /// <param name="cancellationToken">Cancels the lookup.</param>
     Task<bool> WasSentAsync(
         Guid tenantId,
         string dispatchKey,
