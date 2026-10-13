@@ -15,7 +15,6 @@ public sealed class SyncBusinessInvoicesHandler
     private readonly IAadeClient _aade;
     private readonly IAadeCredentialStore _credentials;
     private readonly IAuditWriter _audit;
-    private readonly ITenantContext _tenant;
 
     public SyncBusinessInvoicesHandler(
         IBusinessRepository businesses,
@@ -23,8 +22,7 @@ public sealed class SyncBusinessInvoicesHandler
         IIncomeBookEntryRepository bookEntries,
         IAadeClient aade,
         IAadeCredentialStore credentials,
-        IAuditWriter audit,
-        ITenantContext tenant)
+        IAuditWriter audit)
     {
         ArgumentNullException.ThrowIfNull(businesses);
         ArgumentNullException.ThrowIfNull(invoices);
@@ -32,7 +30,6 @@ public sealed class SyncBusinessInvoicesHandler
         ArgumentNullException.ThrowIfNull(aade);
         ArgumentNullException.ThrowIfNull(credentials);
         ArgumentNullException.ThrowIfNull(audit);
-        ArgumentNullException.ThrowIfNull(tenant);
 
         _businesses = businesses;
         _invoices = invoices;
@@ -40,7 +37,6 @@ public sealed class SyncBusinessInvoicesHandler
         _aade = aade;
         _credentials = credentials;
         _audit = audit;
-        _tenant = tenant;
     }
 
     public async Task<SyncBusinessInvoicesResult> Handle(SyncBusinessInvoicesCommand command, CancellationToken cancellationToken = default)

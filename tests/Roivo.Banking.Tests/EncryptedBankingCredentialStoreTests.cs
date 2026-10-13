@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Roivo.Application.Abstractions;
-using Roivo.Banking;
 using Roivo.Core.Domain.Entities;
 using Roivo.Core.Domain.Enums;
 using Roivo.Infrastructure.Persistence;

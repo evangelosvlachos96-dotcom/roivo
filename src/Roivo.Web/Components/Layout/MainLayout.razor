@@ -1,6 +1,5 @@
 @using Microsoft.AspNetCore.Components.Routing
 @using Roivo.Resources
-@using Roivo.Web.Components.Shared
 @using Roivo.Web.Configuration
 @inherits LayoutComponentBase
 @implements IDisposable
@@ -96,7 +95,7 @@
                 </MudMenu>
 
                 <MudButton Variant="Variant.Text" Color="Color.Inherit"
-                           Href="@LanguageToggleHref" ForceLoad="true"
+                           OnClick="@(() => Nav.NavigateTo(LanguageToggleHref, forceLoad: true))"
                            title="@(Strings.IsEnglish ? Common.LanguageName_El : Common.LanguageName_En)">
                     @(Strings.IsEnglish ? "EL" : "EN")
                 </MudButton>

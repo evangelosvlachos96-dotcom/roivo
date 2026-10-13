@@ -19,8 +19,6 @@ public interface IBankTransactionRepository
     Task<BankTransactionUpsertCounts> UpsertRangeAsync(
         IReadOnlyCollection<BankTransaction> transactions,
         CancellationToken cancellationToken = default);
-
-    Task<int> CountByBusinessAsync(Guid businessId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Result of a bulk transaction upsert.</summary>

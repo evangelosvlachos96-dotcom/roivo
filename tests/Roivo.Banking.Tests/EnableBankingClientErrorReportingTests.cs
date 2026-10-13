@@ -2,10 +2,8 @@ using System.Net;
 using System.Text;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Roivo.Application.Abstractions.Banking.Results;
-using Roivo.Banking;
 using Roivo.Banking.Configuration;
 
 namespace Roivo.Banking.Tests;

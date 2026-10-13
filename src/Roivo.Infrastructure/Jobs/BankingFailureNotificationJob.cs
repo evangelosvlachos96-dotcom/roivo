@@ -4,7 +4,6 @@ using Roivo.Application.Abstractions;
 using Roivo.Core.Domain.Entities;
 using Roivo.Infrastructure.Email;
 using Roivo.Infrastructure.Email.Templates;
-using Roivo.Resources;
 
 namespace Roivo.Infrastructure.Jobs;
 

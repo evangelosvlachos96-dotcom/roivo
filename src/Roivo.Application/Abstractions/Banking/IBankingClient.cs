@@ -41,14 +41,6 @@ public interface IBankingClient
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Re-reads an existing session. Used to confirm a stored session is still
-    /// live (consents expire or are revoked at the bank) without re-consenting.
-    /// </summary>
-    Task<BankingSessionResult> GetSessionAsync(
-        string sessionId,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// Fetches booked transactions for one account over a closed date range.
     /// Implementations follow the aggregator's pagination internally and return
     /// the whole range.

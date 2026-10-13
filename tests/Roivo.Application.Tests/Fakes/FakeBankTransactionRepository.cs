@@ -27,7 +27,4 @@ public sealed class FakeBankTransactionRepository : IBankTransactionRepository
 
         return Task.FromResult(new BankTransactionUpsertCounts(inserted, updated));
     }
-
-    public Task<int> CountByBusinessAsync(Guid businessId, CancellationToken cancellationToken = default)
-        => Task.FromResult(Store.Count);
 }

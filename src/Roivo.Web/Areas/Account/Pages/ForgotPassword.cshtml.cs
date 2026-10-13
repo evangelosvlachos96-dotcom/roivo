@@ -18,23 +18,19 @@ public class ForgotPasswordModel : PageModel
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IBackgroundJobClient _backgroundJobs;
     private readonly IAuditWriter _audit;
-    private readonly ILogger<ForgotPasswordModel> _logger;
 
     public ForgotPasswordModel(
         UserManager<ApplicationUser> userManager,
         IBackgroundJobClient backgroundJobs,
-        IAuditWriter audit,
-        ILogger<ForgotPasswordModel> logger)
+        IAuditWriter audit)
     {
         ArgumentNullException.ThrowIfNull(userManager);
         ArgumentNullException.ThrowIfNull(backgroundJobs);
         ArgumentNullException.ThrowIfNull(audit);
-        ArgumentNullException.ThrowIfNull(logger);
 
         _userManager = userManager;
         _backgroundJobs = backgroundJobs;
         _audit = audit;
-        _logger = logger;
     }
 
     [BindProperty]

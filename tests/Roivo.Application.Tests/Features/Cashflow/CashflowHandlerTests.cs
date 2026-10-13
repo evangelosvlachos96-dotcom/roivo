@@ -397,7 +397,7 @@ public class CashflowHandlerTests
     private static (GetCashflowDashboardHandler Handler, FakeCashflowRepository Repo) BuildDashboardSut()
     {
         var repo = new FakeCashflowRepository();
-        var engine = new CashflowForecastEngine(repo, new GreekTaxCalendar(repo));
+        var engine = new CashflowForecastEngine(repo);
         return (new GetCashflowDashboardHandler(engine, repo), repo);
     }
 
@@ -516,7 +516,7 @@ public class CashflowHandlerTests
     {
         var repo = new FakeCashflowRepository { CurrentBalance = 5000m };
         var handler = new GetCashflowForecastHandler(
-            new CashflowForecastEngine(repo, new GreekTaxCalendar(repo)));
+            new CashflowForecastEngine(repo));
         SeedFlatHistory(repo, days: 90, inflow: 200m, outflow: 100m);
 
         var result = await handler.Handle(new GetCashflowForecastQuery(BusinessId, DaysAhead: 30));

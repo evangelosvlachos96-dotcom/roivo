@@ -14,16 +14,6 @@ public sealed class InvoiceRepository : IInvoiceRepository
         _factory = factory;
     }
 
-    public async Task<Invoice?> GetByAadeMarkAsync(string mark, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(mark);
-
-        await using var db = await _factory.CreateDbContextAsync(cancellationToken);
-        return await db.Invoices
-            .AsNoTracking()
-            .FirstOrDefaultAsync(i => i.AadeMark == mark, cancellationToken);
-    }
-
     public async Task<Invoice> UpsertAsync(Invoice invoice, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(invoice);
@@ -64,13 +54,5 @@ public sealed class InvoiceRepository : IInvoiceRepository
 
         await db.SaveChangesAsync(cancellationToken);
         return existing ?? invoice;
-    }
-
-    public async Task<int> CountByBusinessAsync(Guid businessId, CancellationToken cancellationToken = default)
-    {
-        await using var db = await _factory.CreateDbContextAsync(cancellationToken);
-        return await db.Invoices
-            .AsNoTracking()
-            .CountAsync(i => i.BusinessId == businessId, cancellationToken);
     }
 }

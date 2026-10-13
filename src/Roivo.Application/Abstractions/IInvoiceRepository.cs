@@ -8,13 +8,9 @@ namespace Roivo.Application.Abstractions;
 /// </summary>
 public interface IInvoiceRepository
 {
-    Task<Invoice?> GetByAadeMarkAsync(string mark, CancellationToken cancellationToken = default);
-
     /// <summary>
     /// Inserts or updates the invoice. Match is by <see cref="Invoice.AadeMark"/>.
     /// Returns the persisted entity.
     /// </summary>
     Task<Invoice> UpsertAsync(Invoice invoice, CancellationToken cancellationToken = default);
-
-    Task<int> CountByBusinessAsync(Guid businessId, CancellationToken cancellationToken = default);
 }

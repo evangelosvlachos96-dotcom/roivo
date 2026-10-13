@@ -21,6 +21,4 @@ public interface IIncomeBookEntryRepository
         DateTime issueDate,
         string documentTypeCode,
         CancellationToken cancellationToken = default);
-
-    Task<int> CountByBusinessAsync(Guid businessId, CancellationToken cancellationToken = default);
 }

@@ -193,11 +193,11 @@ var forwardedHeaders = new ForwardedHeadersOptions
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
 };
 
-// KnownProxies/KnownNetworks default to loopback only, which silently drops the
+// KnownProxies/KnownIPNetworks default to loopback only, which silently drops the
 // headers behind Render's proxy — its address is not fixed, and only the
 // platform can reach the container, so trust the hop. Clearing is required:
 // an empty collection initializer would leave the loopback defaults in place.
-forwardedHeaders.KnownNetworks.Clear();
+forwardedHeaders.KnownIPNetworks.Clear();
 forwardedHeaders.KnownProxies.Clear();
 
 app.UseForwardedHeaders(forwardedHeaders);

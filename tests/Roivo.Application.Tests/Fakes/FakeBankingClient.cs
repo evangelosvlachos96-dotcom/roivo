@@ -30,7 +30,6 @@ public sealed class FakeBankingClient : IBankingClient
     public List<string> ProviderCalls { get; } = [];
     public List<BankingAuthorizationRequest> AuthorizationCalls { get; } = [];
     public List<string> CompleteCalls { get; } = [];
-    public List<string> SessionCalls { get; } = [];
     public List<(string AccountUid, DateOnly From, DateOnly To)> FetchCalls { get; } = [];
     public List<string> RevokeCalls { get; } = [];
 
@@ -49,12 +48,6 @@ public sealed class FakeBankingClient : IBankingClient
     public Task<BankingSessionResult> CompleteAuthorizationAsync(string authorizationCode, CancellationToken cancellationToken = default)
     {
         CompleteCalls.Add(authorizationCode);
-        return Task.FromResult(NextSession);
-    }
-
-    public Task<BankingSessionResult> GetSessionAsync(string sessionId, CancellationToken cancellationToken = default)
-    {
-        SessionCalls.Add(sessionId);
         return Task.FromResult(NextSession);
     }
 

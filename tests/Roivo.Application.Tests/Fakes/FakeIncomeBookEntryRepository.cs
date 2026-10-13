@@ -25,7 +25,4 @@ public sealed class FakeIncomeBookEntryRepository : IIncomeBookEntryRepository
         Store.TryGetValue((businessId, counterpartyAfm, issueDate, documentTypeCode), out var entry);
         return Task.FromResult(entry);
     }
-
-    public Task<int> CountByBusinessAsync(Guid businessId, CancellationToken cancellationToken = default)
-        => Task.FromResult(Store.Values.Count(e => e.BusinessId == businessId));
 }

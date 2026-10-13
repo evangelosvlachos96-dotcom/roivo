@@ -14,7 +14,7 @@ public class CashflowForecastEngineTests
     private static (CashflowForecastEngine Engine, FakeCashflowRepository Repo) BuildSut()
     {
         var repo = new FakeCashflowRepository();
-        return (new CashflowForecastEngine(repo, new GreekTaxCalendar(repo)), repo);
+        return (new CashflowForecastEngine(repo), repo);
     }
 
     /// <summary>Fills the trailing <paramref name="days"/> with the same daily movement.</summary>

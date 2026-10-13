@@ -1,5 +1,4 @@
 using Roivo.Application.Abstractions;
-using Roivo.Core.Domain.Entities;
 using Roivo.Core.Domain.Enums;
 
 namespace Roivo.Application.Features.Cashflow.Services;
@@ -37,15 +36,12 @@ public sealed class CashflowForecastEngine : ICashflowForecastEngine
     private const decimal BaseUncertainty = 0.15m;
 
     private readonly ICashflowRepository _repository;
-    private readonly IGreekTaxCalendar _taxCalendar;
 
-    public CashflowForecastEngine(ICashflowRepository repository, IGreekTaxCalendar taxCalendar)
+    public CashflowForecastEngine(ICashflowRepository repository)
     {
         ArgumentNullException.ThrowIfNull(repository);
-        ArgumentNullException.ThrowIfNull(taxCalendar);
 
         _repository = repository;
-        _taxCalendar = taxCalendar;
     }
 
     public async Task<CashflowForecastResult> ForecastAsync(

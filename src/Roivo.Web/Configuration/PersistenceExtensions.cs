@@ -67,7 +67,6 @@ public static class PersistenceExtensions
         services.AddScoped<IEntitlementService, EntitlementService>();
 
         services.AddScoped<IBusinessRepository, BusinessRepository>();
-        services.AddScoped<ITenantRepository, TenantRepository>();
         services.AddScoped<IInvoiceRepository, InvoiceRepository>();
         services.AddScoped<IIncomeBookEntryRepository, IncomeBookEntryRepository>();
         services.AddScoped<IInvoiceQueryRepository, InvoiceQueryRepository>();

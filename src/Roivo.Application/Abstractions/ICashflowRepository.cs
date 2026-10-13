@@ -26,8 +26,6 @@ public interface ICashflowRepository
     /// <summary>Date of the earliest transaction, or null when the business has none.</summary>
     Task<DateOnly?> GetEarliestTransactionDateAsync(Guid businessId, CancellationToken cancellationToken = default);
 
-    Task<int> CountTransactionsAsync(Guid businessId, CancellationToken cancellationToken = default);
-
     Task<IReadOnlyList<CashflowCategory>> ListCategoriesAsync(
         Guid businessId, CancellationToken cancellationToken = default);
 

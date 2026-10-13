@@ -56,12 +56,6 @@ public sealed class CashflowRepository : ICashflowRepository
         return await dates.MinAsync(cancellationToken);
     }
 
-    public async Task<int> CountTransactionsAsync(Guid businessId, CancellationToken cancellationToken = default)
-    {
-        await using var db = await _factory.CreateDbContextAsync(cancellationToken);
-        return await TransactionsFor(db, businessId).CountAsync(cancellationToken);
-    }
-
     public async Task<IReadOnlyList<CashflowCategory>> ListCategoriesAsync(
         Guid businessId, CancellationToken cancellationToken = default)
     {

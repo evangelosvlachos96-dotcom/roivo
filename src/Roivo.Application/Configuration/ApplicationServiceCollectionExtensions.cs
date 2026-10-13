@@ -41,8 +41,6 @@ using Roivo.Application.Features.Banking.Queries.ListBankingConnectedBusinesses;
 using Roivo.Application.Features.Banking.Queries.ListBankingProviders;
 using Roivo.Application.Features.Invoices.Queries.GetBusinessInvoiceSummary;
 using Roivo.Application.Features.Invoices.Queries.ListBusinessInvoicesPaged;
-using Roivo.Application.Features.Tenants.Queries.CountAllTenants;
-using Roivo.Application.Features.Tenants.Queries.GetCurrentTenant;
 
 namespace Roivo.Application.Configuration;
 
@@ -66,8 +64,6 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<ReactivateBusinessHandler>();
         services.AddScoped<GetBusinessByIdHandler>();
         services.AddScoped<ListActiveBusinessesHandler>();
-        services.AddScoped<GetCurrentTenantHandler>();
-        services.AddScoped<CountAllTenantsHandler>();
 
         services.AddScoped<ConnectAadeHandler>();
         services.AddScoped<DisconnectAadeHandler>();

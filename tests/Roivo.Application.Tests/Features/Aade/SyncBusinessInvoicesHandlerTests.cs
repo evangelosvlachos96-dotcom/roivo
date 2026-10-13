@@ -33,7 +33,7 @@ public class SyncBusinessInvoicesHandlerTests
         var audit = new FakeAuditWriter();
         var tenant = new FakeTenantContext();
         return new Sut(
-            new SyncBusinessInvoicesHandler(businesses, invoices, bookEntries, client, store, audit, tenant),
+            new SyncBusinessInvoicesHandler(businesses, invoices, bookEntries, client, store, audit),
             businesses, invoices, bookEntries, client, store, audit, tenant);
     }
 

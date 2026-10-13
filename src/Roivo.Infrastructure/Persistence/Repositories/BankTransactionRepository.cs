@@ -70,12 +70,4 @@ public sealed class BankTransactionRepository : IBankTransactionRepository
         await db.SaveChangesAsync(cancellationToken);
         return new BankTransactionUpsertCounts(inserted, updated);
     }
-
-    public async Task<int> CountByBusinessAsync(Guid businessId, CancellationToken cancellationToken = default)
-    {
-        await using var db = await _factory.CreateDbContextAsync(cancellationToken);
-        return await db.BankTransactions
-            .AsNoTracking()
-            .CountAsync(t => t.BankAccount != null && t.BankAccount.BusinessId == businessId, cancellationToken);
-    }
 }

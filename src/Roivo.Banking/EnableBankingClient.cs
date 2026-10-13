@@ -25,7 +25,6 @@ public sealed class EnableBankingClient : IBankingClient
     private const string ListProvidersStage = "list providers";
     private const string StartAuthorizationStage = "start authorization";
     private const string CompleteAuthorizationStage = "complete authorization";
-    private const string GetSessionStage = "get session";
     private const string FetchTransactionsStage = "fetch transactions";
     private const string RevokeSessionStage = "revoke session";
 
@@ -175,23 +174,7 @@ public sealed class EnableBankingClient : IBankingClient
                 request.Content = JsonContent.Create(new CreateSessionDto { Code = authorizationCode }, options: JsonOptions);
                 return request;
             },
-            // A bad code comes back as 400 or 401 from POST /sessions. Treat both
-            // as InvalidCode: our own JWT was accepted for the request to get here.
-            treatUnauthorizedAsInvalidCode: true,
             CompleteAuthorizationStage,
-            cancellationToken);
-    }
-
-    public Task<BankingSessionResult> GetSessionAsync(
-        string sessionId,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sessionId);
-
-        return SendSessionRequestAsync(
-            () => BuildRequest(HttpMethod.Get, $"sessions/{Uri.EscapeDataString(sessionId)}"),
-            treatUnauthorizedAsInvalidCode: false,
-            GetSessionStage,
             cancellationToken);
     }
 
@@ -294,7 +277,6 @@ public sealed class EnableBankingClient : IBankingClient
 
     private async Task<BankingSessionResult> SendSessionRequestAsync(
         Func<HttpRequestMessage> requestFactory,
-        bool treatUnauthorizedAsInvalidCode,
         string stage,
         CancellationToken cancellationToken)
     {
@@ -306,14 +288,13 @@ public sealed class EnableBankingClient : IBankingClient
 
             if (!response.IsSuccessStatusCode)
             {
-                if (response.StatusCode is HttpStatusCode.BadRequest)
-                    return new BankingSessionResult.InvalidCode();
-
-                if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+                // A bad code comes back as 400, 401 or 403 from POST /sessions. All
+                // three mean InvalidCode: our own JWT was accepted for the request to
+                // get this far, so the code is what the bank rejected.
+                if (response.StatusCode is HttpStatusCode.BadRequest
+                    or HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
                 {
-                    return treatUnauthorizedAsInvalidCode
-                        ? new BankingSessionResult.InvalidCode()
-                        : new BankingSessionResult.SessionExpired();
+                    return new BankingSessionResult.InvalidCode();
                 }
 
                 if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Gone)

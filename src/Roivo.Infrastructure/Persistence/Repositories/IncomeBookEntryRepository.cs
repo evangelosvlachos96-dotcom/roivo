@@ -66,12 +66,4 @@ public sealed class IncomeBookEntryRepository : IIncomeBookEntryRepository
                 && e.IssueDate == issueDate
                 && e.DocumentTypeCode == documentTypeCode, cancellationToken);
     }
-
-    public async Task<int> CountByBusinessAsync(Guid businessId, CancellationToken cancellationToken = default)
-    {
-        await using var db = await _factory.CreateDbContextAsync(cancellationToken);
-        return await db.IncomeBookEntries
-            .AsNoTracking()
-            .CountAsync(e => e.BusinessId == businessId, cancellationToken);
-    }
 }

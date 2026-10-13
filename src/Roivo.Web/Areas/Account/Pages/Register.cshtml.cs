@@ -23,26 +23,22 @@ public class RegisterModel : PageModel
     private readonly ApplicationDbContext _db;
     private readonly IBackgroundJobClient _backgroundJobs;
     private readonly IAuditWriter _audit;
-    private readonly ILogger<RegisterModel> _logger;
 
     public RegisterModel(
         UserManager<ApplicationUser> userManager,
         ApplicationDbContext db,
         IBackgroundJobClient backgroundJobs,
-        IAuditWriter audit,
-        ILogger<RegisterModel> logger)
+        IAuditWriter audit)
     {
         ArgumentNullException.ThrowIfNull(userManager);
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(backgroundJobs);
         ArgumentNullException.ThrowIfNull(audit);
-        ArgumentNullException.ThrowIfNull(logger);
 
         _userManager = userManager;
         _db = db;
         _backgroundJobs = backgroundJobs;
         _audit = audit;
-        _logger = logger;
     }
 
     [BindProperty]
@@ -157,22 +153,22 @@ public class RegisterModel : PageModel
             var enumerationMaskAdded = false;
             foreach (var error in createResult.Errors)
             {
-                if (error.Code == "DuplicateUserName" || error.Code == "DuplicateEmail")
-                {
-                    // Anti-enumeration: don't confirm whether the email is registered.
-                    // The genuine owner can still recover via password reset.
-                    if (!enumerationMaskAdded)
-                    {
-                        ModelState.AddModelError(string.Empty,
-                            "Δεν μπορέσαμε να δημιουργήσουμε τον λογαριασμό. " +
-                            "Αν έχεις ήδη λογαριασμό, κάνε σύνδεση ή επαναφορά κωδικού.");
-                        enumerationMaskAdded = true;
-                    }
-                }
-                else
+                if (error.Code is not ("DuplicateUserName" or "DuplicateEmail"))
                 {
                     ModelState.AddModelError(string.Empty, error.Description);
+                    continue;
                 }
+
+                // Anti-enumeration: don't confirm whether the email is registered,
+                // and say it only once however many duplicate codes come back. The
+                // genuine owner can still recover via password reset.
+                if (enumerationMaskAdded)
+                    continue;
+
+                ModelState.AddModelError(string.Empty,
+                    "Δεν μπορέσαμε να δημιουργήσουμε τον λογαριασμό. " +
+                    "Αν έχεις ήδη λογαριασμό, κάνε σύνδεση ή επαναφορά κωδικού.");
+                enumerationMaskAdded = true;
             }
             return Page();
         }

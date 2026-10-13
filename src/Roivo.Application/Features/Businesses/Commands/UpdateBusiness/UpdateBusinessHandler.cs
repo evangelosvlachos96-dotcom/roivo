@@ -2,7 +2,6 @@ using Roivo.Application.Abstractions;
 using Roivo.Core.Domain.Auditing;
 using Roivo.Core.Domain.Businesses;
 using Roivo.Core.Domain.Entities;
-using Roivo.Core.Domain.Exceptions;
 using Roivo.Core.Domain.Validation;
 
 namespace Roivo.Application.Features.Businesses.Commands.UpdateBusiness;

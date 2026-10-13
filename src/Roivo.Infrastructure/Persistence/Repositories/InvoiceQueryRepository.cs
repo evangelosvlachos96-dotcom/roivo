@@ -155,11 +155,11 @@ LIMIT 10";
 
         await using var db = await _factory.CreateDbContextAsync(ct);
 
-        var sortColumn = SanitizeSortColumn(query.SortColumn);
+        var sortColumn = SortColumnAlias(query.SortColumn);
         var sortDirection = query.SortDescending ? "DESC" : "ASC";
 
-        var (incomingWhere, incomingParams) = BuildIncomingFilters(query);
-        var (outgoingWhere, outgoingParams) = BuildOutgoingFilters(query);
+        var (incomingWhere, incomingParams) = BuildFilters(query, suffix: "", incoming: true);
+        var (outgoingWhere, outgoingParams) = BuildFilters(query, suffix: "Out", incoming: false);
 
         var fetchIncoming = query.Direction != InvoiceDirectionFilter.Outgoing;
         // Book entries are aggregates and can never be cancelled, so an
@@ -220,7 +220,7 @@ LIMIT 10";
         WITH combined AS ({sql})
         SELECT *
         FROM combined
-        ORDER BY {MapSortColumnToSqlAlias(sortColumn)} {sortDirection}
+        ORDER BY {sortColumn} {sortDirection}
         LIMIT @pageSize OFFSET @offset";
 
         var countSql = $@"
@@ -281,77 +281,63 @@ LIMIT 10";
         return (rows, totalCount);
     }
 
-    private static string SanitizeSortColumn(string requested)
-    {
-        // Allowlist: sort columns are enum-like, never free user input. Anything
-        // off the list silently falls back to IssueDate.
-        var allowed = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    /// <summary>
+    /// Resolves the requested sort column to its SQL alias. An allowlist, because
+    /// the alias is interpolated into the ORDER BY: sort columns are enum-like,
+    /// never free user input, and anything off the list falls back to issue_date
+    /// rather than reaching the query.
+    /// </summary>
+    private static string SortColumnAlias(string requested)
+        => requested.ToLowerInvariant() switch
         {
-            { "IssueDate", "issue_date" },
-            { "GrossAmount", "gross_amount" },
-            { "NetAmount", "net_amount" },
-            { "CounterpartyAfm", "counterparty_afm" },
-        };
-        return allowed.ContainsKey(requested) ? requested : "IssueDate";
-    }
-
-    private static string MapSortColumnToSqlAlias(string apiColumn)
-        => apiColumn switch
-        {
-            "IssueDate" => "issue_date",
-            "GrossAmount" => "gross_amount",
-            "NetAmount" => "net_amount",
-            "CounterpartyAfm" => "counterparty_afm",
+            "grossamount" => "gross_amount",
+            "netamount" => "net_amount",
+            "counterpartyafm" => "counterparty_afm",
             _ => "issue_date",
         };
 
-    private static (string WhereClause, List<NpgsqlParameter> Parameters) BuildIncomingFilters(ListBusinessInvoicesPagedQuery query)
+    /// <summary>
+    /// Builds the WHERE fragment for one side of the UNION. Both sides share the
+    /// date and counterparty filters; only the incoming side can be cancelled, so
+    /// book entries never get a cancelled clause.
+    /// </summary>
+    /// <param name="suffix">
+    /// Appended to every parameter name. The two sides are separate commands'
+    /// parameters on one connection, so their names must not collide.
+    /// </param>
+    private static (string WhereClause, List<NpgsqlParameter> Parameters) BuildFilters(
+        ListBusinessInvoicesPagedQuery query, string suffix, bool incoming)
     {
         var clauses = new List<string>();
         var parameters = new List<NpgsqlParameter>();
 
         if (query.FromDate.HasValue)
         {
-            clauses.Add(@"""IssueDate"" >= @fromDate");
-            parameters.Add(new NpgsqlParameter("@fromDate", DateTime.SpecifyKind(query.FromDate.Value, DateTimeKind.Utc)));
+            clauses.Add($@"""IssueDate"" >= @fromDate{suffix}");
+            parameters.Add(new NpgsqlParameter(
+                $"@fromDate{suffix}", DateTime.SpecifyKind(query.FromDate.Value, DateTimeKind.Utc)));
         }
+
         if (query.ToDate.HasValue)
         {
-            clauses.Add(@"""IssueDate"" <= @toDate");
-            parameters.Add(new NpgsqlParameter("@toDate", DateTime.SpecifyKind(query.ToDate.Value, DateTimeKind.Utc)));
+            clauses.Add($@"""IssueDate"" <= @toDate{suffix}");
+            parameters.Add(new NpgsqlParameter(
+                $"@toDate{suffix}", DateTime.SpecifyKind(query.ToDate.Value, DateTimeKind.Utc)));
         }
+
         if (!string.IsNullOrWhiteSpace(query.CounterpartyAfmSearch))
         {
-            clauses.Add(@"""CounterpartyAfm"" ILIKE @counterpartyAfm");
-            parameters.Add(new NpgsqlParameter("@counterpartyAfm", $"%{query.CounterpartyAfmSearch.Trim()}%"));
+            clauses.Add($@"""CounterpartyAfm"" ILIKE @counterpartyAfm{suffix}");
+            parameters.Add(new NpgsqlParameter(
+                $"@counterpartyAfm{suffix}", $"%{query.CounterpartyAfmSearch.Trim()}%"));
         }
-        if (query.CancelledStatus == CancelledFilter.HideCancelled)
-            clauses.Add(@"""CancelledByMark"" IS NULL");
-        if (query.CancelledStatus == CancelledFilter.OnlyCancelled)
-            clauses.Add(@"""CancelledByMark"" IS NOT NULL");
 
-        return (string.Join(" AND ", clauses), parameters);
-    }
-
-    private static (string WhereClause, List<NpgsqlParameter> Parameters) BuildOutgoingFilters(ListBusinessInvoicesPagedQuery query)
-    {
-        var clauses = new List<string>();
-        var parameters = new List<NpgsqlParameter>();
-
-        if (query.FromDate.HasValue)
+        if (incoming)
         {
-            clauses.Add(@"""IssueDate"" >= @fromDateOut");
-            parameters.Add(new NpgsqlParameter("@fromDateOut", DateTime.SpecifyKind(query.FromDate.Value, DateTimeKind.Utc)));
-        }
-        if (query.ToDate.HasValue)
-        {
-            clauses.Add(@"""IssueDate"" <= @toDateOut");
-            parameters.Add(new NpgsqlParameter("@toDateOut", DateTime.SpecifyKind(query.ToDate.Value, DateTimeKind.Utc)));
-        }
-        if (!string.IsNullOrWhiteSpace(query.CounterpartyAfmSearch))
-        {
-            clauses.Add(@"""CounterpartyAfm"" ILIKE @counterpartyAfmOut");
-            parameters.Add(new NpgsqlParameter("@counterpartyAfmOut", $"%{query.CounterpartyAfmSearch.Trim()}%"));
+            if (query.CancelledStatus == CancelledFilter.HideCancelled)
+                clauses.Add(@"""CancelledByMark"" IS NULL");
+            else if (query.CancelledStatus == CancelledFilter.OnlyCancelled)
+                clauses.Add(@"""CancelledByMark"" IS NOT NULL");
         }
 
         return (string.Join(" AND ", clauses), parameters);

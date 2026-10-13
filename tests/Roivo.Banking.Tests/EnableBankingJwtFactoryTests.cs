@@ -3,7 +3,6 @@ using System.Text;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.Options;
-using Roivo.Banking;
 using Roivo.Banking.Configuration;
 
 namespace Roivo.Banking.Tests;

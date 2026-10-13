@@ -6,7 +6,6 @@
     <ProjectReference Include="..\Roivo.Infrastructure\Roivo.Infrastructure.csproj" />
     <ProjectReference Include="..\Roivo.Aade\Roivo.Aade.csproj" />
     <ProjectReference Include="..\Roivo.Banking\Roivo.Banking.csproj" />
-    <ProjectReference Include="..\Roivo.Forecasting\Roivo.Forecasting.csproj" />
     <ProjectReference Include="..\Roivo.Resources\Roivo.Resources.csproj" />
   </ItemGroup>
 

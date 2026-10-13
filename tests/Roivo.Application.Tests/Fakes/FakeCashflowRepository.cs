@@ -32,9 +32,6 @@ public sealed class FakeCashflowRepository : ICashflowRepository
         Guid businessId, CancellationToken cancellationToken = default)
         => Task.FromResult(Movements.Count == 0 ? null : (DateOnly?)Movements.Min(m => m.Date));
 
-    public Task<int> CountTransactionsAsync(Guid businessId, CancellationToken cancellationToken = default)
-        => Task.FromResult(Movements.Count);
-
     public Task<IReadOnlyList<CashflowCategory>> ListCategoriesAsync(
         Guid businessId, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<CashflowCategory>>(

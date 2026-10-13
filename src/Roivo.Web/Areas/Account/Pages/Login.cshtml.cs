@@ -183,7 +183,7 @@ public class LoginModel : PageModel
             // The banner is raised by the shell, which asks the tracker itself.
             // All that is left here is telling the owner out of band, in case
             // the sign-in was not theirs and they never see the banner at all.
-            await SendNewDeviceEmailAsync(user, device, cancellationToken);
+            EnqueueNewDeviceEmail(user, device);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -199,10 +199,10 @@ public class LoginModel : PageModel
     /// slow or down, and nobody should wait on it — or be refused a sign-in by
     /// it — to reach their dashboard.
     /// </remarks>
-    private async Task SendNewDeviceEmailAsync(
-        ApplicationUser user, UserDeviceView device, CancellationToken cancellationToken)
+    private void EnqueueNewDeviceEmail(ApplicationUser user, UserDeviceView device)
     {
-        if (string.IsNullOrWhiteSpace(user.Email)) return;
+        if (string.IsNullOrWhiteSpace(user.Email))
+            return;
 
         var email = NewDeviceEmail.Render(
             new NewDeviceEmail.Model(
@@ -214,7 +214,5 @@ public class LoginModel : PageModel
 
         _backgroundJobs.Enqueue<EmailJob>(job =>
             job.SendAsync(user.Email, email.Subject, email.HtmlBody));
-
-        await Task.CompletedTask;
     }
 }
