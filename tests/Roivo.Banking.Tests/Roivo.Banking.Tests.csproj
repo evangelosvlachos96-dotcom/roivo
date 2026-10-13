@@ -12,6 +12,13 @@
     <PackageReference Include="FluentAssertions" Version="8.10.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.8" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <!-- Transitive pin, not a direct dependency: Microsoft.AspNetCore.DataProtection
+         pulls System.Security.Cryptography.Xml, and 10.0.8 carries five high-severity
+         advisories (CVE-2026-47302 and friends), all patched in 10.0.10. The shipping
+         web app resolves this assembly from the Microsoft.AspNetCore.App shared
+         framework and is unaffected; only the non-web projects take the NuGet package.
+         Remove this pin once the DataProtection packages themselves move past 10.0.9. -->
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.10" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="Xunit.SkippableFact" Version="1.5.23" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
