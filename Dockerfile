@@ -1,13 +1,18 @@
 # Multi-stage build for the Roivo web app (Render staging/production).
 #
-# Build context is the repository root. `dotnet restore` needs the test
-# projects too, because Roivo.slnx references them.
+# Build context is the repository root. `dotnet restore` resolves the whole
+# solution, so every project Roivo.slnx references has to be in the image --
+# the test projects and tools/seeder included, even though neither ships. A
+# project named in the solution but missing from the context fails restore with
+# MSB3202 before any compilation starts, which is what broke the deploys that
+# followed the seeder landing in the solution.
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 COPY ["Roivo.slnx", "."]
 COPY ["src/", "src/"]
 COPY ["tests/", "tests/"]
+COPY ["tools/", "tools/"]
 
 RUN dotnet restore
 RUN dotnet build -c Release --no-restore
