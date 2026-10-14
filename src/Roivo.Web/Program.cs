@@ -82,7 +82,7 @@ builder.Services
     .AddRoivoBanking(builder.Configuration)
     .AddRoivoIdentity(builder.Configuration)
     .AddRoivoOpenIddict(builder.Configuration)
-    .AddRoivoSecurity(builder.Configuration);
+    .AddRoivoSecurity(builder.Configuration, builder.Environment);
 
 builder.Services.AddMudServices();
 builder.Services.AddRazorPages();
